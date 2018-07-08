@@ -128,7 +128,7 @@ void
 LTransaction<T>::packStream(AbstractStream& stream)
 {
     stream << static_cast<int>(d_src_item_set.size());
-    for (typename std::vector<LTransactionComponent>::iterator it = d_src_item_set.begin(); it != d_src_item_set.end();
+    for (auto it = d_src_item_set.begin(); it != d_src_item_set.end();
          ++it)
     {
         typename LSet<T>::value_type& item = it->item;
@@ -147,7 +147,7 @@ LTransaction<T>::unpackStream(AbstractStream& stream)
     int num_items;
     stream >> num_items;
     d_dst_item_set.resize(num_items);
-    for (typename std::vector<LTransactionComponent>::iterator it = d_dst_item_set.begin(); it != d_dst_item_set.end();
+    for (auto it = d_dst_item_set.begin(); it != d_dst_item_set.end();
          ++it)
     {
         it->item->unpackStream(stream, periodic_offset);

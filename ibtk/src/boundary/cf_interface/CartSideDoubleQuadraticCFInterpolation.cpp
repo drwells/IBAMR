@@ -234,7 +234,7 @@ CartSideDoubleQuadraticCFInterpolation::postprocessRefine(Patch<NDIM>& fine,
     // boundary box information.
     if (!fine.inHierarchy())
     {
-        for (std::set<int>::const_iterator cit = d_patch_data_indices.begin(); cit != d_patch_data_indices.end(); ++cit)
+        for (auto cit = d_patch_data_indices.begin(); cit != d_patch_data_indices.end(); ++cit)
         {
             const int& patch_data_index = *cit;
             d_refine_op->refine(fine, coarse, patch_data_index, patch_data_index, fine_box, ratio);
@@ -260,7 +260,7 @@ CartSideDoubleQuadraticCFInterpolation::postprocessRefine(Patch<NDIM>& fine,
     if (cf_bdry_codim1_boxes.size() == 0) return;
 
     // Get the patch data.
-    for (std::set<int>::const_iterator cit = d_patch_data_indices.begin(); cit != d_patch_data_indices.end(); ++cit)
+    for (auto cit = d_patch_data_indices.begin(); cit != d_patch_data_indices.end(); ++cit)
     {
         const int& patch_data_index = *cit;
         Pointer<SideData<NDIM, double> > fdata = fine.getPatchData(patch_data_index);
@@ -452,7 +452,7 @@ void
 CartSideDoubleQuadraticCFInterpolation::clearPatchHierarchy()
 {
     d_hierarchy.setNull();
-    for (std::vector<CoarseFineBoundary<NDIM>*>::iterator it = d_cf_boundary.begin(); it != d_cf_boundary.end(); ++it)
+    for (auto it = d_cf_boundary.begin(); it != d_cf_boundary.end(); ++it)
     {
         delete (*it);
         (*it) = NULL;
@@ -496,7 +496,7 @@ CartSideDoubleQuadraticCFInterpolation::computeNormalExtension(Patch<NDIM>& patc
     if (n_cf_bdry_codim1_boxes == 0) return;
 
     // Get the patch data.
-    for (std::set<int>::const_iterator cit = d_patch_data_indices.begin(); cit != d_patch_data_indices.end(); ++cit)
+    for (auto cit = d_patch_data_indices.begin(); cit != d_patch_data_indices.end(); ++cit)
     {
         const int& patch_data_index = *cit;
         Pointer<SideData<NDIM, double> > data = patch.getPatchData(patch_data_index);

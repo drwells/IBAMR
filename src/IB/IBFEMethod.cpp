@@ -146,7 +146,7 @@ inline short int
 get_dirichlet_bdry_ids(const std::vector<short int>& bdry_ids)
 {
     short int dirichlet_bdry_ids = 0;
-    for (std::vector<short int>::const_iterator cit = bdry_ids.begin(); cit != bdry_ids.end(); ++cit)
+    for (auto cit = bdry_ids.begin(); cit != bdry_ids.end(); ++cit)
     {
         const short int bdry_id = *cit;
         if (bdry_id == FEDataManager::ZERO_DISPLACEMENT_X_BDRY_ID ||
@@ -171,7 +171,7 @@ is_physical_bdry(const Elem* elem,
 {
     const std::vector<short int>& bdry_ids = boundary_info.boundary_ids(elem, side);
     bool at_physical_bdry = !elem->neighbor(side);
-    for (std::vector<short int>::const_iterator cit = bdry_ids.begin(); cit != bdry_ids.end(); ++cit)
+    for (auto cit = bdry_ids.begin(); cit != bdry_ids.end(); ++cit)
     {
         if (dof_map.is_periodic_boundary(*cit)) at_physical_bdry = false;
     }
@@ -537,7 +537,7 @@ IBFEMethod::registerOverlappingVelocityReset(const unsigned int part1, const uns
             for (unsigned int d = 0; d < NDIM; ++d)
             {
                 U_dof_map[k_master]->dof_indices(other_elem, U_dof_indices[k_master][d], d);
-                for (std::vector<unsigned int>::iterator it = U_dof_indices[k_master][d].begin();
+                for (auto it = U_dof_indices[k_master][d].begin();
                      it != U_dof_indices[k_master][d].end();
                      ++it)
                 {
@@ -645,7 +645,7 @@ IBFEMethod::registerOverlappingForceConstraint(const unsigned int part1,
             for (unsigned int d = 0; d < NDIM; ++d)
             {
                 X_dof_map[k]->dof_indices(elem, X_dof_indices[k][d], d);
-                for (std::vector<unsigned int>::iterator it = X_dof_indices[k][d].begin();
+                for (auto it = X_dof_indices[k][d].begin();
                      it != X_dof_indices[k][d].end();
                      ++it)
                 {
@@ -666,7 +666,7 @@ IBFEMethod::registerOverlappingForceConstraint(const unsigned int part1,
                     for (unsigned int d = 0; d < NDIM; ++d)
                     {
                         X_dof_map[k_next]->dof_indices(other_elem, X_dof_indices[k_next][d], d);
-                        for (std::vector<unsigned int>::iterator it = X_dof_indices[k_next][d].begin();
+                        for (auto it = X_dof_indices[k_next][d].begin();
                              it != X_dof_indices[k_next][d].end();
                              ++it)
                         {
@@ -2386,7 +2386,7 @@ IBFEMethod::resetOverlapNodalValues(const unsigned int part,
     const unsigned int k_slave = 0;
     const unsigned int k_master = 1;
     std::map<dof_id_type, dof_id_type>& node_to_elem_map = d_overlap_velocity_part_node_to_elem_map[part_idx[k_slave]];
-    for (std::map<dof_id_type, dof_id_type>::iterator n = node_to_elem_map.begin(); n != node_to_elem_map.end(); ++n)
+    for (auto n = node_to_elem_map.begin(); n != node_to_elem_map.end(); ++n)
     {
         const Node* const node = mesh[k_slave]->node_ptr(n->first);
         const libMesh::Point& X = *node;
@@ -2496,7 +2496,7 @@ IBFEMethod::computeOverlapConstraintForceDensity(std::vector<PetscVector<double>
             const std::vector<libMesh::Point>& q_point = fe[k]->get_xyz();
             const std::vector<double>& JxW = fe[k]->get_JxW();
             const std::vector<std::vector<double> >& phi = fe[k]->get_phi();
-            for (std::map<libMesh::dof_id_type, std::map<unsigned int, libMesh::dof_id_type> >::iterator it =
+            for (auto it =
                      elem_map[k].begin();
                  it != elem_map[k].end();
                  ++it)
@@ -2511,7 +2511,7 @@ IBFEMethod::computeOverlapConstraintForceDensity(std::vector<PetscVector<double>
                 fe[k]->reinit(elem);
                 get_values_for_interpolation(x_node[k], *X_vec[part_idx[k]], X_dof_indices[k]);
                 const size_t n_basis = phi.size();
-                for (std::map<unsigned int, libMesh::dof_id_type>::iterator qp_it = it->second.begin();
+                for (auto qp_it = it->second.begin();
                      qp_it != it->second.end();
                      ++qp_it)
                 {

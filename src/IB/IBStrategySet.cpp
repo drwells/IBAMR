@@ -123,7 +123,7 @@ const IntVector<NDIM>&
 IBStrategySet::getMinimumGhostCellWidth() const
 {
     static IntVector<NDIM> ghost_cell_width = 0;
-    for (std::vector<Pointer<IBStrategy> >::const_iterator cit = d_strategy_set.begin(); cit != d_strategy_set.end();
+    for (auto cit = d_strategy_set.begin(); cit != d_strategy_set.end();
          ++cit)
     {
         ghost_cell_width = IntVector<NDIM>::max(ghost_cell_width, (*cit)->getMinimumGhostCellWidth());
@@ -134,7 +134,7 @@ IBStrategySet::getMinimumGhostCellWidth() const
 void
 IBStrategySet::setupTagBuffer(Array<int>& tag_buffer, Pointer<GriddingAlgorithm<NDIM> > gridding_alg) const
 {
-    for (std::vector<Pointer<IBStrategy> >::const_iterator cit = d_strategy_set.begin(); cit != d_strategy_set.end();
+    for (auto cit = d_strategy_set.begin(); cit != d_strategy_set.end();
          ++cit)
     {
         (*cit)->setupTagBuffer(tag_buffer, gridding_alg);
@@ -251,7 +251,7 @@ bool
 IBStrategySet::hasFluidSources() const
 {
     bool has_fluid_sources = false;
-    for (std::vector<Pointer<IBStrategy> >::const_iterator cit = d_strategy_set.begin(); cit != d_strategy_set.end();
+    for (auto cit = d_strategy_set.begin(); cit != d_strategy_set.end();
          ++cit)
     {
         has_fluid_sources = has_fluid_sources || (*cit)->hasFluidSources();

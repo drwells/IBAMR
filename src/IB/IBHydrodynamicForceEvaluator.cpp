@@ -324,7 +324,7 @@ IBHydrodynamicForceEvaluator::computeLaggedMomentumIntegral(
     // Whether or not the simulation has adaptive mesh refinement
     const bool amr_case = (coarsest_ln != finest_ln);
 
-    for (std::map<int, IBHydrodynamicForceObject>::iterator it = d_hydro_objs.begin(); it != d_hydro_objs.end(); ++it)
+    for (auto it = d_hydro_objs.begin(); it != d_hydro_objs.end(); ++it)
     {
         IBHydrodynamicForceObject& fobj = it->second;
 
@@ -493,7 +493,7 @@ IBHydrodynamicForceEvaluator::computeHydrodynamicForce(int u_idx,
     // Whether or not the simulation has adaptive mesh refinement
     const bool amr_case = (coarsest_ln != finest_ln);
 
-    for (std::map<int, IBHydrodynamicForceObject>::iterator it = d_hydro_objs.begin(); it != d_hydro_objs.end(); ++it)
+    for (auto it = d_hydro_objs.begin(); it != d_hydro_objs.end(); ++it)
     {
         IBHydrodynamicForceObject& fobj = it->second;
 
@@ -790,7 +790,7 @@ IBHydrodynamicForceEvaluator::computeHydrodynamicForce(int u_idx,
 void
 IBHydrodynamicForceEvaluator::postprocessIntegrateData(double /*current_time*/, double new_time)
 {
-    for (std::map<int, IBHydrodynamicForceObject>::iterator it = d_hydro_objs.begin(); it != d_hydro_objs.end(); ++it)
+    for (auto it = d_hydro_objs.begin(); it != d_hydro_objs.end(); ++it)
     {
         IBHydrodynamicForceObject& force_obj = it->second;
 

@@ -430,7 +430,7 @@ IBFEInstrumentPanel::initializeHierarchyIndependentData(IBFEMethod* ib_method_op
     // on all the processes.
     for (int jj = 0; jj < d_nodeset_IDs_for_meters.size(); ++jj)
     {
-        for (std::set<dof_id_type>::iterator it = temp_node_dof_ID_sets[jj].begin();
+        for (auto it = temp_node_dof_ID_sets[jj].begin();
              it != temp_node_dof_ID_sets[jj].end();
              ++it)
         {
@@ -805,7 +805,7 @@ IBFEInstrumentPanel::readInstrumentData(const int U_data_idx,
                     );
                     if (U_cc_data)
                     {
-                        for (QuadPointMap::const_iterator it = qp_range.first; it != qp_range.second; ++it)
+                        for (auto it = qp_range.first; it != qp_range.second; ++it)
                         {
                             const int& meter_num = it->second.meter_num;
                             const double& JxW = it->second.JxW;
@@ -818,7 +818,7 @@ IBFEInstrumentPanel::readInstrumentData(const int U_data_idx,
                     }
                     if (U_sc_data)
                     {
-                        for (QuadPointMap::const_iterator it = qp_range.first; it != qp_range.second; ++it)
+                        for (auto it = qp_range.first; it != qp_range.second; ++it)
                         {
                             const int& meter_num = it->second.meter_num;
                             const double& JxW = it->second.JxW;
@@ -831,7 +831,7 @@ IBFEInstrumentPanel::readInstrumentData(const int U_data_idx,
                     }
                     if (P_cc_data)
                     {
-                        for (QuadPointMap::const_iterator it = qp_range.first; it != qp_range.second; ++it)
+                        for (auto it = qp_range.first; it != qp_range.second; ++it)
                         {
                             const int& meter_num = it->second.meter_num;
                             const double& JxW = it->second.JxW;

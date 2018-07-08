@@ -1701,9 +1701,9 @@ IBFESurfaceMethod::imposeJumpConditions(const int f_data_idx,
                                     intersection_ref_coords[axis][i_s_prime];
                                 const std::vector<VectorValue<double> >& candidate_normals =
                                     intersection_normals[axis][i_s_prime];
-                                std::vector<libMesh::Point>::const_iterator x_prime_it = candidate_coords.begin();
-                                std::vector<libMesh::Point>::const_iterator xi_prime_it = candidate_ref_coords.begin();
-                                std::vector<VectorValue<double> >::const_iterator n_prime_it =
+                                auto x_prime_it = candidate_coords.begin();
+                                auto xi_prime_it = candidate_ref_coords.begin();
+                                auto n_prime_it =
                                     candidate_normals.begin();
                                 for (; x_prime_it != candidate_coords.end(); ++x_prime_it, ++xi_prime_it, ++n_prime_it)
                                 {

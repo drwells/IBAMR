@@ -963,7 +963,7 @@ ConstraintIBMethod::calculateCOMandMOIOfStructures()
                 find_struct_handle_position(d_ib_kinematics.begin(), d_ib_kinematics.end(), ptr_ib_kinematics);
 
             double X_com_current[NDIM] = { 0.0 }, X_com_new[NDIM] = { 0.0 };
-            for (std::vector<LNode*>::const_iterator cit = local_nodes.begin(); cit != local_nodes.end(); ++cit)
+            for (auto cit = local_nodes.begin(); cit != local_nodes.end(); ++cit)
             {
                 const LNode* const node_idx = *cit;
                 const int lag_idx = node_idx->getLagrangianIndex();
@@ -1064,7 +1064,7 @@ ConstraintIBMethod::calculateCOMandMOIOfStructures()
             Inertia_current.setZero();
             Inertia_new.setZero();
 
-            for (std::vector<LNode*>::const_iterator cit = local_nodes.begin(); cit != local_nodes.end(); ++cit)
+            for (auto cit = local_nodes.begin(); cit != local_nodes.end(); ++cit)
             {
                 const LNode* const node_idx = *cit;
                 const int lag_idx = node_idx->getLagrangianIndex();
@@ -1227,7 +1227,7 @@ ConstraintIBMethod::calculateMomentumOfKinematicsVelocity(const int position_han
         const std::vector<LNode*>& local_nodes = mesh->getLocalNodes();
         const std::vector<std::vector<double> >& def_vel = ptr_ib_kinematics->getKinematicsVelocity(ln);
 
-        for (std::vector<LNode*>::const_iterator cit = local_nodes.begin(); cit != local_nodes.end(); ++cit)
+        for (auto cit = local_nodes.begin(); cit != local_nodes.end(); ++cit)
         {
             const LNode* const node_idx = *cit;
             const int lag_idx = node_idx->getLagrangianIndex();
@@ -1287,7 +1287,7 @@ ConstraintIBMethod::calculateMomentumOfKinematicsVelocity(const int position_han
             const std::vector<LNode*>& local_nodes = mesh->getLocalNodes();
             const std::vector<std::vector<double> >& def_vel = ptr_ib_kinematics->getKinematicsVelocity(ln);
 
-            for (std::vector<LNode*>::const_iterator cit = local_nodes.begin(); cit != local_nodes.end(); ++cit)
+            for (auto cit = local_nodes.begin(); cit != local_nodes.end(); ++cit)
             {
                 const LNode* const node_idx = *cit;
                 const int lag_idx = node_idx->getLagrangianIndex();
@@ -1521,7 +1521,7 @@ ConstraintIBMethod::calculateRigidTranslationalMomentum()
                 find_struct_handle_position(d_ib_kinematics.begin(), d_ib_kinematics.end(), ptr_ib_kinematics);
 
             double U_rigid[NDIM] = { 0.0 };
-            for (std::vector<LNode*>::const_iterator cit = local_nodes.begin(); cit != local_nodes.end(); ++cit)
+            for (auto cit = local_nodes.begin(); cit != local_nodes.end(); ++cit)
             {
                 const LNode* const node_idx = *cit;
                 const int lag_idx = node_idx->getLagrangianIndex();
@@ -1614,7 +1614,7 @@ ConstraintIBMethod::calculateRigidRotationalMomentum()
                 find_struct_handle_position(d_ib_kinematics.begin(), d_ib_kinematics.end(), ptr_ib_kinematics);
 
             double Omega_rigid[3] = { 0.0 };
-            for (std::vector<LNode*>::const_iterator cit = local_nodes.begin(); cit != local_nodes.end(); ++cit)
+            for (auto cit = local_nodes.begin(); cit != local_nodes.end(); ++cit)
             {
                 const LNode* const node_idx = *cit;
                 const int lag_idx = node_idx->getLagrangianIndex();
@@ -1718,7 +1718,7 @@ ConstraintIBMethod::calculateCurrentLagrangianVelocity()
             const StructureParameters& struct_param = ptr_ib_kinematics->getStructureParameters();
             const std::vector<std::vector<double> >& current_vel = ptr_ib_kinematics->getKinematicsVelocity(ln);
 
-            for (std::vector<LNode*>::const_iterator cit = local_nodes.begin(); cit != local_nodes.end(); ++cit)
+            for (auto cit = local_nodes.begin(); cit != local_nodes.end(); ++cit)
             {
                 const LNode* const node_idx = *cit;
                 const int lag_idx = node_idx->getLagrangianIndex();
@@ -1825,7 +1825,7 @@ ConstraintIBMethod::correctVelocityOnLagrangianMesh()
             const StructureParameters& struct_param = ptr_ib_kinematics->getStructureParameters();
             const std::vector<std::vector<double> >& new_vel = ptr_ib_kinematics->getKinematicsVelocity(ln);
 
-            for (std::vector<LNode*>::const_iterator cit = local_nodes.begin(); cit != local_nodes.end(); ++cit)
+            for (auto cit = local_nodes.begin(); cit != local_nodes.end(); ++cit)
             {
                 const LNode* const node_idx = *cit;
                 const int lag_idx = node_idx->getLagrangianIndex();
@@ -2110,7 +2110,7 @@ ConstraintIBMethod::updateStructurePositionEulerStep()
             const std::string position_update_method = struct_param.getPositionUpdateMethod();
             const std::vector<std::vector<double> >& current_shape = ptr_ib_kinematics->getShape(ln);
 
-            for (std::vector<LNode*>::const_iterator cit = local_nodes.begin(); cit != local_nodes.end(); ++cit)
+            for (auto cit = local_nodes.begin(); cit != local_nodes.end(); ++cit)
             {
                 const LNode* const node_idx = *cit;
                 const int lag_idx = node_idx->getLagrangianIndex();
@@ -2214,7 +2214,7 @@ ConstraintIBMethod::updateStructurePositionMidPointStep()
             const std::string position_update_method = struct_param.getPositionUpdateMethod();
             const std::vector<std::vector<double> >& new_shape = ptr_ib_kinematics->getShape(ln);
 
-            for (std::vector<LNode*>::const_iterator cit = local_nodes.begin(); cit != local_nodes.end(); ++cit)
+            for (auto cit = local_nodes.begin(); cit != local_nodes.end(); ++cit)
             {
                 const LNode* const node_idx = *cit;
                 const int lag_idx = node_idx->getLagrangianIndex();
@@ -2461,7 +2461,7 @@ ConstraintIBMethod::calculateDrag()
             const int location_struct_handle =
                 find_struct_handle_position(d_ib_kinematics.begin(), d_ib_kinematics.end(), ptr_ib_kinematics);
 
-            for (std::vector<LNode*>::const_iterator cit = local_nodes.begin(); cit != local_nodes.end(); ++cit)
+            for (auto cit = local_nodes.begin(); cit != local_nodes.end(); ++cit)
             {
                 const LNode* const node_idx = *cit;
                 const int lag_idx = node_idx->getLagrangianIndex();
@@ -2546,7 +2546,7 @@ ConstraintIBMethod::calculateTorque()
             const int location_struct_handle =
                 find_struct_handle_position(d_ib_kinematics.begin(), d_ib_kinematics.end(), ptr_ib_kinematics);
 
-            for (std::vector<LNode*>::const_iterator cit = local_nodes.begin(); cit != local_nodes.end(); ++cit)
+            for (auto cit = local_nodes.begin(); cit != local_nodes.end(); ++cit)
             {
                 const LNode* const node_idx = *cit;
                 const int lag_idx = node_idx->getLagrangianIndex();
@@ -2655,7 +2655,7 @@ ConstraintIBMethod::calculatePower()
             const int location_struct_handle =
                 find_struct_handle_position(d_ib_kinematics.begin(), d_ib_kinematics.end(), ptr_ib_kinematics);
 
-            for (std::vector<LNode*>::const_iterator cit = local_nodes.begin(); cit != local_nodes.end(); ++cit)
+            for (auto cit = local_nodes.begin(); cit != local_nodes.end(); ++cit)
             {
                 const LNode* const node_idx = *cit;
                 const int lag_idx = node_idx->getLagrangianIndex();
@@ -2731,7 +2731,7 @@ ConstraintIBMethod::calculateStructureMomentum()
             const int location_struct_handle =
                 find_struct_handle_position(d_ib_kinematics.begin(), d_ib_kinematics.end(), ptr_ib_kinematics);
 
-            for (std::vector<LNode*>::const_iterator cit = local_nodes.begin(); cit != local_nodes.end(); ++cit)
+            for (auto cit = local_nodes.begin(); cit != local_nodes.end(); ++cit)
             {
                 const LNode* const node_idx = *cit;
                 const int lag_idx = node_idx->getLagrangianIndex();
@@ -2793,7 +2793,7 @@ ConstraintIBMethod::calculateStructureRotationalMomentum()
             const int location_struct_handle =
                 find_struct_handle_position(d_ib_kinematics.begin(), d_ib_kinematics.end(), ptr_ib_kinematics);
 
-            for (std::vector<LNode*>::const_iterator cit = local_nodes.begin(); cit != local_nodes.end(); ++cit)
+            for (auto cit = local_nodes.begin(); cit != local_nodes.end(); ++cit)
             {
                 const LNode* const node_idx = *cit;
                 const int lag_idx = node_idx->getLagrangianIndex();

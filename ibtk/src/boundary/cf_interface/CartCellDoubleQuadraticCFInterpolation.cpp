@@ -160,7 +160,7 @@ coarsen(const Index<NDIM>& index, const IntVector<NDIM>& ratio)
 inline bool
 bdry_boxes_contain_index(const Index<NDIM>& i, const std::vector<const BoundaryBox<NDIM>*>& patch_cf_bdry_boxes)
 {
-    for (std::vector<const BoundaryBox<NDIM>*>::const_iterator cit = patch_cf_bdry_boxes.begin();
+    for (auto cit = patch_cf_bdry_boxes.begin();
          cit != patch_cf_bdry_boxes.end();
          ++cit)
     {
@@ -276,7 +276,7 @@ CartCellDoubleQuadraticCFInterpolation::postprocessRefine(Patch<NDIM>& fine,
     // boundary box information.
     if (!fine.inHierarchy())
     {
-        for (std::set<int>::const_iterator cit = d_patch_data_indices.begin(); cit != d_patch_data_indices.end(); ++cit)
+        for (auto cit = d_patch_data_indices.begin(); cit != d_patch_data_indices.end(); ++cit)
         {
             const int& patch_data_index = *cit;
             d_refine_op->refine(fine, coarse, patch_data_index, patch_data_index, fine_box, ratio);
@@ -375,13 +375,13 @@ void
 CartCellDoubleQuadraticCFInterpolation::clearPatchHierarchy()
 {
     d_hierarchy.setNull();
-    for (std::vector<CoarseFineBoundary<NDIM>*>::iterator it = d_cf_boundary.begin(); it != d_cf_boundary.end(); ++it)
+    for (auto it = d_cf_boundary.begin(); it != d_cf_boundary.end(); ++it)
     {
         delete (*it);
         (*it) = NULL;
     }
     d_cf_boundary.clear();
-    for (std::vector<BoxArray<NDIM>*>::iterator it = d_domain_boxes.begin(); it != d_domain_boxes.end(); ++it)
+    for (auto it = d_domain_boxes.begin(); it != d_domain_boxes.end(); ++it)
     {
         delete (*it);
         (*it) = NULL;
@@ -466,7 +466,7 @@ CartCellDoubleQuadraticCFInterpolation::postprocessRefine_expensive(Patch<NDIM>&
     if (patch_cf_bdry_boxes.empty()) return;
 
     // Get the patch data.
-    for (std::set<int>::const_iterator cit = d_patch_data_indices.begin(); cit != d_patch_data_indices.end(); ++cit)
+    for (auto cit = d_patch_data_indices.begin(); cit != d_patch_data_indices.end(); ++cit)
     {
         const int& patch_data_index = *cit;
         Pointer<CellData<NDIM, double> > fdata = fine.getPatchData(patch_data_index);
@@ -632,7 +632,7 @@ CartCellDoubleQuadraticCFInterpolation::postprocessRefine_optimized(Patch<NDIM>&
     if (cf_bdry_codim1_boxes.size() == 0) return;
 
     // Get the patch data.
-    for (std::set<int>::const_iterator cit = d_patch_data_indices.begin(); cit != d_patch_data_indices.end(); ++cit)
+    for (auto cit = d_patch_data_indices.begin(); cit != d_patch_data_indices.end(); ++cit)
     {
         const int& patch_data_index = *cit;
         Pointer<CellData<NDIM, double> > fdata = fine.getPatchData(patch_data_index);
@@ -749,7 +749,7 @@ CartCellDoubleQuadraticCFInterpolation::computeNormalExtension_expensive(Patch<N
 #endif
 
     // Get the patch data.
-    for (std::set<int>::const_iterator cit = d_patch_data_indices.begin(); cit != d_patch_data_indices.end(); ++cit)
+    for (auto cit = d_patch_data_indices.begin(); cit != d_patch_data_indices.end(); ++cit)
     {
         const int& patch_data_index = *cit;
         Pointer<CellData<NDIM, double> > data = patch.getPatchData(patch_data_index);
@@ -840,7 +840,7 @@ CartCellDoubleQuadraticCFInterpolation::computeNormalExtension_optimized(Patch<N
     if (n_cf_bdry_codim1_boxes == 0) return;
 
     // Get the patch data.
-    for (std::set<int>::const_iterator cit = d_patch_data_indices.begin(); cit != d_patch_data_indices.end(); ++cit)
+    for (auto cit = d_patch_data_indices.begin(); cit != d_patch_data_indices.end(); ++cit)
     {
         const int& patch_data_index = *cit;
         Pointer<CellData<NDIM, double> > data = patch.getPatchData(patch_data_index);

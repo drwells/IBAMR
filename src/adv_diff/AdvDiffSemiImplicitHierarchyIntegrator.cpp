@@ -378,7 +378,7 @@ AdvDiffSemiImplicitHierarchyIntegrator::getConvectiveOperator(Pointer<CellVariab
 void
 AdvDiffSemiImplicitHierarchyIntegrator::setConvectiveOperatorsNeedInit()
 {
-    for (std::vector<Pointer<CellVariable<NDIM, double> > >::iterator it = d_Q_var.begin(); it != d_Q_var.end(); ++it)
+    for (auto it = d_Q_var.begin(); it != d_Q_var.end(); ++it)
     {
         setConvectiveOperatorNeedsInit(*it);
     }
@@ -465,7 +465,7 @@ AdvDiffSemiImplicitHierarchyIntegrator::getNumberOfCycles() const
     int num_cycles = d_num_cycles;
     if (MathUtilities<double>::equalEps(d_integrator_time, d_start_time))
     {
-        for (std::vector<Pointer<CellVariable<NDIM, double> > >::const_iterator cit = d_Q_var.begin();
+        for (auto cit = d_Q_var.begin();
              cit != d_Q_var.end();
              ++cit)
         {

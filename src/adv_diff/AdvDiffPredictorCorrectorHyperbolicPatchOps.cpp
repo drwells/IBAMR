@@ -211,7 +211,7 @@ AdvDiffPredictorCorrectorHyperbolicPatchOps::conservativeDifferenceOnPatch(Patch
     const Pointer<CartesianPatchGeometry<NDIM> > patch_geom = patch.getPatchGeometry();
     const double* const dx = patch_geom->getDx();
 
-    for (std::set<Pointer<CellVariable<NDIM, double> > >::const_iterator cit = d_Q_var.begin(); cit != d_Q_var.end();
+    for (auto cit = d_Q_var.begin(); cit != d_Q_var.end();
          ++cit)
     {
         Pointer<CellVariable<NDIM, double> > Q_var = *cit;
@@ -390,7 +390,7 @@ AdvDiffPredictorCorrectorHyperbolicPatchOps::preprocessAdvanceLevelState(const P
     if (!d_compute_init_velocity) return;
 
     // Update the advection velocity (or velocities).
-    for (std::set<Pointer<FaceVariable<NDIM, double> > >::const_iterator cit = d_u_var.begin(); cit != d_u_var.end();
+    for (auto cit = d_u_var.begin(); cit != d_u_var.end();
          ++cit)
     {
         Pointer<FaceVariable<NDIM, double> > u_var = *cit;
@@ -415,7 +415,7 @@ AdvDiffPredictorCorrectorHyperbolicPatchOps::postprocessAdvanceLevelState(const 
     if (!d_compute_final_velocity) return;
 
     // Update the advection velocity (or velocities).
-    for (std::set<Pointer<FaceVariable<NDIM, double> > >::const_iterator cit = d_u_var.begin(); cit != d_u_var.end();
+    for (auto cit = d_u_var.begin(); cit != d_u_var.end();
          ++cit)
     {
         Pointer<FaceVariable<NDIM, double> > u_var = *cit;

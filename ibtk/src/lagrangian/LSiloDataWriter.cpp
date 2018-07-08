@@ -443,7 +443,7 @@ build_local_ucd_mesh(DBfile* dbfile,
 
     int offset = 0;
     std::map<int, int> local_vertex_map;
-    for (std::set<int>::const_iterator it = vertices.begin(); it != vertices.end(); ++it)
+    for (auto it = vertices.begin(); it != vertices.end(); ++it)
     {
         const int idx = (*it);
         local_vertex_map[idx] = offset;
@@ -472,7 +472,7 @@ build_local_ucd_mesh(DBfile* dbfile,
 
     // Prune duplicate edges.
     std::set<std::pair<int, int> > local_edge_set;
-    for (std::multimap<int, std::pair<int, int> >::const_iterator it = edge_map.begin(); it != edge_map.end(); ++it)
+    for (auto it = edge_map.begin(); it != edge_map.end(); ++it)
     {
         std::pair<int, int> e = it->second;
 #if !defined(NDEBUG)
@@ -488,7 +488,7 @@ build_local_ucd_mesh(DBfile* dbfile,
 
     // Create an edge map corresponding to the pruned edge list.
     std::multimap<int, int> local_edge_map;
-    for (std::set<std::pair<int, int> >::const_iterator it = local_edge_set.begin(); it != local_edge_set.end(); ++it)
+    for (auto it = local_edge_set.begin(); it != local_edge_set.end(); ++it)
     {
         const int e1 = it->first;
         const int e2 = it->second;
@@ -711,7 +711,7 @@ LSiloDataWriter::~LSiloDataWriter()
     int ierr;
     for (int ln = d_coarsest_ln; ln <= d_finest_ln; ++ln)
     {
-        for (std::map<int, Vec>::iterator it = d_dst_vec[ln].begin(); it != d_dst_vec[ln].end(); ++it)
+        for (auto it = d_dst_vec[ln].begin(); it != d_dst_vec[ln].end(); ++it)
         {
             Vec& v = it->second;
             if (v)
@@ -720,7 +720,7 @@ LSiloDataWriter::~LSiloDataWriter()
                 IBTK_CHKERRQ(ierr);
             }
         }
-        for (std::map<int, VecScatter>::iterator it = d_vec_scatter[ln].begin(); it != d_vec_scatter[ln].end(); ++it)
+        for (auto it = d_vec_scatter[ln].begin(); it != d_vec_scatter[ln].end(); ++it)
         {
             VecScatter& vs = it->second;
             if (vs)
@@ -759,7 +759,7 @@ LSiloDataWriter::resetLevels(const int coarsest_ln, const int finest_ln)
     int ierr;
     for (int ln = std::max(d_coarsest_ln, 0); (ln <= d_finest_ln) && (ln < coarsest_ln); ++ln)
     {
-        for (std::map<int, Vec>::iterator it = d_dst_vec[ln].begin(); it != d_dst_vec[ln].end(); ++it)
+        for (auto it = d_dst_vec[ln].begin(); it != d_dst_vec[ln].end(); ++it)
         {
             Vec& v = it->second;
             if (v)
@@ -768,7 +768,7 @@ LSiloDataWriter::resetLevels(const int coarsest_ln, const int finest_ln)
                 IBTK_CHKERRQ(ierr);
             }
         }
-        for (std::map<int, VecScatter>::iterator it = d_vec_scatter[ln].begin(); it != d_vec_scatter[ln].end(); ++it)
+        for (auto it = d_vec_scatter[ln].begin(); it != d_vec_scatter[ln].end(); ++it)
         {
             VecScatter& vs = it->second;
             if (vs)
@@ -781,7 +781,7 @@ LSiloDataWriter::resetLevels(const int coarsest_ln, const int finest_ln)
 
     for (int ln = finest_ln + 1; ln <= d_finest_ln; ++ln)
     {
-        for (std::map<int, Vec>::iterator it = d_dst_vec[ln].begin(); it != d_dst_vec[ln].end(); ++it)
+        for (auto it = d_dst_vec[ln].begin(); it != d_dst_vec[ln].end(); ++it)
         {
             Vec& v = it->second;
             if (v)
@@ -790,7 +790,7 @@ LSiloDataWriter::resetLevels(const int coarsest_ln, const int finest_ln)
                 IBTK_CHKERRQ(ierr);
             }
         }
-        for (std::map<int, VecScatter>::iterator it = d_vec_scatter[ln].begin(); it != d_vec_scatter[ln].end(); ++it)
+        for (auto it = d_vec_scatter[ln].begin(); it != d_vec_scatter[ln].end(); ++it)
         {
             VecScatter& vs = it->second;
             if (vs)
@@ -1109,7 +1109,7 @@ LSiloDataWriter::registerUnstructuredMesh(const std::string& name,
 
     // Extract the list of vertices from the list of edges.
     std::set<int> vertices;
-    for (std::multimap<int, std::pair<int, int> >::const_iterator it = edge_map.begin(); it != edge_map.end(); ++it)
+    for (auto it = edge_map.begin(); it != edge_map.end(); ++it)
     {
         const std::pair<int, int>& e = it->second;
         vertices.insert(e.first);
@@ -1903,7 +1903,7 @@ LSiloDataWriter::writePlotData(const int time_step_number, const double simulati
                     current_file_name += SILO_PROCESSOR_FILE_POSTFIX;
 
                     const int nblocks = mb_nblocks_per_proc[ln][proc][mb];
-                    char** meshnames = new char*[nblocks];
+                    auto  meshnames = new char*[nblocks];
 
                     for (int block = 0; block < nblocks; ++block)
                     {
@@ -2018,7 +2018,7 @@ LSiloDataWriter::writePlotData(const int time_step_number, const double simulati
                         current_file_name += SILO_PROCESSOR_FILE_POSTFIX;
 
                         const int nblocks = mb_nblocks_per_proc[ln][proc][mb];
-                        char** varnames = new char*[nblocks];
+                        auto  varnames = new char*[nblocks];
 
                         for (int block = 0; block < nblocks; ++block)
                         {
@@ -2228,7 +2228,7 @@ LSiloDataWriter::putToDatabase(Pointer<Database> db)
 
                 std::vector<int> ucd_mesh_vertices_vector;
                 ucd_mesh_vertices_vector.reserve(d_ucd_mesh_vertices[ln][mesh].size());
-                for (std::set<int>::const_iterator cit = d_ucd_mesh_vertices[ln][mesh].begin();
+                for (auto cit = d_ucd_mesh_vertices[ln][mesh].begin();
                      cit != d_ucd_mesh_vertices[ln][mesh].end();
                      ++cit)
                 {
@@ -2354,7 +2354,7 @@ LSiloDataWriter::buildVecScatters(AO& ao, const int level_number)
     // Create the VecScatters to scatter data from the global PETSc Vec to
     // contiguous local subgrids.  VecScatter objects are individually created
     // for data depths as necessary.
-    for (std::map<int, std::vector<int> >::iterator it = src_is_idxs.begin(); it != src_is_idxs.end(); ++it)
+    for (auto it = src_is_idxs.begin(); it != src_is_idxs.end(); ++it)
     {
         const int depth = it->first;
         const std::vector<int>& idxs = it->second;

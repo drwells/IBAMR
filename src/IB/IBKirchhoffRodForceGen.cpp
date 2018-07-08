@@ -99,7 +99,7 @@ IBKirchhoffRodForceGen::IBKirchhoffRodForceGen(Pointer<Database> input_db)
 IBKirchhoffRodForceGen::~IBKirchhoffRodForceGen()
 {
     int ierr;
-    for (std::vector<Mat>::iterator it = d_D_next_mats.begin(); it != d_D_next_mats.end(); ++it)
+    for (auto it = d_D_next_mats.begin(); it != d_D_next_mats.end(); ++it)
     {
         if (*it)
         {
@@ -107,7 +107,7 @@ IBKirchhoffRodForceGen::~IBKirchhoffRodForceGen()
             IBTK_CHKERRQ(ierr);
         }
     }
-    for (std::vector<Mat>::iterator it = d_X_next_mats.begin(); it != d_X_next_mats.end(); ++it)
+    for (auto it = d_X_next_mats.begin(); it != d_X_next_mats.end(); ++it)
     {
         if (*it)
         {
@@ -175,7 +175,7 @@ IBKirchhoffRodForceGen::initializeLevelData(const Pointer<PatchHierarchy<NDIM> >
 
     // Determine the "next" node indices for all rods associated with the
     // present MPI process.
-    for (std::vector<LNode*>::const_iterator cit = local_nodes.begin(); cit != local_nodes.end(); ++cit)
+    for (auto cit = local_nodes.begin(); cit != local_nodes.end(); ++cit)
     {
         const LNode* const node_idx = *cit;
         const IBRodForceSpec* const force_spec = node_idx->getNodeDataItem<IBRodForceSpec>();
