@@ -59,8 +59,8 @@ public:
      * \brief Constructor.
      */
     LMesh(const std::string& object_name,
-          const std::vector<LNode*>& local_nodes,
-          const std::vector<LNode*>& ghost_nodes);
+          std::vector<LNode*>  local_nodes,
+          std::vector<LNode*>  ghost_nodes);
 
     /*!
      * \brief Destructor.

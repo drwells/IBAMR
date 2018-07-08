@@ -2312,8 +2312,8 @@ FEDataManager::putToDatabase(Pointer<Database> db)
 /////////////////////////////// PROTECTED ////////////////////////////////////
 
 FEDataManager::FEDataManager(const std::string& object_name,
-                             const FEDataManager::InterpSpec& default_interp_spec,
-                             const FEDataManager::SpreadSpec& default_spread_spec,
+                             FEDataManager::InterpSpec  default_interp_spec,
+                             FEDataManager::SpreadSpec  default_spread_spec,
                              const IntVector<NDIM>& ghost_width,
                              bool register_for_restart)
     : COORDINATES_SYSTEM_NAME("coordinates system"),
@@ -2323,8 +2323,8 @@ FEDataManager::FEDataManager(const std::string& object_name,
       d_hierarchy(NULL),
       d_coarsest_ln(-1),
       d_finest_ln(-1),
-      d_default_interp_spec(default_interp_spec),
-      d_default_spread_spec(default_spread_spec),
+      d_default_interp_spec(std::move(default_interp_spec)),
+      d_default_spread_spec(std::move(default_spread_spec)),
       d_ghost_width(ghost_width),
       d_es(NULL),
       d_level_number(-1),

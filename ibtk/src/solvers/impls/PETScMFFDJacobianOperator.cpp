@@ -66,7 +66,7 @@ namespace IBTK
 
 /////////////////////////////// PUBLIC ///////////////////////////////////////
 
-PETScMFFDJacobianOperator::PETScMFFDJacobianOperator(const std::string& object_name, const std::string& options_prefix)
+PETScMFFDJacobianOperator::PETScMFFDJacobianOperator(const std::string& object_name, std::string  options_prefix)
     : JacobianOperator(object_name),
       d_F(NULL),
       d_nonlinear_solver(NULL),
@@ -77,7 +77,7 @@ PETScMFFDJacobianOperator::PETScMFFDJacobianOperator(const std::string& object_n
       d_petsc_u(NULL),
       d_petsc_x(NULL),
       d_petsc_y(NULL),
-      d_options_prefix(options_prefix)
+      d_options_prefix(std::move(options_prefix))
 {
     // intentionally blank
 }

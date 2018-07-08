@@ -103,7 +103,7 @@ private:
     std::pair<int, int> struct_to_find_range;
 
 public:
-    find_struct_handle(const std::pair<int, int>& struct_range) : struct_to_find_range(struct_range)
+    find_struct_handle(std::pair<int, int>  struct_range) : struct_to_find_range(std::move(struct_range))
     {
     }
 

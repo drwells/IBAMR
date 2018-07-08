@@ -124,7 +124,7 @@ public:
                                       SAMRAI::tbox::Pointer<SAMRAI::pdat::CellVariable<NDIM, double> > Q_var,
                                       SAMRAI::tbox::Pointer<SAMRAI::tbox::Database> input_db,
                                       const ConvectiveDifferencingType difference_form,
-                                      const std::vector<SAMRAI::solv::RobinBcCoefStrategy<NDIM>*>& conc_bc_coefs);
+                                      std::vector<SAMRAI::solv::RobinBcCoefStrategy<NDIM>*>  conc_bc_coefs);
     /*!
      * \brief Destructor.
      */
