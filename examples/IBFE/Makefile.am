@@ -11,10 +11,10 @@ $(COMPLETE_EXAMPLES):
 	cd $@ && $(MAKE) $(AM_MAKEFLAGS) examples
 
 gtest:
-	@(cd explicit && make gtest) || exit 1;
+	cd explicit && $(MAKE) $(AM_MAKEFLAGS) gtest
 
 gtest-long:
-	@(cd explicit && make gtest-long) || exit 1;
+	cd explicit && $(MAKE) $(AM_MAKEFLAGS) gtest-long
 
-gtest-all:
-	@(cd explicit && make gtest-all) || exit 1;
+gtest-all: gtest-long
+.PHONY: gtest gtest-long gtest-all

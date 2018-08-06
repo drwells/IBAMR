@@ -10,13 +10,12 @@ examples: lib
 
 if GTEST_ENABLED
 gtest:
-	@(cd examples && make gtest) || exit 1;
+	cd examples && $(MAKE) $(AM_MAKEFLAGS) gtest
 
 gtest-long:
-	@(cd examples && make gtest-long) || exit 1;
+	cd examples && $(MAKE) $(AM_MAKEFLAGS) gtest-long
 
-gtest-all:
-	@(cd examples && make gtest-all) || exit 1;
+gtest-all: gtest-long
 
 else
 gtest:
@@ -25,9 +24,10 @@ gtest:
 	@echo " Configure IBAMR with additional options:                            "
 	@echo "                      --enable-gtest --with-gtest=path               "
 	@echo "+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++"
-gtest-long:
-	make gtest
+gtest-long: gtest
+gtest-all: gtest
 endif
+.PHONY: gtest gtest-long gtest-all
 
 install-exec-local:
 	@echo "===================================================================="

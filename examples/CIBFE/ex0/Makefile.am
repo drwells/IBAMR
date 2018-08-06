@@ -39,8 +39,7 @@ gtest: $(GTESTS)
 	fi ;
 	./test2d input2d.test
 
-gtest-long:
-	make gtest
+gtest-long: gtest
 
 else
 gtest:
@@ -49,9 +48,9 @@ gtest:
 	@echo " Configure IBAMR with additional options:                            "
 	@echo "                      --enable-gtest --with-gtest=path               "
 	@echo "+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++"
-gtest-long:
-	make gtest
+gtest-long: gtest
 endif
+.PHONY: gtest gtest-long
 
 clean-local:
 	rm -f $(EXTRA_PROGRAMS)

@@ -10,39 +10,27 @@ examples: $(COMPLETE_EXAMPLES)
 $(COMPLETE_EXAMPLES):
 	cd $@ && $(MAKE) $(AM_MAKEFLAGS) examples
 
-## Make targets for gtests
-gtest:
-	@(cd eel2d                        && make gtest) || exit 1;
-	@(cd eel3d                        && make gtest) || exit 1;
-	@(cd falling_sphere               && make gtest) || exit 1;
-	@(cd flow_past_cylinder           && make gtest) || exit 1;
-	@(cd flow_past_cylinder_HF           && make gtest) || exit 1;
-	@(cd knifefish                    && make gtest) || exit 1;
-	@(cd impulsively_started_cylinder && make gtest) || exit 1;
-	@(cd moving_plate                 && make gtest) || exit 1;
-	@(cd oscillating_rigid_cylinder   && make gtest) || exit 1;
-	@(cd stokes_first_problem         && make gtest) || exit 1;
+GTESTS = gtest-eel2d gtest-eel3d gtest-falling_sphere gtest-flow_past_cylinder \
+         gtest-flow_past_cylinder_HF gtest-knifefish \
+         gtest-impulsively_started_cylinder gtest-moving_plate \
+         gtest-oscillating_rigid_cylinder gtest-stokes_first_problem
+GTESTS_LONG = gtest-long-eel2d gtest-long-eel3d gtest-long-falling_sphere \
+              gtest-long-flow_past_cylinder gtest-long-flow_past_cylinder_HF \
+              gtest-long-knifefish gtest-long-impulsively_started_cylinder \
+              gtest-long-moving_plate gtest-long-oscillating_rigid_cylinder \
+              gtest-long-stokes_first_problem
 
-gtest-long:
-	@(cd eel2d                        && make gtest) || exit 1;
-	@(cd eel3d                        && make gtest) || exit 1;
-	@(cd falling_sphere               && make gtest) || exit 1;
-	@(cd flow_past_cylinder           && make gtest) || exit 1;
-	@(cd flow_past_cylinder_HF           && make gtest) || exit 1;
-	@(cd knifefish                    && make gtest) || exit 1;
-	@(cd impulsively_started_cylinder && make gtest) || exit 1;
-	@(cd moving_plate                 && make gtest) || exit 1;
-	@(cd oscillating_rigid_cylinder   && make gtest-long) || exit 1;
-	@(cd stokes_first_problem         && make gtest) || exit 1;
+gtest: $(GTESTS)
 
-gtest-all:
-	@(cd eel2d                        && make gtest-long) || exit 1;
-	@(cd eel3d                        && make gtest-long) || exit 1;
-	@(cd falling_sphere               && make gtest-long) || exit 1;
-	@(cd flow_past_cylinder           && make gtest-long) || exit 1;
-	@(cd flow_past_cylinder_HF           && make gtest-long) || exit 1;
-	@(cd knifefish                    && make gtest-long) || exit 1;
-	@(cd impulsively_started_cylinder && make gtest-long) || exit 1;
-	@(cd moving_plate                 && make gtest-long) || exit 1;
-	@(cd oscillating_rigid_cylinder   && make gtest-long) || exit 1;
-	@(cd stokes_first_problem         && make gtest-long) || exit 1;
+$(GTESTS):
+	$(eval DIRECTORY := $(subst gtest-,,$@))
+	cd $(DIRECTORY) && $(MAKE) $(AM_MAKEFLAGS) gtest
+
+gtest-long: $(GTESTS_LONG)
+
+$(GTESTS_LONG):
+	$(eval DIRECTORY := $(subst gtest-long-,,$@))
+	cd $(DIRECTORY) && $(MAKE) $(AM_MAKEFLAGS) gtest-long
+
+gtest-all: gtest-long
+.PHONY: gtest gtest-long gtest-all $(GTESTS) $(GTESTS_LONG)

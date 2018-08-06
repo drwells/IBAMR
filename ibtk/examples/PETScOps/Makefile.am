@@ -1,6 +1,6 @@
 ## Process this file with automake to produce Makefile.in
 include $(top_srcdir)/config/Make-rules
-SUBDIRS = ProlongationMat 
+SUBDIRS = ProlongationMat
 
 all:
 	if test "$(CONFIGURATION_BUILD_DIR)" != ""; then \
@@ -8,10 +8,11 @@ all:
 	fi ;
 
 gtest:
-	@(cd ProlongationMat && make gtest) || exit 1;
+	cd ProlongationMat && $(MAKE) $(AM_MAKEFLAGS) gtest
 
 gtest-long:
-	@(cd ProlongationMat && make gtest-long) || exit 1;
+	cd ProlongationMat && $(MAKE) $(AM_MAKEFLAGS) gtest-long
+.PHONY: gtest gtest-long
 
 ## Standard make targets.
 examples:

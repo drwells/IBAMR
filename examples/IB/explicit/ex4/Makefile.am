@@ -40,8 +40,7 @@ gtest: $(GTESTS)
 	  cp -f $(srcdir)/curve3d_64.{vertex,rod,director} $(PWD) ; \
 	  fi ;
 
-gtest-long:
-	make gtest
+gtest-long: gtest
 	./test3d input3d.test
 
 else
@@ -51,9 +50,9 @@ gtest:
 	@echo " Configure IBAMR with additional options:                            "
 	@echo "                      --enable-gtest --with-gtest=path               "
 	@echo "+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++"
-gtest-long:
-	make gtest
+gtest-long: gtest
 endif
+.PHONY: gtest gtest-long
 
 clean-local:
 	rm -f $(EXTRA_PROGRAMS)

@@ -10,18 +10,19 @@ examples: $(COMPLETE_EXAMPLES)
 $(COMPLETE_EXAMPLES):
 	cd $@ && $(MAKE) $(AM_MAKEFLAGS) examples
 
-gtest:
+GTESTS = gtest-ex0 gtest-ex1
+GTESTS_LONG = gtest-long-ex0 gtest-long-ex1
 
 # tests are disabled for CIBFE
-#	@(cd ex0 && make gtest) || exit 1;
-#	@(cd ex1 && make gtest) || exit 1;
+gtest: $(GTESTS)
 
-gtest-long:
+# cd $(shell echo $@ | sed "s/^gtest-//") && $(MAKE) $(AM_MAKEFLAGS) gtest
+$(GTESTS):
 
-#	@(cd ex0 && make gtest) || exit 1;
-#	@(cd ex1 && make gtest-long) || exit 1;
+gtest-long: $(GTESTS_LONG)
 
-gtest-all:
+# cd $(shell echo $@ | sed "s/^gtest-long-//") && $(MAKE) $(AM_MAKEFLAGS) gtest-long
+$(GTESTS_LONG):
 
-#	@(cd ex0 && make gtest-long) || exit 1;
-#	@(cd ex1 && make gtest-long) || exit 1;
+gtest-all: gtest-long
+.PHONY: gtest gtest-long gtest-all $(GTESTS) $(GTESTS_LONG)

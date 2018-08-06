@@ -10,29 +10,20 @@ examples: $(COMPLETE_EXAMPLES)
 $(COMPLETE_EXAMPLES):
 	cd $@ && $(MAKE) $(AM_MAKEFLAGS) examples
 
-gtest:
-	@(cd ex0 && make gtest) || exit 1;
-	@(cd ex1 && make gtest) || exit 1;
-	@(cd ex2 && make gtest) || exit 1;
-	@(cd ex3 && make gtest) || exit 1;
-	@(cd ex3 && make gtest) || exit 1;
-	@(cd ex4 && make gtest) || exit 1;
-	@(cd ex5 && make gtest) || exit 1;
+GTESTS = gtest-ex0 gtest-ex1 gtest-ex2 gtest-ex3 gtest-ex4 gtest-ex5
+GTESTS_LONG = gtest-long-ex0 gtest-long-ex1 gtest-long-ex2 gtest-long-ex3 gtest-long-ex4 gtest-long-ex5
 
-gtest-long:
-	@(cd ex0 && make gtest) || exit 1;
-	@(cd ex1 && make gtest) || exit 1;
-	@(cd ex2 && make gtest) || exit 1;
-	@(cd ex3 && make gtest) || exit 1;
-	@(cd ex3 && make gtest) || exit 1;
-	@(cd ex4 && make gtest) || exit 1;
-	@(cd ex5 && make gtest-long) || exit 1;
+gtest: $(GTESTS)
 
-gtest-all:
-	@(cd ex0 && make gtest-long) || exit 1;
-	@(cd ex1 && make gtest-long) || exit 1;
-	@(cd ex2 && make gtest-long) || exit 1;
-	@(cd ex3 && make gtest-long) || exit 1;
-	@(cd ex3 && make gtest-long) || exit 1;
-	@(cd ex4 && make gtest-long) || exit 1;
-	@(cd ex5 && make gtest-long) || exit 1;
+$(GTESTS):
+	$(eval DIRECTORY := $(subst gtest-,,$@))
+	cd $(DIRECTORY) && $(MAKE) $(AM_MAKEFLAGS) gtest
+
+gtest-long: $(GTESTS_LONG)
+
+$(GTESTS_LONG):
+	$(eval DIRECTORY := $(subst gtest-long-,,$@))
+	cd $(DIRECTORY) && $(MAKE) $(AM_MAKEFLAGS) gtest-long
+
+gtest-all: gtest-long
+.PHONY: gtest gtest-long gtest-all $(GTESTS) $(GTESTS_LONG)

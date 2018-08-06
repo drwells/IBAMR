@@ -5,7 +5,7 @@ include $(top_srcdir)/config/Make-rules
 EXAMPLE_DRIVER = ex_main.cpp SetFluidProperties.cpp SetFluidProperties.h LSLocateCircularInterface.cpp LSLocateCircularInterface.h SetLSProperties.cpp SetLSProperties.h
 GTEST_DRIVER   = test_main.cpp SetFluidProperties.cpp SetFluidProperties.h LSLocateCircularInterface.cpp LSLocateCircularInterface.h SetLSProperties.cpp SetLSProperties.h
 EXTRA_DIST     = input2d input2d.test
-EXTRA_DIST    += input3d input3d.test 
+EXTRA_DIST    += input3d input3d.test
 
 GTESTS   =
 EXAMPLES =
@@ -53,8 +53,7 @@ gtest: $(GTESTS)
 	fi ;
 	./test2d input2d.test
 
-gtest-long:
-	make gtest
+gtest-long: gtest
 	./test3d input3d.test
 
 else
@@ -64,9 +63,9 @@ gtest:
 	@echo " Configure IBAMR with additional options:                            "
 	@echo "                      --enable-gtest --with-gtest=path               "
 	@echo "+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++"
-gtest-long:
-	make gtest
+gtest-long: gtest
 endif
+.PHONY: gtest gtest-long
 
 clean-local:
 	rm -f $(EXTRA_PROGRAMS)

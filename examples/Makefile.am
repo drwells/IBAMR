@@ -16,49 +16,31 @@ examples: $(COMPLETE_EXAMPLES)
 $(COMPLETE_EXAMPLES):
 	cd $@ && $(MAKE) $(AM_MAKEFLAGS) examples
 
+# gtest-IMP and gtest-CIBFE are currently disabled
+GTESTS = gtest-IB gtest-IBFE gtest-adv_diff gtest-advect gtest-navier_stokes \
+         gtest-ConstraintIB gtest-CIB gtest-level_set gtest-multiphase_flow \
+         gtest-vc_navier_stokes
+
+# gtest-long-IMP and gtest-long-CIBFE are currently disabled
+GTESTS_LONG = gtest-long-IB gtest-long-IBFE gtest-long-adv_diff \
+              gtest-long-advect gtest-long-navier_stokes gtest-long-ConstraintIB \
+              gtest-long-CIB gtest-long-level_set gtest-long-multiphase_flow \
+              gtest-long-vc_navier_stokes
+
 if GTEST_ENABLED
-gtest:
-	@(cd IB               && make gtest) || exit 1;
-	@(cd IBFE             && make gtest) || exit 1;
-##      @(cd IMP              && make gtest) || exit 1;
-	@(cd adv_diff         && make gtest) || exit 1;
-	@(cd advect           && make gtest) || exit 1;
-	@(cd navier_stokes    && make gtest) || exit 1;
-	@(cd ConstraintIB     && make gtest) || exit 1;
-	@(cd CIB              && make gtest) || exit 1;
-##	@(cd CIBFE            && make gtest) || exit 1;
-	@(cd level_set        && make gtest) || exit 1;
-	@(cd multiphase_flow  && make gtest) || exit 1;
-	@(cd vc_navier_stokes && make gtest) || exit 1;
+gtest: $(GTESTS)
 
-gtest-long:
-	@(cd IB               && make gtest-long) || exit 1;
-	@(cd IBFE             && make gtest-long) || exit 1;
-##      @(cd IMP              && make gtest-long) || exit 1;
-	@(cd adv_diff         && make gtest-long) || exit 1;
-	@(cd advect           && make gtest-long) || exit 1;
-	@(cd navier_stokes    && make gtest-long) || exit 1;
-	@(cd ConstraintIB     && make gtest-long) || exit 1;
-	@(cd CIB              && make gtest-long) || exit 1;
-##	@(cd CIBFE            && make gtest-long) || exit 1;
-	@(cd level_set        && make gtest-long) || exit 1;
-	@(cd multiphase_flow  && make gtest-long) || exit 1;
-	@(cd vc_navier_stokes && make gtest-long) || exit 1;
+$(GTESTS):
+	$(eval DIRECTORY := $(subst gtest-,,$@))
+	cd $(DIRECTORY) && $(MAKE) $(AM_MAKEFLAGS) gtest
 
-gtest-all:
-	@(cd IB               && make gtest-all) || exit 1;
-	@(cd IBFE             && make gtest-all) || exit 1;
-##      @(cd IMP              && make gtest-all) || exit 1;
-	@(cd adv_diff         && make gtest-all) || exit 1;
-	@(cd advect           && make gtest-all) || exit 1;
-	@(cd navier_stokes    && make gtest-all) || exit 1;
-	@(cd ConstraintIB     && make gtest-all) || exit 1;
-	@(cd CIB              && make gtest-all) || exit 1;
-##	@(cd CIBFE            && make gtest-all) || exit 1;
-	@(cd level_set        && make gtest-all) || exit 1;
-	@(cd multiphase_flow  && make gtest-all) || exit 1;
-	@(cd vc_navier_stokes && make gtest-all) || exit 1;
+gtest-long: $(GTESTS_LONG)
 
+$(GTESTS_LONG):
+	$(eval DIRECTORY := $(subst gtest-long-,,$@))
+	cd $(DIRECTORY) && $(MAKE) $(AM_MAKEFLAGS) gtest-long
+
+gtest-all: gtest-long
 else
 gtest:
 	@echo "+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++"
@@ -66,6 +48,7 @@ gtest:
 	@echo " Configure IBAMR with additional options:                            "
 	@echo "                      --enable-gtest --with-gtest=path               "
 	@echo "+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++"
-gtest-long:
-	make gtest
+gtest-long: gtest
+gtest-all: gtest
 endif
+.PHONY: gtest gtest-long gtest-all $(GTESTS) $(GTESTS_LONG)

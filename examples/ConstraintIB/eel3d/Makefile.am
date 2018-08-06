@@ -61,8 +61,7 @@ gtest: $(GTESTS)
 	  cp -f $(srcdir)/eel3d.vertex $(PWD) ; \
 	fi ;
 
-gtest-long:
-	make gtest
+gtest-long: gtest
 	./test3d input3d.test
 
 else
@@ -72,6 +71,6 @@ gtest:
 	@echo " Configure IBAMR with additional options:                            "
 	@echo "                      --enable-gtest --with-gtest=path               "
 	@echo "+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++"
-gtest-long:
-	make gtest
+gtest-long: gtest
 endif
+.PHONY: gtest gtest-long

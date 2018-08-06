@@ -51,8 +51,7 @@ gtest: $(GTESTS)
 	  cp -f $(srcdir)/input[23]d* $(PWD) ; \
 	fi ;
 
-gtest-long:
-	make gtest
+gtest-long: gtest
 	./test2d input2d.test
 	./test3d input3d.test
 
@@ -63,9 +62,9 @@ gtest:
 	@echo " Configure IBAMR with additional options:                            "
 	@echo "                      --enable-gtest --with-gtest=path               "
 	@echo "+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++"
-gtest-long:
-	make gtest
+gtest-long: gtest
 endif
+.PHONY: gtest gtest-long
 
 clean-local:
 	rm -f $(EXTRA_PROGRAMS)

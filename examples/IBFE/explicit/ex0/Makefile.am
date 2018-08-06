@@ -47,8 +47,7 @@ gtest: $(GTESTS)
 	fi ;
 	./test2d input2d.test -ksp_rtol 1e-16 -ksp_max_it 1000
 
-gtest-long:
-	make gtest
+gtest-long: gtest
 
 else
 gtest:
@@ -57,9 +56,9 @@ gtest:
 	@echo " Configure IBAMR with additional options:                            "
 	@echo "                      --enable-gtest --with-gtest=path               "
 	@echo "+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++"
-gtest-long:
-	make gtest
+gtest-long: gtest
 endif
+.PHONY: gtest gtest-long
 
 clean-local:
 	rm -f $(EXTRA_PROGRAMS)

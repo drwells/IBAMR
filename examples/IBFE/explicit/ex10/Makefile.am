@@ -1,11 +1,11 @@
 ## Process this file with automake to produce Makefile.in
 include $(top_srcdir)/config/Make-rules
-	
+
 ## Dimension-dependent testers
 EXAMPLE_DRIVER = ex_main.cpp
 GTEST_DRIVER   = test_main.cpp
 
-EXTRA_DIST = input2d  input2d.test 
+EXTRA_DIST = input2d  input2d.test
 
 EXAMPLES =
 GTESTS   =
@@ -41,8 +41,7 @@ gtest: $(GTESTS)
 	  cp -f $(srcdir)/input* $(PWD) ; \
 	fi ;
 
-gtest-long:
-	make gtest
+gtest-long: gtest
 	./test2d input2d.test
 else
 gtest:
@@ -51,9 +50,9 @@ gtest:
 	@echo " Configure IBAMR with additional options:                            "
 	@echo "                      --enable-gtest --with-gtest=path               "
 	@echo "+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++"
-gtest-long:
-	make gtest
+gtest-long: gtest
 endif
+.PHONY: gtest gtest-long
 
 clean-local:
 	rm -f $(EXTRA_PROGRAMS)
