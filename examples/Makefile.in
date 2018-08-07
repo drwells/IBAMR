@@ -499,7 +499,9 @@ IBAMR3d_LIBS = ${top_builddir}/lib/libIBAMR3d.a ${top_builddir}/ibtk/lib/libIBTK
 pkg_includedir = $(includedir)/@PACKAGE@
 SUFFIXES = .f.m4
 SUBDIRS = IB IBFE IMP adv_diff advect navier_stokes ConstraintIB CIB CIBFE level_set multiphase_flow vc_navier_stokes
-COMPLETE_EXAMPLES = IB IBFE adv_diff advect navier_stokes ConstraintIB CIB level_set multiphase_flow vc_navier_stokes
+COMPLETE_EXAMPLES = IB IBFE adv_diff advect navier_stokes ConstraintIB CIB \
+                    level_set multiphase_flow vc_navier_stokes
+
 # Not all examples can be compiled at the present time
 INCOMPLETE_EXAMPLES = IMP CIBFE
 
@@ -839,8 +841,8 @@ all:
 	if test "$(CONFIGURATION_BUILD_DIR)" != ""; then \
 	  $(MAKE) examples ; \
 	fi ;
-.PHONY: examples $(COMPLETE_EXAMPLES)
 examples: $(COMPLETE_EXAMPLES)
+.PHONY: examples $(COMPLETE_EXAMPLES)
 
 $(COMPLETE_EXAMPLES):
 	cd $@ && $(MAKE) $(AM_MAKEFLAGS) examples

@@ -45,3 +45,11 @@ aclocal
 libtoolize --copy
 
 automake --add-missing -Wno-error
+
+cd ibtk
+
+aclocal
+
+libtoolize --copy
+
+automake --add-missing -Wno-error

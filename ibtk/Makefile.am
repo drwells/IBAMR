@@ -6,7 +6,8 @@ ACLOCAL_AMFLAGS = -I m4
 ## Standard make targets.
 lib: all
 examples: lib
-	@(cd examples && $(MAKE) $(AM_MAKEFLAGS) $@) || exit 1;
+	cd examples && $(MAKE) $(AM_MAKEFLAGS) examples
+.PHONY: examples
 
 if GTEST_ENABLED
 gtest:

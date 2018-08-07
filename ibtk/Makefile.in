@@ -1033,7 +1033,8 @@ uninstall-am:
 
 lib: all
 examples: lib
-	@(cd examples && $(MAKE) $(AM_MAKEFLAGS) $@) || exit 1;
+	cd examples && $(MAKE) $(AM_MAKEFLAGS) examples
+.PHONY: examples
 
 @GTEST_ENABLED_TRUE@gtest:
 @GTEST_ENABLED_TRUE@	cd examples && $(MAKE) $(AM_MAKEFLAGS) gtest

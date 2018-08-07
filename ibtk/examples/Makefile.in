@@ -506,6 +506,20 @@ IBTK3d_LIBS = ${top_builddir}/lib/libIBTK3d.a
 pkg_includedir = $(includedir)/@PACKAGE@
 SUFFIXES = .f.m4
 SUBDIRS = CCLaplace CCPoisson PETScOps PhysBdryOps SCLaplace SCPoisson VCLaplace VCViscousSolver
+COMPLETE_EXAMPLES = CCLaplace CCPoisson PETScOps PhysBdryOps SCLaplace SCPoisson \
+                    VCLaplace VCViscousSolver
+
+
+# gtest-PhysBdryOps is currently disabled
+GTESTS = gtest-CCLaplace gtest-CCPoisson gtest-PETScOps gtest-SCLaplace \
+         gtest-SCPoisson gtest-VCLaplace gtest-VCViscousSolver
+
+
+# gtest-long-PhysBdryOps is currently disabled
+GTESTS_LONG = gtest-long-CCLaplace gtest-long-CCPoisson gtest-long-PETScOps \
+              gtest-long-SCLaplace gtest-long-SCPoisson gtest-long-VCLaplace \
+              gtest-long-VCViscousSolver
+
 all: all-recursive
 
 .SUFFIXES:
@@ -831,42 +845,25 @@ all:
 	  $(MAKE) examples ; \
 	fi ;
 
-examples:
-	@(cd CCLaplace   && $(MAKE) $(AM_MAKEFLAGS) $@) || exit 1;
-	@(cd CCPoisson   && $(MAKE) $(AM_MAKEFLAGS) $@) || exit 1;
-	@(cd PETScOps    && $(MAKE) $(AM_MAKEFLAGS) $@) || exit 1;
-	@(cd PhysBdryOps && $(MAKE) $(AM_MAKEFLAGS) $@) || exit 1;
-	@(cd SCLaplace   && $(MAKE) $(AM_MAKEFLAGS) $@) || exit 1;
-	@(cd SCPoisson   && $(MAKE) $(AM_MAKEFLAGS) $@) || exit 1;
-	@(cd VCLaplace   && $(MAKE) $(AM_MAKEFLAGS) $@) || exit 1;
-	@(cd VCViscousSolver   && $(MAKE) $(AM_MAKEFLAGS) $@) || exit 1;
+examples: $(COMPLETE_EXAMPLES)
+.PHONY: examples $(COMPLETE_EXAMPLES)
 
-gtest:
-	@(cd CCLaplace   && make gtest) || exit 1;
-	@(cd CCPoisson   && make gtest) || exit 1;
-	@(cd PETScOps    && make gtest) || exit 1;
-	@(cd SCLaplace   && make gtest) || exit 1;
-	@(cd SCPoisson   && make gtest) || exit 1;
-	@(cd VCLaplace   && make gtest) || exit 1;
-	@(cd VCViscousSolver   && make gtest) || exit 1;
+$(COMPLETE_EXAMPLES):
+	cd $@ && $(MAKE) $(AM_MAKEFLAGS) examples
+gtest: $(GTESTS)
 
-gtest-long:
-	@(cd CCLaplace   && make gtest) || exit 1;
-	@(cd CCPoisson   && make gtest) || exit 1;
-	@(cd PETScOps    && make gtest) || exit 1;
-	@(cd SCLaplace   && make gtest-long) || exit 1;
-	@(cd SCPoisson   && make gtest-long) || exit 1;
-	@(cd VCLaplace   && make gtest-long) || exit 1;
-	@(cd VCViscousSolver   && make gtest-long) || exit 1;
+$(GTESTS):
+	$(eval DIRECTORY := $(subst gtest-,,$@))
+	cd $(DIRECTORY) && $(MAKE) $(AM_MAKEFLAGS) gtest
 
-gtest-all:
-	@(cd CCLaplace   && make gtest-long) || exit 1;
-	@(cd CCPoisson   && make gtest-long) || exit 1;
-	@(cd PETScOps    && make gtest-long) || exit 1;
-	@(cd SCLaplace   && make gtest-long) || exit 1;
-	@(cd SCPoisson   && make gtest-long) || exit 1;
-	@(cd VCLaplace   && make gtest-long) || exit 1;
-	@(cd VCViscousSolver   && make gtest-long) || exit 1;
+gtest-long: $(GTESTS_LONG)
+
+$(GTESTS_LONG):
+	$(eval DIRECTORY := $(subst gtest-long-,,$@))
+	cd $(DIRECTORY) && $(MAKE) $(AM_MAKEFLAGS) gtest-long
+
+gtest-all: gtest-long
+.PHONY: gtest gtest-long gtest-all $(GTESTS) $(GTESTS_LONG)
 
 # Tell versions [3.59,3.63) of GNU make to not export all variables.
 # Otherwise a system limit (for SysV at least) may be exceeded.

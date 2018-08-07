@@ -7,11 +7,12 @@ all:
 	  $(MAKE) examples ; \
 	fi ;
 
-COMPLETE_EXAMPLES = IB IBFE adv_diff advect navier_stokes ConstraintIB CIB level_set multiphase_flow vc_navier_stokes
+COMPLETE_EXAMPLES = IB IBFE adv_diff advect navier_stokes ConstraintIB CIB \
+                    level_set multiphase_flow vc_navier_stokes
 # Not all examples can be compiled at the present time
 INCOMPLETE_EXAMPLES = IMP CIBFE
-.PHONY: examples $(COMPLETE_EXAMPLES)
 examples: $(COMPLETE_EXAMPLES)
+.PHONY: examples $(COMPLETE_EXAMPLES)
 
 $(COMPLETE_EXAMPLES):
 	cd $@ && $(MAKE) $(AM_MAKEFLAGS) examples

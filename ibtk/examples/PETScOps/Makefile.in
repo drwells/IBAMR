@@ -505,7 +505,7 @@ IBTK2d_LIBS = ${top_builddir}/lib/libIBTK2d.a
 IBTK3d_LIBS = ${top_builddir}/lib/libIBTK3d.a
 pkg_includedir = $(includedir)/@PACKAGE@
 SUFFIXES = .f.m4
-SUBDIRS = ProlongationMat 
+SUBDIRS = ProlongationMat
 all: all-recursive
 
 .SUFFIXES:
@@ -832,10 +832,11 @@ all:
 	fi ;
 
 gtest:
-	@(cd ProlongationMat && make gtest) || exit 1;
+	cd ProlongationMat && $(MAKE) $(AM_MAKEFLAGS) gtest
 
 gtest-long:
-	@(cd ProlongationMat && make gtest-long) || exit 1;
+	cd ProlongationMat && $(MAKE) $(AM_MAKEFLAGS) gtest-long
+.PHONY: gtest gtest-long
 
 examples:
 	@(cd ProlongationMat && $(MAKE) $(AM_MAKEFLAGS) $@) || exit 1;
