@@ -535,6 +535,8 @@ EXTRA_DIST = $(top_srcdir)/COPYRIGHT $(top_srcdir)/autogen.sh \
 	$(top_srcdir)/doc/mainpage.dox \
 	$(top_srcdir)/doc/online_Doxyfile.in \
 	$(top_srcdir)/doc/samrai.tag $(top_srcdir)/doc/stylesheet.css
+GTESTS = gtest-examples gtest-ibtk
+GTESTS_LONG = gtest-long-examples gtest-long-ibtk
 all: all-recursive
 
 .SUFFIXES:
@@ -1041,26 +1043,28 @@ install-exec-local:
 refresh_tags:
 	cd ibtk && $(MAKE) refresh_tags
 	cd $(top_srcdir) && find . -name "*.[ChIf]" -print | etags -
+@GTEST_ENABLED_TRUE@gtest: $(GTESTS)
 
-@GTEST_ENABLED_TRUE@gtest:
-@GTEST_ENABLED_TRUE@	@(cd examples && make gtest) || exit 1;
-@GTEST_ENABLED_TRUE@	@(cd ibtk     && make gtest) || exit 1;
+@GTEST_ENABLED_TRUE@$(GTESTS):
+@GTEST_ENABLED_TRUE@	$(eval DIRECTORY := $(subst gtest-,,$@))
+@GTEST_ENABLED_TRUE@	cd $(DIRECTORY) && $(MAKE) $(AM_MAKEFLAGS) gtest
 
-@GTEST_ENABLED_TRUE@gtest-long:
-@GTEST_ENABLED_TRUE@	@(cd examples && make gtest-long) || exit 1;
-@GTEST_ENABLED_TRUE@	@(cd ibtk     && make gtest-long) || exit 1;
+@GTEST_ENABLED_TRUE@gtest-long: $(GTESTS_LONG)
 
-@GTEST_ENABLED_TRUE@gtest-all:
-@GTEST_ENABLED_TRUE@	@(cd examples && make gtest-all) || exit 1;
-@GTEST_ENABLED_TRUE@	@(cd ibtk     && make gtest-all) || exit 1;
+@GTEST_ENABLED_TRUE@$(GTESTS_LONG):
+@GTEST_ENABLED_TRUE@	$(eval DIRECTORY := $(subst gtest-long-,,$@))
+@GTEST_ENABLED_TRUE@	cd $(DIRECTORY) && $(MAKE) $(AM_MAKEFLAGS) gtest-long
+
+@GTEST_ENABLED_TRUE@gtest-all: gtest-long
 @GTEST_ENABLED_FALSE@gtest:
 @GTEST_ENABLED_FALSE@	@echo "+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++"
 @GTEST_ENABLED_FALSE@	@echo " To run tests, Google Test Framework must be enabled.                "
 @GTEST_ENABLED_FALSE@	@echo " Configure IBAMR with additional options:                            "
 @GTEST_ENABLED_FALSE@	@echo "                      --enable-gtest --with-gtest=path               "
 @GTEST_ENABLED_FALSE@	@echo "+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++"
-@GTEST_ENABLED_FALSE@gtest-long:
-@GTEST_ENABLED_FALSE@	make gtest
+@GTEST_ENABLED_FALSE@gtest-long: gtest
+@GTEST_ENABLED_FALSE@gtest-all: gtest
+.PHONY: gtest gtest-long gtest-all $(GTESTS) $(GTESTS_LONG)
 
 # Tell versions [3.59,3.63) of GNU make to not export all variables.
 # Otherwise a system limit (for SysV at least) may be exceeded.

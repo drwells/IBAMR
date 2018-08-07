@@ -502,6 +502,19 @@ SUBDIRS = IB IBFE IMP adv_diff advect navier_stokes ConstraintIB CIB CIBFE level
 COMPLETE_EXAMPLES = IB IBFE adv_diff advect navier_stokes ConstraintIB CIB level_set multiphase_flow vc_navier_stokes
 # Not all examples can be compiled at the present time
 INCOMPLETE_EXAMPLES = IMP CIBFE
+
+# gtest-IMP and gtest-CIBFE are currently disabled
+GTESTS = gtest-IB gtest-IBFE gtest-adv_diff gtest-advect gtest-navier_stokes \
+         gtest-ConstraintIB gtest-CIB gtest-level_set gtest-multiphase_flow \
+         gtest-vc_navier_stokes
+
+
+# gtest-long-IMP and gtest-long-CIBFE are currently disabled
+GTESTS_LONG = gtest-long-IB gtest-long-IBFE gtest-long-adv_diff \
+              gtest-long-advect gtest-long-navier_stokes gtest-long-ConstraintIB \
+              gtest-long-CIB gtest-long-level_set gtest-long-multiphase_flow \
+              gtest-long-vc_navier_stokes
+
 all: all-recursive
 
 .SUFFIXES:
@@ -832,50 +845,28 @@ examples: $(COMPLETE_EXAMPLES)
 $(COMPLETE_EXAMPLES):
 	cd $@ && $(MAKE) $(AM_MAKEFLAGS) examples
 
-@GTEST_ENABLED_TRUE@gtest:
-@GTEST_ENABLED_TRUE@	@(cd IB               && make gtest) || exit 1;
-@GTEST_ENABLED_TRUE@	@(cd IBFE             && make gtest) || exit 1;
-@GTEST_ENABLED_TRUE@	@(cd adv_diff         && make gtest) || exit 1;
-@GTEST_ENABLED_TRUE@	@(cd advect           && make gtest) || exit 1;
-@GTEST_ENABLED_TRUE@	@(cd navier_stokes    && make gtest) || exit 1;
-@GTEST_ENABLED_TRUE@	@(cd ConstraintIB     && make gtest) || exit 1;
-@GTEST_ENABLED_TRUE@	@(cd CIB              && make gtest) || exit 1;
-@GTEST_ENABLED_TRUE@	@(cd level_set        && make gtest) || exit 1;
-@GTEST_ENABLED_TRUE@	@(cd multiphase_flow  && make gtest) || exit 1;
-@GTEST_ENABLED_TRUE@	@(cd vc_navier_stokes && make gtest) || exit 1;
+@GTEST_ENABLED_TRUE@gtest: $(GTESTS)
 
-@GTEST_ENABLED_TRUE@gtest-long:
-@GTEST_ENABLED_TRUE@	@(cd IB               && make gtest-long) || exit 1;
-@GTEST_ENABLED_TRUE@	@(cd IBFE             && make gtest-long) || exit 1;
-@GTEST_ENABLED_TRUE@	@(cd adv_diff         && make gtest-long) || exit 1;
-@GTEST_ENABLED_TRUE@	@(cd advect           && make gtest-long) || exit 1;
-@GTEST_ENABLED_TRUE@	@(cd navier_stokes    && make gtest-long) || exit 1;
-@GTEST_ENABLED_TRUE@	@(cd ConstraintIB     && make gtest-long) || exit 1;
-@GTEST_ENABLED_TRUE@	@(cd CIB              && make gtest-long) || exit 1;
-@GTEST_ENABLED_TRUE@	@(cd level_set        && make gtest-long) || exit 1;
-@GTEST_ENABLED_TRUE@	@(cd multiphase_flow  && make gtest-long) || exit 1;
-@GTEST_ENABLED_TRUE@	@(cd vc_navier_stokes && make gtest-long) || exit 1;
+@GTEST_ENABLED_TRUE@$(GTESTS):
+@GTEST_ENABLED_TRUE@	$(eval DIRECTORY := $(subst gtest-,,$@))
+@GTEST_ENABLED_TRUE@	cd $(DIRECTORY) && $(MAKE) $(AM_MAKEFLAGS) gtest
 
-@GTEST_ENABLED_TRUE@gtest-all:
-@GTEST_ENABLED_TRUE@	@(cd IB               && make gtest-all) || exit 1;
-@GTEST_ENABLED_TRUE@	@(cd IBFE             && make gtest-all) || exit 1;
-@GTEST_ENABLED_TRUE@	@(cd adv_diff         && make gtest-all) || exit 1;
-@GTEST_ENABLED_TRUE@	@(cd advect           && make gtest-all) || exit 1;
-@GTEST_ENABLED_TRUE@	@(cd navier_stokes    && make gtest-all) || exit 1;
-@GTEST_ENABLED_TRUE@	@(cd ConstraintIB     && make gtest-all) || exit 1;
-@GTEST_ENABLED_TRUE@	@(cd CIB              && make gtest-all) || exit 1;
-@GTEST_ENABLED_TRUE@	@(cd level_set        && make gtest-all) || exit 1;
-@GTEST_ENABLED_TRUE@	@(cd multiphase_flow  && make gtest-all) || exit 1;
-@GTEST_ENABLED_TRUE@	@(cd vc_navier_stokes && make gtest-all) || exit 1;
+@GTEST_ENABLED_TRUE@gtest-long: $(GTESTS_LONG)
 
+@GTEST_ENABLED_TRUE@$(GTESTS_LONG):
+@GTEST_ENABLED_TRUE@	$(eval DIRECTORY := $(subst gtest-long-,,$@))
+@GTEST_ENABLED_TRUE@	cd $(DIRECTORY) && $(MAKE) $(AM_MAKEFLAGS) gtest-long
+
+@GTEST_ENABLED_TRUE@gtest-all: gtest-long
 @GTEST_ENABLED_FALSE@gtest:
 @GTEST_ENABLED_FALSE@	@echo "+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++"
 @GTEST_ENABLED_FALSE@	@echo " To run tests, Google Test Framework must be enabled.                "
 @GTEST_ENABLED_FALSE@	@echo " Configure IBAMR with additional options:                            "
 @GTEST_ENABLED_FALSE@	@echo "                      --enable-gtest --with-gtest=path               "
 @GTEST_ENABLED_FALSE@	@echo "+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++"
-@GTEST_ENABLED_FALSE@gtest-long:
-@GTEST_ENABLED_FALSE@	make gtest
+@GTEST_ENABLED_FALSE@gtest-long: gtest
+@GTEST_ENABLED_FALSE@gtest-all: gtest
+.PHONY: gtest gtest-long gtest-all $(GTESTS) $(GTESTS_LONG)
 
 # Tell versions [3.59,3.63) of GNU make to not export all variables.
 # Otherwise a system limit (for SysV at least) may be exceeded.

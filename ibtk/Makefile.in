@@ -1036,13 +1036,12 @@ examples: lib
 	@(cd examples && $(MAKE) $(AM_MAKEFLAGS) $@) || exit 1;
 
 @GTEST_ENABLED_TRUE@gtest:
-@GTEST_ENABLED_TRUE@	@(cd examples && make gtest) || exit 1;
+@GTEST_ENABLED_TRUE@	cd examples && $(MAKE) $(AM_MAKEFLAGS) gtest
 
 @GTEST_ENABLED_TRUE@gtest-long:
-@GTEST_ENABLED_TRUE@	@(cd examples && make gtest-long) || exit 1;
+@GTEST_ENABLED_TRUE@	cd examples && $(MAKE) $(AM_MAKEFLAGS) gtest-long
 
-@GTEST_ENABLED_TRUE@gtest-all:
-@GTEST_ENABLED_TRUE@	@(cd examples && make gtest-all) || exit 1;
+@GTEST_ENABLED_TRUE@gtest-all: gtest-long
 
 @GTEST_ENABLED_FALSE@gtest:
 @GTEST_ENABLED_FALSE@	@echo "+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++"
@@ -1050,8 +1049,9 @@ examples: lib
 @GTEST_ENABLED_FALSE@	@echo " Configure IBAMR with additional options:                            "
 @GTEST_ENABLED_FALSE@	@echo "                      --enable-gtest --with-gtest=path               "
 @GTEST_ENABLED_FALSE@	@echo "+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++"
-@GTEST_ENABLED_FALSE@gtest-long:
-@GTEST_ENABLED_FALSE@	make gtest
+@GTEST_ENABLED_FALSE@gtest-long: gtest
+@GTEST_ENABLED_FALSE@gtest-all: gtest
+.PHONY: gtest gtest-long gtest-all
 
 install-exec-local:
 	@echo "===================================================================="

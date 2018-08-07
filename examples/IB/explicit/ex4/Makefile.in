@@ -861,8 +861,7 @@ examples: $(EXAMPLES)
 @GTEST_ENABLED_TRUE@	  cp -f $(srcdir)/curve3d_64.{vertex,rod,director} $(PWD) ; \
 @GTEST_ENABLED_TRUE@	  fi ;
 
-@GTEST_ENABLED_TRUE@gtest-long:
-@GTEST_ENABLED_TRUE@	make gtest
+@GTEST_ENABLED_TRUE@gtest-long: gtest
 @GTEST_ENABLED_TRUE@	./test3d input3d.test
 
 @GTEST_ENABLED_FALSE@gtest:
@@ -871,8 +870,8 @@ examples: $(EXAMPLES)
 @GTEST_ENABLED_FALSE@	@echo " Configure IBAMR with additional options:                            "
 @GTEST_ENABLED_FALSE@	@echo "                      --enable-gtest --with-gtest=path               "
 @GTEST_ENABLED_FALSE@	@echo "+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++"
-@GTEST_ENABLED_FALSE@gtest-long:
-@GTEST_ENABLED_FALSE@	make gtest
+@GTEST_ENABLED_FALSE@gtest-long: gtest
+.PHONY: gtest gtest-long
 
 clean-local:
 	rm -f $(EXTRA_PROGRAMS)
