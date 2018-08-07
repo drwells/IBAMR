@@ -49,7 +49,7 @@ gtest: $(GTESTS)
 	  cp -f $(srcdir)/cylinder2d_3h.elem $(PWD) ; \
 	  cp -f $(srcdir)/cylinder2d_3h.ghost $(PWD) ; \
 	fi ;
-	./test2d input2d.test
+# ./test2d input2d.test # currently disabled: consumes an unbounded amount of memory
 
 gtest-long: gtest
 
