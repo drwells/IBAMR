@@ -42,7 +42,7 @@ gtest: $(GTESTS)
 	fi ;
 
 gtest-long: gtest
-	./test2d input2d.test
+
 else
 gtest:
 	@echo "+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++"

@@ -862,7 +862,7 @@ examples: $(EXAMPLES)
 @GTEST_ENABLED_TRUE@	fi ;
 
 @GTEST_ENABLED_TRUE@gtest-long: gtest
-@GTEST_ENABLED_TRUE@	./test2d input2d.test
+
 @GTEST_ENABLED_FALSE@gtest:
 @GTEST_ENABLED_FALSE@	@echo "+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++"
 @GTEST_ENABLED_FALSE@	@echo " To run tests, Google Test Framework must be enabled.                "
