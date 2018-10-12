@@ -1145,7 +1145,6 @@ examples: $(EXAMPLES)
 @GTEST_ENABLED_TRUE@	if test "$(top_srcdir)" != "$(top_builddir)" ; then \
 @GTEST_ENABLED_TRUE@	  cp -f $(srcdir)/input2d.test $(PWD) ; \
 @GTEST_ENABLED_TRUE@	fi ;
-@GTEST_ENABLED_TRUE@	./test2d input2d.test
 
 @GTEST_ENABLED_TRUE@gtest-long: gtest
 
