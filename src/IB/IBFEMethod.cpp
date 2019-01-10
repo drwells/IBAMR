@@ -1646,6 +1646,13 @@ IBFEMethod::registerLoadBalancer(Pointer<LoadBalancer<NDIM> > load_balancer, int
 void
 IBFEMethod::updateWorkloadEstimates(Pointer<PatchHierarchy<NDIM> > /*hierarchy*/, int /*workload_data_idx*/)
 {
+    // Since there may be multiple parts, and the parts know nothing about
+    // each-other, we have to set up the default workload value here and then
+    // add into it on each part. All Eulerian cells are assumed to have an
+    // equal workload of 1.0.
+    HierarchyCellDataOpsReal<NDIM, double> hier_cc_data_ops(d_hierarchy);
+    hier_cc_data_ops.setToScalar(d_workload_idx, 1.0, /*interior_only*/ false);
+
     for (unsigned int part = 0; part < d_num_parts; ++part)
     {
         d_fe_data_managers[part]->updateWorkloadEstimates();

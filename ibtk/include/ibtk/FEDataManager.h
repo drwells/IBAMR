@@ -589,7 +589,15 @@ public:
                                            double dx_min);
 
     /*!
-     * \brief Update the cell workload estimate.
+     * \brief Update the cell workload estimate by adding a value (see the
+     * main documentation of this class for information on how this is
+     * computed) to the <code>d_workload_idx</code> cell variable.
+     *
+     * @note Since there may be multiple FEDataManager objects associated with
+     * one IBFEMethod, this call does not reset any data (since doing so would
+     * ignore contributions from other meshes): it just adds the workload
+     * estimates into whatever values are currently stored in the
+     * <code>d_workload_idx</code> variable.
      */
     void updateWorkloadEstimates(int coarsest_ln = -1, int finest_ln = -1);
 

@@ -2417,7 +2417,7 @@ FEDataManager::updateQuadPointCountData(const int coarsest_ln, const int finest_
         const Pointer<CartesianGridGeometry<NDIM> > grid_geom = level->getGridGeometry();
         if (!level->checkAllocated(d_qp_count_idx)) level->allocatePatchData(d_qp_count_idx);
         HierarchyCellDataOpsReal<NDIM, double> hier_cc_data_ops(d_hierarchy, ln, ln);
-        hier_cc_data_ops.setToScalar(d_qp_count_idx, 0.0);
+        hier_cc_data_ops.setToScalar(d_qp_count_idx, 0.0, /*interior_only*/ false);
         if (ln != d_level_number) continue;
 
         // Extract the mesh.
