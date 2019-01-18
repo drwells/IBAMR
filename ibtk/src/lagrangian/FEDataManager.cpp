@@ -2410,6 +2410,7 @@ FEDataManager::updateQuadPointCountData(const int coarsest_ln, const int finest_
 {
     // Set the node count data on the specified range of levels of the
     // hierarchy.
+    unsigned long n_local_q_points = 0;
     for (int ln = coarsest_ln; ln <= finest_ln; ++ln)
     {
         Pointer<PatchLevel<NDIM> > level = d_hierarchy->getPatchLevel(ln);
@@ -2490,7 +2491,35 @@ FEDataManager::updateQuadPointCountData(const int coarsest_ln, const int finest_
                 {
                     interpolate(&X_qp[0], qp, X_node, phi);
                     const Index<NDIM> i = IndexUtilities::getCellIndex(X_qp, grid_geom, ratio);
-                    if (patch_box.contains(i)) (*qp_count_data)(i) += 2.0;
+                    if (patch_box.contains(i))
+                    {
+                        (*qp_count_data)(i) += 2.0;
+                        ++n_local_q_points;
+                    }
+                }
+            }
+        }
+
+        {
+            const int n_processes = SAMRAI::tbox::SAMRAI_MPI::getNodes();
+            const int current_rank = SAMRAI::tbox::SAMRAI_MPI::getRank();
+
+            std::vector<unsigned long> n_q_points_on_processors(n_processes);
+            n_q_points_on_processors[current_rank] = n_local_q_points;
+
+            int ierr = MPI_Allreduce(
+                MPI_IN_PLACE, n_q_points_on_processors.data(),
+                n_q_points_on_processors.size(), MPI_UNSIGNED_LONG,
+                MPI_SUM, SAMRAI::tbox::SAMRAI_MPI::commWorld);
+            TBOX_ASSERT(ierr == 0);
+            if (current_rank == 0)
+            {
+                for (int rank = 0; rank < n_processes; ++rank)
+                {
+                    SAMRAI::tbox::plog << "quadrature points on processor "
+                                       << rank << std::setw(4)
+                                       << " = "
+                                       << n_q_points_on_processors[rank] << '\n';
                 }
             }
         }

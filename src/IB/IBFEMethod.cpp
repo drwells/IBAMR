@@ -1644,19 +1644,42 @@ IBFEMethod::registerLoadBalancer(Pointer<LoadBalancer<NDIM> > load_balancer, int
 } // registerLoadBalancer
 
 void
-IBFEMethod::updateWorkloadEstimates(Pointer<PatchHierarchy<NDIM> > /*hierarchy*/, int /*workload_data_idx*/)
+IBFEMethod::updateWorkloadEstimates(Pointer<PatchHierarchy<NDIM> > hierarchy, int /*workload_data_idx*/)
 {
     // Since there may be multiple parts, and the parts know nothing about
     // each-other, we have to set up the default workload value here and then
     // add into it on each part. All Eulerian cells are assumed to have an
     // equal workload of 1.0.
-    HierarchyCellDataOpsReal<NDIM, double> hier_cc_data_ops(d_hierarchy);
+    HierarchyCellDataOpsReal<NDIM, double> hier_cc_data_ops(hierarchy);
     hier_cc_data_ops.setToScalar(d_workload_idx, 1.0, /*interior_only*/ false);
 
     for (unsigned int part = 0; part < d_num_parts; ++part)
     {
         d_fe_data_managers[part]->updateWorkloadEstimates();
     }
+
+    const int n_processes = SAMRAI::tbox::SAMRAI_MPI::getNodes();
+    const int current_rank = SAMRAI::tbox::SAMRAI_MPI::getRank();
+
+    std::vector<double> workload_per_processor(n_processes);
+    workload_per_processor[current_rank] = hier_cc_data_ops.L1Norm(d_workload_idx, -1, true);
+
+    int ierr = MPI_Allreduce(
+        MPI_IN_PLACE, workload_per_processor.data(),
+        workload_per_processor.size(), MPI_DOUBLE,
+        MPI_SUM, SAMRAI::tbox::SAMRAI_MPI::commWorld);
+    TBOX_ASSERT(ierr == 0);
+    if (current_rank == 0)
+    {
+        for (int rank = 0; rank < n_processes; ++rank)
+        {
+            SAMRAI::tbox::plog << "workload estimate on processor "
+                               << rank << std::setw(4)
+                               << " = "
+                               << long(workload_per_processor[rank]) << '\n';
+        }
+    }
+
     return;
 } // updateWorkloadEstimates
 
@@ -1693,6 +1716,13 @@ void IBFEMethod::endDataRedistribution(Pointer<PatchHierarchy<NDIM> > hierarchy,
             d_fe_data_managers[part]->reinitElementMappings();
         }
     }
+
+    // for debugging: print workload estimates here
+    const int current_rank = SAMRAI::tbox::SAMRAI_MPI::getRank();
+    if (current_rank == 0)
+        SAMRAI::tbox::plog << "Regridding finished. Updating workload estimates.\n";
+    updateWorkloadEstimates(hierarchy, d_workload_idx);
+
     return;
 } // endDataRedistribution
 
