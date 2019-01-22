@@ -43,6 +43,8 @@
 #include <utility>
 #include <vector>
 
+#include <unistd.h>
+
 #include "BasePatchHierarchy.h"
 #include "BasePatchLevel.h"
 #include "Box.h"
@@ -1661,10 +1663,20 @@ IBFEMethod::updateWorkloadEstimates(Pointer<PatchHierarchy<NDIM> > hierarchy, in
     const int n_processes = SAMRAI::tbox::SAMRAI_MPI::getNodes();
     const int current_rank = SAMRAI::tbox::SAMRAI_MPI::getRank();
 
+    std::vector<int> pids(n_processes);
+    pids[current_rank] = getpid();
+    int ierr = MPI_Allreduce(
+        MPI_IN_PLACE, pids.data(),
+        pids.size(), MPI_INT,
+        MPI_SUM, SAMRAI::tbox::SAMRAI_MPI::commWorld);
+    TBOX_ASSERT(ierr == 0);
+
     std::vector<double> workload_per_processor(n_processes);
     workload_per_processor[current_rank] = hier_cc_data_ops.L1Norm(d_workload_idx, -1, true);
 
-    int ierr = MPI_Allreduce(
+    const auto right_padding = std::size_t(std::log10(n_processes)) + 1;
+
+    ierr = MPI_Allreduce(
         MPI_IN_PLACE, workload_per_processor.data(),
         workload_per_processor.size(), MPI_DOUBLE,
         MPI_SUM, SAMRAI::tbox::SAMRAI_MPI::commWorld);
@@ -1674,11 +1686,42 @@ IBFEMethod::updateWorkloadEstimates(Pointer<PatchHierarchy<NDIM> > hierarchy, in
         for (int rank = 0; rank < n_processes; ++rank)
         {
             SAMRAI::tbox::plog << "workload estimate on processor "
-                               << rank << std::setw(4)
+                               << std::setw(right_padding) << std::left << rank
                                << " = "
-                               << long(workload_per_processor[rank]) << '\n';
+                               << long(workload_per_processor[rank])
+                               << " (pid is " << pids[rank] << ")\n";
+
         }
     }
+
+    std::vector<std::size_t> dofs_per_processor(n_processes);
+    for (unsigned int part = 0; part < d_num_parts; ++part)
+    {
+        auto &equation_systems = *d_fe_data_managers[part]->getEquationSystems();
+        for (unsigned int system_n = 0; system_n < equation_systems.n_systems(); ++system_n)
+        {
+            dofs_per_processor[current_rank] += equation_systems.get_system(system_n).n_local_dofs();
+        }
+    }
+
+    ierr = MPI_Allreduce(
+        MPI_IN_PLACE, dofs_per_processor.data(),
+        dofs_per_processor.size(), MPI_UNSIGNED_LONG,
+        MPI_SUM, SAMRAI::tbox::SAMRAI_MPI::commWorld);
+    TBOX_ASSERT(ierr == 0);
+    if (current_rank == 0)
+    {
+        for (int rank = 0; rank < n_processes; ++rank)
+        {
+            SAMRAI::tbox::plog << "local active DoFs on processor "
+                               << std::setw(right_padding) << std::left << rank
+                               << " = "
+                               << dofs_per_processor[rank]
+                               << " (pid is " << pids[rank] << ")\n";
+        }
+    }
+
+
 
     return;
 } // updateWorkloadEstimates

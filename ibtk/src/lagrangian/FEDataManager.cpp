@@ -45,6 +45,8 @@
 #include <utility>
 #include <vector>
 
+#include <unistd.h>
+
 #include "BasePatchHierarchy.h"
 #include "BasePatchLevel.h"
 #include "Box.h"
@@ -2503,11 +2505,21 @@ FEDataManager::updateQuadPointCountData(const int coarsest_ln, const int finest_
         {
             const int n_processes = SAMRAI::tbox::SAMRAI_MPI::getNodes();
             const int current_rank = SAMRAI::tbox::SAMRAI_MPI::getRank();
+            const auto right_padding = std::size_t(std::log10(n_processes)) + 1;
+
+
+            std::vector<int> pids(n_processes);
+            pids[current_rank] = getpid();
+            int ierr = MPI_Allreduce(
+                MPI_IN_PLACE, pids.data(),
+                pids.size(), MPI_INT,
+                MPI_SUM, SAMRAI::tbox::SAMRAI_MPI::commWorld);
+            TBOX_ASSERT(ierr == 0);
 
             std::vector<unsigned long> n_q_points_on_processors(n_processes);
             n_q_points_on_processors[current_rank] = n_local_q_points;
 
-            int ierr = MPI_Allreduce(
+            ierr = MPI_Allreduce(
                 MPI_IN_PLACE, n_q_points_on_processors.data(),
                 n_q_points_on_processors.size(), MPI_UNSIGNED_LONG,
                 MPI_SUM, SAMRAI::tbox::SAMRAI_MPI::commWorld);
@@ -2517,9 +2529,10 @@ FEDataManager::updateQuadPointCountData(const int coarsest_ln, const int finest_
                 for (int rank = 0; rank < n_processes; ++rank)
                 {
                     SAMRAI::tbox::plog << "quadrature points on processor "
-                                       << rank << std::setw(4)
+                                       << std::setw(right_padding) << std::left << rank
                                        << " = "
-                                       << n_q_points_on_processors[rank] << '\n';
+                                       << n_q_points_on_processors[rank]
+                                       << " (pid is " << pids[rank] << ")\n";
                 }
             }
         }
