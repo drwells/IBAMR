@@ -294,10 +294,13 @@ get_values_for_interpolation(MultiArray& U_node,
         typename MultiArray::extent_gen extents;
         U_node.resize(extents[n_nodes]);
     }
+    // Avoid some extra checks in libMesh::PetscVector by explicitly localizing:
+    U_petsc_vec.get_array_read();
     for (std::size_t k = 0; k < n_nodes; ++k)
     {
         U_node[k] = U_local_soln[U_petsc_vec.map_global_to_local_index(dof_indices[k])];
     }
+    U_petsc_vec.restore_array();
     return;
 } // get_values_for_interpolation
 
