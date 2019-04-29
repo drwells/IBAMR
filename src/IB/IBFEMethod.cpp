@@ -2943,6 +2943,16 @@ IBFEMethod::spreadTransmissionForceDensity(const int f_data_idx,
             fe.collectDataForInterpolation(elem);
             const boost::multi_array<double, 2>& X_node = fe.getElemData(elem, X_sys_idx);
 
+            // Use the length scale for the element to select the quadrature
+            // rule. This is a bit conservative but avoids constructing proxy
+            // elements and other complicated things.
+            const bool qrule_changed = d_fe_data_managers[part]->updateSpreadQuadratureRule(
+                qrule_face, d_spread_spec[part], elem, X_node, patch_dx_min);
+            if (qrule_changed)
+            {
+                fe.attachQuadratureRuleFace(qrule_face.get());
+            }
+
             // Loop over the element boundaries.
             for (unsigned short int side = 0; side < elem->n_sides(); ++side)
             {
@@ -2952,14 +2962,6 @@ IBFEMethod::spreadTransmissionForceDensity(const int f_data_idx,
                 // Skip Dirichlet boundaries.
                 if (is_dirichlet_bdry(elem, side, boundary_info, G_dof_map)) continue;
 
-                // Construct a side element.
-                std::unique_ptr<Elem> side_elem = elem->build_side_ptr(side, /*proxy*/ false);
-                const bool qrule_changed = d_fe_data_managers[part]->updateSpreadQuadratureRule(
-                    qrule_face, d_spread_spec[part], side_elem.get(), X_node, patch_dx_min);
-                if (qrule_changed)
-                {
-                    fe.attachQuadratureRuleFace(qrule_face.get());
-                }
                 fe.reinit(elem, side);
                 fe.interpolate(elem, side);
                 const unsigned int n_qp = qrule_face->n_points();
