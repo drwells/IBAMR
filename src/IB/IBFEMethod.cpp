@@ -356,7 +356,9 @@ IBFEMethod::IBFEMethod(const std::string& object_name,
                        bool register_for_restart,
                        const std::string& restart_read_dirname,
                        unsigned int restart_restore_number)
-    : FEMechanicsBase(object_name, input_db, mesh, register_for_restart, restart_read_dirname, restart_restore_number)
+    : FEMechanicsBase(object_name, input_db, mesh, register_for_restart, restart_read_dirname, restart_restore_number),
+      timer_output("ibfe-log-" + dealii::Utilities::to_string(SAMRAI_MPI::getRank(), 4) + ".txt"),
+      local_timer(MPI_COMM_SELF, timer_output, dealii::TimerOutput::summary, dealii::TimerOutput::cpu_and_wall_times)
 {
     commonConstructor(object_name,
                       input_db,
@@ -374,7 +376,9 @@ IBFEMethod::IBFEMethod(const std::string& object_name,
                        bool register_for_restart,
                        const std::string& restart_read_dirname,
                        unsigned int restart_restore_number)
-    : FEMechanicsBase(object_name, input_db, meshes, register_for_restart, restart_read_dirname, restart_restore_number)
+    : FEMechanicsBase(object_name, input_db, meshes, register_for_restart, restart_read_dirname, restart_restore_number),
+      timer_output("ibfe-log-" + dealii::Utilities::to_string(SAMRAI_MPI::getRank(), 4) + ".txt"),
+      local_timer(MPI_COMM_SELF, timer_output, dealii::TimerOutput::summary, dealii::TimerOutput::cpu_and_wall_times)
 {
     commonConstructor(object_name, input_db, meshes, max_level_number, restart_read_dirname, restart_restore_number);
     return;
@@ -507,6 +511,7 @@ IBFEMethod::getLagrangianStructureIsActivated(int structure_number, int /*level_
 void
 IBFEMethod::preprocessIntegrateData(double current_time, double new_time, int num_cycles)
 {
+    dealii::TimerOutput::Scope comm_scope(local_timer, "preprocess_integrate_data");
     FEMechanicsBase::preprocessIntegrateData(current_time, new_time, num_cycles);
 
     d_started_time_integration = true;
@@ -581,6 +586,7 @@ IBFEMethod::interpolateVelocity(const int u_data_idx,
 
     if (d_use_scratch_hierarchy)
     {
+        dealii::TimerOutput::Scope comm_scope(local_timer, "inter_hierarchy_movement");
         assertStructureOnFinestLevel();
         getPrimaryToScratchSchedule(
             d_hierarchy->getFinestLevelNumber(), u_data_idx, u_data_idx, d_ib_solver->getVelocityPhysBdryOp())
@@ -602,11 +608,15 @@ IBFEMethod::interpolateVelocity(const int u_data_idx,
     std::vector<PetscVector<double>*> U_rhs_vecs =
         d_use_ghosted_velocity_rhs ? d_U_IB_vecs->getIBGhosted("tmp") : d_U_vecs->get("RHS Vector");
     std::vector<PetscVector<double>*> X_IB_ghost_vecs = d_X_IB_vecs->getIBGhosted("tmp");
-    batch_vec_copy(X_vecs, X_IB_ghost_vecs);
-    batch_vec_ghost_update(X_IB_ghost_vecs, INSERT_VALUES, SCATTER_FORWARD);
+    {
+        dealii::TimerOutput::Scope local_ghost_reverse(local_timer, "batch_vec_ghost_update_X");
+        batch_vec_copy(X_vecs, X_IB_ghost_vecs);
+        batch_vec_ghost_update(X_IB_ghost_vecs, INSERT_VALUES, SCATTER_FORWARD);
+    }
 
     // Build the right-hand-sides to compute the interpolated data.
-    std::vector<Pointer<RefineSchedule<NDIM> > > no_fill(u_ghost_fill_scheds.size());
+    std::vector<Pointer<RefineSchedule<NDIM> > > no_fill(u_ghost_fill_scheds.size(), nullptr);
+    dealii::TimerOutput::Scope local_interp_weighted(local_timer, "interp_weighted_U");
     for (unsigned int part = 0; part < d_meshes.size(); ++part)
     {
         if (d_part_is_active[part])
@@ -621,6 +631,12 @@ IBFEMethod::interpolateVelocity(const int u_data_idx,
                                                             /*close_X*/ false);
         }
     }
+    local_interp_weighted.stop();
+
+    {
+        dealii::TimerOutput::Scope local_scope(local_timer, "post_interpweighted_barrier");
+        SAMRAI_MPI::barrier();
+    }
 
     // Note that FEDataManager only reads (and does not modify) Eulerian data
     // during interpolation so nothing needs to be transferred back to
@@ -628,15 +644,23 @@ IBFEMethod::interpolateVelocity(const int u_data_idx,
 
     if (d_use_ghosted_velocity_rhs)
     {
-        batch_vec_ghost_update(U_rhs_vecs, ADD_VALUES, SCATTER_REVERSE);
-        batch_vec_ghost_update(U_rhs_vecs, INSERT_VALUES, SCATTER_FORWARD);
+        {
+            dealii::TimerOutput::Scope local_ghost_reverse(local_timer, "batch_vec_ghost_update_U_reverse");
+            batch_vec_ghost_update(U_rhs_vecs, ADD_VALUES, SCATTER_REVERSE);
+        }
+        {
+            dealii::TimerOutput::Scope local_ghost_forward(local_timer, "batch_vec_ghost_update_U_forward");
+            batch_vec_ghost_update(U_rhs_vecs, INSERT_VALUES, SCATTER_FORWARD);
+        }
     }
     else
     {
+        dealii::TimerOutput::Scope local_ghost_update(local_timer, "batch_vec_U_assembly");
         batch_vec_assembly(U_rhs_vecs);
     }
 
     // Solve for the interpolated data.
+    dealii::TimerOutput::Scope local_l2_solve(local_timer, "compute_U_l2_projection");
     for (unsigned int part = 0; part < d_meshes.size(); ++part)
     {
         if (d_part_is_active[part])
@@ -656,6 +680,7 @@ IBFEMethod::interpolateVelocity(const int u_data_idx,
             U_vecs[part]->zero();
         }
     }
+    local_l2_solve.stop();
     return;
 } // interpolateVelocity
 
@@ -788,9 +813,11 @@ IBFEMethod::computeLagrangianForce(const double data_time)
     {
         if (d_stress_normalization_part[part])
         {
+            dealii::TimerOutput::Scope local_force_computation(local_timer, "stress_normalization");
             computeStressNormalization(
                 d_P_vecs->get(data_time_str, part), d_X_vecs->get(data_time_str, part), data_time, part);
         }
+        dealii::TimerOutput::Scope local_force_computation(local_timer, "interior_force_density");
         assembleInteriorForceDensityRHS(d_F_vecs->get("RHS Vector", part),
                                         d_X_vecs->get(data_time_str, part),
                                         d_P_vecs ? &d_P_vecs->get(data_time_str, part) : nullptr,
@@ -799,6 +826,7 @@ IBFEMethod::computeLagrangianForce(const double data_time)
     }
     batch_vec_ghost_update(d_F_vecs->get("RHS Vector"), ADD_VALUES, SCATTER_REVERSE);
     // RHS vectors don't need ghost entries for the solve so we can skip the other scatter
+    dealii::TimerOutput::Scope local_project_force(local_timer, "compute_force_l2_projection");
     for (unsigned part = 0; part < d_meshes.size(); ++part)
     {
         d_active_fe_data_managers[part]->computeL2Projection(d_F_vecs->get("solution", part),
@@ -833,11 +861,13 @@ IBFEMethod::spreadForce(const int f_data_idx,
     const std::string data_time_str = get_data_time_str(data_time, d_current_time, d_new_time);
 
     // Communicate ghost data.
+    dealii::TimerOutput::Scope local_batch(local_timer, "batch_copy_and_update");
     std::vector<PetscVector<double>*> X_IB_ghost_vecs = d_X_IB_vecs->getIBGhosted("tmp");
     std::vector<PetscVector<double>*> F_IB_ghost_vecs = d_F_IB_vecs->getIBGhosted("tmp");
     batch_vec_copy({ d_X_vecs->get(data_time_str), d_F_vecs->get(data_time_str) },
                    { X_IB_ghost_vecs, F_IB_ghost_vecs });
     batch_vec_ghost_update({ X_IB_ghost_vecs, F_IB_ghost_vecs }, INSERT_VALUES, SCATTER_FORWARD);
+    local_batch.stop();
 
     // set up a new data index for computing forces on the active hierarchy.
     Pointer<PatchHierarchy<NDIM> > hierarchy = d_use_scratch_hierarchy ? d_scratch_hierarchy : d_hierarchy;
@@ -852,6 +882,7 @@ IBFEMethod::spreadForce(const int f_data_idx,
                                    0.0,
                                    /*interior_only*/ false);
 
+    dealii::TimerOutput::Scope local_spread(local_timer, "spread_force");
     // Spread interior force density values.
     for (unsigned int part = 0; part < d_meshes.size(); ++part)
     {
@@ -895,8 +926,15 @@ IBFEMethod::spreadForce(const int f_data_idx,
             f_phys_bdry_op->accumulateFromPhysicalBoundaryData(*patch, data_time, f_data->getGhostCellWidth());
         }
     }
+    local_spread.stop();
 
     {
+        dealii::TimerOutput::Scope local_scope(local_timer, "post_spread_barrier");
+        SAMRAI_MPI::barrier();
+    }
+
+    {
+        dealii::TimerOutput::Scope local_scope(local_timer, "accumulate_forces");
         auto hierarchy = d_use_scratch_hierarchy ? d_scratch_hierarchy : d_hierarchy;
         if (!d_ghost_data_accumulator)
             d_ghost_data_accumulator.reset(new SAMRAIGhostDataAccumulator(
@@ -906,6 +944,7 @@ IBFEMethod::spreadForce(const int f_data_idx,
 
     if (d_use_scratch_hierarchy)
     {
+        dealii::TimerOutput::Scope comm_scope(local_timer, "inter_hierarchy_movement");
         // harder case: we have a scratch index on the scratch hierarchy but
         // no corresponding index on the primary hierarchy.
         //
@@ -921,6 +960,7 @@ IBFEMethod::spreadForce(const int f_data_idx,
 
         assertStructureOnFinestLevel();
         getScratchToPrimarySchedule(ln, f_primary_scratch_data_idx, f_scratch_data_idx).fillData(data_time);
+        comm_scope.stop(); // we have to add either way
         f_primary_data_ops->add(f_data_idx, f_data_idx, f_primary_scratch_data_idx);
     }
     else
@@ -1049,6 +1089,7 @@ IBFEMethod::spreadFluidSource(const int q_data_idx,
 
     if (d_use_scratch_hierarchy)
     {
+        dealii::TimerOutput::Scope comm_scope(local_timer, "inter_hierarchy_movement");
         assertStructureOnFinestLevel();
         getPrimaryToScratchSchedule(d_hierarchy->getFinestLevelNumber(), q_data_idx, q_data_idx).fillData(data_time);
     }
@@ -1069,6 +1110,7 @@ IBFEMethod::spreadFluidSource(const int q_data_idx,
 
     if (d_use_scratch_hierarchy)
     {
+        dealii::TimerOutput::Scope comm_scope(local_timer, "inter_hierarchy_movement");
         assertStructureOnFinestLevel();
         getScratchToPrimarySchedule(d_hierarchy->getFinestLevelNumber(), q_data_idx, q_data_idx).fillData(data_time);
     }
@@ -1515,6 +1557,95 @@ IBFEMethod::applyGradientDetector(Pointer<BasePatchHierarchy<NDIM> > base_hierar
                                     d_scratch_fe_data_managers[part];
         fe_data_manager->applyGradientDetector(
             hierarchy, level_number, error_data_time, tag_index, initial_time, uses_richardson_extrapolation_too);
+
+        const int n_processes = SAMRAI::tbox::SAMRAI_MPI::getNodes();
+        const int current_rank = SAMRAI::tbox::SAMRAI_MPI::getRank();
+
+        // Eulerian workload:
+        std::vector<double> workload_per_processor(n_processes);
+        HierarchyCellDataOpsReal<NDIM, double> hier_cc_data_ops(hierarchy);
+        workload_per_processor[current_rank] = hier_cc_data_ops.L1Norm(d_workload_idx, IBTK::invalid_index, true);
+        int ierr = MPI_Allreduce(MPI_IN_PLACE,
+                                 workload_per_processor.data(),
+                                 workload_per_processor.size(),
+                                 MPI_DOUBLE,
+                                 MPI_SUM,
+                                 SAMRAI::tbox::SAMRAI_MPI::commWorld);
+        TBOX_ASSERT(ierr == 0);
+
+        // number of patches:
+        std::vector<int> patches_per_processor(n_processes);
+        Pointer<PatchLevel<NDIM> > level = d_use_scratch_hierarchy ?
+            d_scratch_hierarchy->getPatchLevel(d_scratch_hierarchy->getFinestLevelNumber()) :
+            d_hierarchy->getPatchLevel(d_hierarchy->getFinestLevelNumber());
+        // PatchLevel::getNumberOfPatches is the global, not local, number
+        for (PatchLevel<NDIM>::Iterator p(level); p; p++)
+            ++patches_per_processor[current_rank];
+        ierr = MPI_Allreduce(MPI_IN_PLACE,
+                             patches_per_processor.data(),
+                             patches_per_processor.size(),
+                             MPI_INT,
+                             MPI_SUM,
+                             SAMRAI::tbox::SAMRAI_MPI::commWorld);
+        TBOX_ASSERT(ierr == 0);
+
+        // number of cells:
+        std::vector<int> cells_per_processor(n_processes);
+        for (PatchLevel<NDIM>::Iterator p(level); p; p++)
+            cells_per_processor[current_rank] += level->getPatch(p())->getBox().size();
+        ierr = MPI_Allreduce(MPI_IN_PLACE,
+                             cells_per_processor.data(),
+                             cells_per_processor.size(),
+                             MPI_INT,
+                             MPI_SUM,
+                             SAMRAI::tbox::SAMRAI_MPI::commWorld);
+        TBOX_ASSERT(ierr == 0);
+
+        const auto right_padding = std::size_t(std::log10(n_processes)) + 1;
+        if (current_rank == 0)
+        {
+            for (int rank = 0; rank < n_processes; ++rank)
+            {
+                SAMRAI::tbox::plog << "workload estimate on processor " << std::setw(right_padding) << std::left << rank
+                                   << " = " << long(workload_per_processor[rank]) << '\n';
+            }
+            for (int rank = 0; rank < n_processes; ++rank)
+            {
+                SAMRAI::tbox::plog << "number of patches on processor " << std::setw(right_padding) << std::left << rank
+                                   << " = " << long(patches_per_processor[rank]) << '\n';
+            }
+            for (int rank = 0; rank < n_processes; ++rank)
+            {
+                SAMRAI::tbox::plog << "number of cells on processor   " << std::setw(right_padding) << std::left << rank
+                                   << " = " << long(cells_per_processor[rank]) << '\n';
+            }
+        }
+
+        std::vector<std::size_t> dofs_per_processor(n_processes);
+        for (unsigned int part = 0; part < d_meshes.size(); ++part)
+        {
+            auto& equation_systems = *d_active_fe_data_managers[part]->getEquationSystems();
+            for (unsigned int system_n = 0; system_n < equation_systems.n_systems(); ++system_n)
+            {
+                dofs_per_processor[current_rank] += equation_systems.get_system(system_n).n_local_dofs();
+            }
+        }
+
+        ierr = MPI_Allreduce(MPI_IN_PLACE,
+                             dofs_per_processor.data(),
+                             dofs_per_processor.size(),
+                             MPI_UNSIGNED_LONG,
+                             MPI_SUM,
+                             SAMRAI::tbox::SAMRAI_MPI::commWorld);
+        TBOX_ASSERT(ierr == 0);
+        if (current_rank == 0)
+        {
+            for (int rank = 0; rank < n_processes; ++rank)
+            {
+                SAMRAI::tbox::plog << "local active DoFs on processor " << std::setw(right_padding) << std::left << rank
+                                   << " = " << dofs_per_processor[rank] << '\n';
+            }
+        }
     }
 
     d_do_log = old_d_do_log;

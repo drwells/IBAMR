@@ -20,6 +20,8 @@
 
 #include "tbox/Pointer.h"
 
+#include <deal.II/base/timer.h>
+
 #include <string>
 
 namespace IBAMR
@@ -107,6 +109,15 @@ public:
     initializeHierarchyIntegrator(SAMRAI::tbox::Pointer<SAMRAI::hier::PatchHierarchy<NDIM> > hierarchy,
                                   SAMRAI::tbox::Pointer<SAMRAI::mesh::GriddingAlgorithm<NDIM> > gridding_alg) override;
 
+    /*!
+     * Same as grandparent, but adds a timer.
+     */
+    virtual void regridHierarchy() override
+    {
+        dealii::TimerOutput::Scope local_scope(local_timer, "regrid_hierarchy");
+        HierarchyIntegrator::regridHierarchy();
+    }
+
 protected:
     /*!
      * Write out specialized object state to the given database.
@@ -146,6 +157,16 @@ private:
      * members.
      */
     void getFromRestart();
+
+    /*!
+     * Output of the timer object.
+     */
+    std::ofstream timer_output;
+
+    /*!
+     * Local (this MPI rank) timer.
+     */
+    dealii::TimerOutput local_timer;
 };
 } // namespace IBAMR
 

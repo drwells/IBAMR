@@ -45,6 +45,8 @@
 #include "libmesh/enum_quadrature_type.h"
 #include "libmesh/explicit_system.h"
 
+#include <deal.II/base/timer.h>
+
 #include <algorithm>
 #include <array>
 #include <limits>
@@ -1026,6 +1028,16 @@ private:
      * explicitly asserts that this condition is met.
      */
     void assertStructureOnFinestLevel() const;
+
+    /*!
+     * Output of the timer object.
+     */
+    std::ofstream timer_output;
+
+    /*!
+     * Local (this MPI rank) timer.
+     */
+    dealii::TimerOutput local_timer;
 };
 } // namespace IBAMR
 
