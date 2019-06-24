@@ -65,9 +65,9 @@
 #include "tbox/RestartManager.h"
 #include "tbox/SAMRAI_MPI.h"
 #include "tbox/Utilities.h"
+#include <deal.II/base/timer.h>
 
 #include <algorithm>
-#include <deque>
 #include <ostream>
 #include <string>
 
@@ -99,7 +99,10 @@ IBExplicitHierarchyIntegrator::IBExplicitHierarchyIntegrator(std::string object_
                                                              Pointer<IBStrategy> ib_method_ops,
                                                              Pointer<INSHierarchyIntegrator> ins_hier_integrator,
                                                              bool register_for_restart)
-    : IBHierarchyIntegrator(std::move(object_name), input_db, ib_method_ops, ins_hier_integrator, register_for_restart)
+    : IBHierarchyIntegrator(std::move(object_name), input_db, ib_method_ops, ins_hier_integrator, register_for_restart),
+      timer_output("ibintegrator-log-" + std::to_string(SAMRAI_MPI::getRank()) + ".txt"),
+      local_timer(MPI_COMM_SELF, timer_output, dealii::TimerOutput::summary,
+                  dealii::TimerOutput::cpu_and_wall_times)
 {
     // Set default configuration options.
     d_use_structure_predictor = true;
@@ -122,73 +125,96 @@ IBExplicitHierarchyIntegrator::preprocessIntegrateHierarchy(const double current
                                                             const double new_time,
                                                             const int num_cycles)
 {
-    IBHierarchyIntegrator::preprocessIntegrateHierarchy(current_time, new_time, num_cycles);
+    {
+        dealii::TimerOutput::Scope local_scope(local_timer, "other_preprocess");
+        IBHierarchyIntegrator::preprocessIntegrateHierarchy(current_time, new_time, num_cycles);
+    }
 
     const int coarsest_ln = 0;
     const int finest_ln = d_hierarchy->getFinestLevelNumber();
 
-    // Allocate Eulerian scratch and new data.
-    for (int ln = coarsest_ln; ln <= finest_ln; ++ln)
     {
-        Pointer<PatchLevel<NDIM> > level = d_hierarchy->getPatchLevel(ln);
-        level->allocatePatchData(d_u_idx, current_time);
-        level->allocatePatchData(d_f_idx, current_time);
-        if (d_f_current_idx != -1) level->allocatePatchData(d_f_current_idx, current_time);
-        if (d_ib_method_ops->hasFluidSources())
+        dealii::TimerOutput::Scope local_scope(local_timer, "other_preprocess");
+        // Allocate Eulerian scratch and new data.
+        for (int ln = coarsest_ln; ln <= finest_ln; ++ln)
         {
-            level->allocatePatchData(d_p_idx, current_time);
-            level->allocatePatchData(d_q_idx, current_time);
+            Pointer<PatchLevel<NDIM> > level = d_hierarchy->getPatchLevel(ln);
+            level->allocatePatchData(d_u_idx, current_time);
+            level->allocatePatchData(d_f_idx, current_time);
+            if (d_f_current_idx != -1) level->allocatePatchData(d_f_current_idx, current_time);
+            if (d_ib_method_ops->hasFluidSources())
+            {
+                level->allocatePatchData(d_p_idx, current_time);
+                level->allocatePatchData(d_q_idx, current_time);
+            }
+            level->allocatePatchData(d_scratch_data, current_time);
+            level->allocatePatchData(d_new_data, new_time);
         }
-        level->allocatePatchData(d_scratch_data, current_time);
-        level->allocatePatchData(d_new_data, new_time);
-    }
 
-    // Initialize IB data.
-    d_ib_method_ops->preprocessIntegrateData(current_time, new_time, num_cycles);
+        // Initialize IB data.
+        d_ib_method_ops->preprocessIntegrateData(current_time, new_time, num_cycles);
 
-    // Initialize the fluid solver.
-    const int ins_num_cycles = d_ins_hier_integrator->getNumberOfCycles();
-    if (ins_num_cycles != d_current_num_cycles && d_current_num_cycles != 1)
-    {
-        TBOX_ERROR(d_object_name << "::preprocessIntegrateHierarchy():\n"
-                                 << "  attempting to perform " << d_current_num_cycles
-                                 << " cycles of fixed point iteration.\n"
-                                 << "  number of cycles required by Navier-Stokes solver = " << ins_num_cycles << ".\n"
-                                 << "  current implementation requires either that both solvers "
-                                    "use the same number of cycles,\n"
-                                 << "  or that the IB solver use only a single cycle.\n");
+        // Initialize the fluid solver.
+        const int ins_num_cycles = d_ins_hier_integrator->getNumberOfCycles();
+        if (ins_num_cycles != d_current_num_cycles && d_current_num_cycles != 1)
+        {
+            TBOX_ERROR(d_object_name << "::preprocessIntegrateHierarchy():\n"
+                                     << "  attempting to perform " << d_current_num_cycles
+                                     << " cycles of fixed point iteration.\n"
+                                     << "  number of cycles required by Navier-Stokes solver = " << ins_num_cycles
+                                     << ".\n"
+                                     << "  current implementation requires either that both solvers "
+                                        "use the same number of cycles,\n"
+                                     << "  or that the IB solver use only a single cycle.\n");
+        }
+        d_ins_hier_integrator->preprocessIntegrateHierarchy(current_time, new_time, ins_num_cycles);
     }
-    d_ins_hier_integrator->preprocessIntegrateHierarchy(current_time, new_time, ins_num_cycles);
 
     // Compute the Lagrangian forces and spread them to the Eulerian grid.
-    switch (d_time_stepping_type)
     {
-    case FORWARD_EULER:
-    case BACKWARD_EULER:
-    case TRAPEZOIDAL_RULE:
-        if (d_enable_logging) plog << d_object_name << "::preprocessIntegrateHierarchy(): computing Lagrangian force\n";
-        d_ib_method_ops->computeLagrangianForce(current_time);
-        if (d_enable_logging)
-            plog << d_object_name
-                 << "::preprocessIntegrateHierarchy(): spreading Lagrangian force "
-                    "to the Eulerian grid\n";
-        d_hier_velocity_data_ops->setToScalar(d_f_idx, 0.0);
-        d_u_phys_bdry_op->setPatchDataIndex(d_f_idx);
-        d_u_phys_bdry_op->setHomogeneousBc(true);
-        d_ib_method_ops->spreadForce(
-            d_f_idx, d_u_phys_bdry_op, getProlongRefineSchedules(d_object_name + "::f"), current_time);
-        d_u_phys_bdry_op->setHomogeneousBc(false);
-        if (d_f_current_idx != -1) d_hier_velocity_data_ops->copyData(d_f_current_idx, d_f_idx);
-        break;
-    case MIDPOINT_RULE:
-        // intentionally blank
-        break;
-    default:
-        TBOX_ERROR(
-            d_object_name
-            << "::preprocessIntegrateHierarchy():\n"
-            << "  unsupported time stepping type: " << enum_to_string<TimeSteppingType>(d_time_stepping_type) << "\n"
-            << "  supported time stepping types are: FORWARD_EULER, BACKWARD_EULER, MIDPOINT_RULE, TRAPEZOIDAL_RULE\n");
+        switch (d_time_stepping_type)
+        {
+        case FORWARD_EULER:
+        case BACKWARD_EULER:
+        case TRAPEZOIDAL_RULE:
+        {
+            if (d_enable_logging)
+                plog << d_object_name << "::preprocessIntegrateHierarchy(): computing Lagrangian force\n";
+            {
+                dealii::TimerOutput::Scope local_scope(local_timer, "compute_lagrangian_force");
+                d_ib_method_ops->computeLagrangianForce(current_time);
+            }
+            if (d_enable_logging)
+                plog << d_object_name
+                     << "::preprocessIntegrateHierarchy(): spreading Lagrangian force "
+                        "to the Eulerian grid\n";
+            {
+                dealii::TimerOutput::Scope local_scope(local_timer, "other_preprocess");
+                d_hier_velocity_data_ops->setToScalar(d_f_idx, 0.0);
+                d_u_phys_bdry_op->setPatchDataIndex(d_f_idx);
+                d_u_phys_bdry_op->setHomogeneousBc(true);
+                d_ib_method_ops->spreadForce(
+                    d_f_idx, d_u_phys_bdry_op, getProlongRefineSchedules(d_object_name + "::f"), current_time);
+                d_u_phys_bdry_op->setHomogeneousBc(false);
+            }
+            if (d_f_current_idx != -1) d_hier_velocity_data_ops->copyData(d_f_current_idx, d_f_idx);
+            break;
+        }
+        case MIDPOINT_RULE:
+            // intentionally blank
+            break;
+        default:
+            TBOX_ERROR(d_object_name << "::preprocessIntegrateHierarchy():\n"
+                                     << "  unsupported time stepping type: "
+                                     << enum_to_string<TimeSteppingType>(d_time_stepping_type) << "\n"
+                                     << "  supported time stepping types are: FORWARD_EULER, BACKWARD_EULER, "
+                                        "MIDPOINT_RULE, TRAPEZOIDAL_RULE\n");
+        }
+    }
+
+    {
+        dealii::TimerOutput::Scope local_scope(local_timer, "post_spread_barrier");
+        SAMRAI_MPI::barrier();
     }
 
     // Compute an initial prediction of the updated positions of the Lagrangian
@@ -196,6 +222,7 @@ IBExplicitHierarchyIntegrator::preprocessIntegrateHierarchy(const double current
     //
     // NOTE: The velocity should already have been interpolated to the
     // curvilinear mesh and should not need to be re-interpolated.
+    dealii::TimerOutput::Scope local_scope(local_timer, "other_preprocess");
     if (d_use_structure_predictor)
     {
         if (d_enable_logging)
@@ -229,132 +256,175 @@ IBExplicitHierarchyIntegrator::integrateHierarchy(const double current_time, con
         // intentionally blank
         break;
     case MIDPOINT_RULE:
+    {
         if (d_enable_logging) plog << d_object_name << "::integrateHierarchy(): computing Lagrangian force\n";
-        d_ib_method_ops->computeLagrangianForce(half_time);
+        {
+            dealii::TimerOutput::Scope local_scope(local_timer, "compute_lagrangian_force");
+            d_ib_method_ops->computeLagrangianForce(half_time);
+        }
         if (d_enable_logging)
             plog << d_object_name << "::integrateHierarchy(): spreading Lagrangian force to the Eulerian grid\n";
-        d_hier_velocity_data_ops->setToScalar(d_f_idx, 0.0);
-        d_u_phys_bdry_op->setPatchDataIndex(d_f_idx);
-        d_u_phys_bdry_op->setHomogeneousBc(true);
-        d_ib_method_ops->spreadForce(
-            d_f_idx, d_u_phys_bdry_op, getProlongRefineSchedules(d_object_name + "::f"), half_time);
-        d_u_phys_bdry_op->setHomogeneousBc(false);
+        {
+            dealii::TimerOutput::Scope local_scope(local_timer, "spread_lagrangian_force");
+            d_hier_velocity_data_ops->setToScalar(d_f_idx, 0.0);
+            d_u_phys_bdry_op->setPatchDataIndex(d_f_idx);
+            d_u_phys_bdry_op->setHomogeneousBc(true);
+            d_ib_method_ops->spreadForce(
+                d_f_idx, d_u_phys_bdry_op, getProlongRefineSchedules(d_object_name + "::f"), half_time);
+            d_u_phys_bdry_op->setHomogeneousBc(false);
+        }
         break;
+    }
     case TRAPEZOIDAL_RULE:
         if (d_use_structure_predictor || cycle_num > 0)
         {
             // NOTE: We do not re-compute the force unless it could have changed.
             if (d_enable_logging) plog << d_object_name << "::integrateHierarchy(): computing Lagrangian force\n";
-            d_ib_method_ops->computeLagrangianForce(new_time);
+            {
+                dealii::TimerOutput::Scope local_scope(local_timer, "compute_lagrangian_force");
+                d_ib_method_ops->computeLagrangianForce(new_time);
+            }
             if (d_enable_logging)
                 plog << d_object_name << "::integrateHierarchy(): spreading Lagrangian force to the Eulerian grid\n";
-            d_hier_velocity_data_ops->setToScalar(d_f_idx, 0.0);
-            d_u_phys_bdry_op->setPatchDataIndex(d_f_idx);
-            d_u_phys_bdry_op->setHomogeneousBc(true);
-            d_ib_method_ops->spreadForce(
-                d_f_idx, d_u_phys_bdry_op, getProlongRefineSchedules(d_object_name + "::f"), new_time);
-            d_u_phys_bdry_op->setHomogeneousBc(false);
-            d_hier_velocity_data_ops->linearSum(d_f_idx, 0.5, d_f_current_idx, 0.5, d_f_idx);
+            {
+                dealii::TimerOutput::Scope local_scope(local_timer, "spread_lagrangian_force");
+                d_hier_velocity_data_ops->setToScalar(d_f_idx, 0.0);
+                d_u_phys_bdry_op->setPatchDataIndex(d_f_idx);
+                d_u_phys_bdry_op->setHomogeneousBc(true);
+                d_ib_method_ops->spreadForce(
+                    d_f_idx, d_u_phys_bdry_op, getProlongRefineSchedules(d_object_name + "::f"), new_time);
+                d_u_phys_bdry_op->setHomogeneousBc(false);
+                d_hier_velocity_data_ops->linearSum(d_f_idx, 0.5, d_f_current_idx, 0.5, d_f_idx);
+            }
         }
         break;
     default:
-        TBOX_ERROR(
-            d_object_name
-            << "::integrateHierarchy():\n"
-            << "  unsupported time stepping type: " << enum_to_string<TimeSteppingType>(d_time_stepping_type) << "\n"
-            << "  supported time stepping types are: FORWARD_EULER, BACKWARD_EULER, MIDPOINT_RULE, TRAPEZOIDAL_RULE\n");
+        TBOX_ERROR(d_object_name << "::integrateHierarchy():\n"
+                                 << "  unsupported time stepping type: "
+                                 << enum_to_string<TimeSteppingType>(d_time_stepping_type) << "\n"
+                                 << "  supported time stepping types are: FORWARD_EULER, BACKWARD_EULER, "
+                                    "MIDPOINT_RULE, TRAPEZOIDAL_RULE\n");
     }
 
     // Compute the Lagrangian source/sink strengths and spread them to the
     // Eulerian grid.
-    if (d_ib_method_ops->hasFluidSources())
     {
-        if (d_enable_logging)
-            plog << d_object_name << "::integrateHierarchy(): computing Lagrangian fluid source strength\n";
-        d_ib_method_ops->computeLagrangianFluidSource(half_time);
-        if (d_enable_logging)
-            plog << d_object_name
-                 << "::integrateHierarchy(): spreading Lagrangian fluid source "
-                    "strength to the Eulerian grid\n";
-        d_hier_pressure_data_ops->setToScalar(d_q_idx, 0.0);
-        // NOTE: This does not correctly treat the case in which the structure
-        // is close to the physical boundary.
-        d_ib_method_ops->spreadFluidSource(
-            d_q_idx, nullptr, getProlongRefineSchedules(d_object_name + "::q"), half_time);
+        dealii::TimerOutput::Scope local_scope(local_timer, "spread_fluid_source");
+        if (d_ib_method_ops->hasFluidSources())
+        {
+            if (d_enable_logging)
+                plog << d_object_name << "::integrateHierarchy(): computing Lagrangian fluid source strength\n";
+            d_ib_method_ops->computeLagrangianFluidSource(half_time);
+            if (d_enable_logging)
+                plog << d_object_name
+                     << "::integrateHierarchy(): spreading Lagrangian fluid source "
+                        "strength to the Eulerian grid\n";
+            d_hier_pressure_data_ops->setToScalar(d_q_idx, 0.0);
+            // NOTE: This does not correctly treat the case in which the structure
+            // is close to the physical boundary.
+            d_ib_method_ops->spreadFluidSource(
+                d_q_idx, nullptr, getProlongRefineSchedules(d_object_name + "::q"), half_time);
+        }
+    }
+
+    // start the next section in synch
+    {
+        dealii::TimerOutput::Scope local_scope(local_timer, "post_spread_barrier");
+        SAMRAI_MPI::barrier();
     }
 
     // Solve the incompressible Navier-Stokes equations.
-    d_ib_method_ops->preprocessSolveFluidEquations(current_time, new_time, cycle_num);
-    if (d_enable_logging)
-        plog << d_object_name << "::integrateHierarchy(): solving the incompressible Navier-Stokes equations\n";
-    if (d_current_num_cycles > 1)
     {
-        d_ins_hier_integrator->integrateHierarchy(current_time, new_time, cycle_num);
-    }
-    else
-    {
-#if !defined(NDEBUG)
-        TBOX_ASSERT(d_current_num_cycles == 1);
-#endif
-        const int ins_num_cycles = d_ins_hier_integrator->getNumberOfCycles();
-        for (int ins_cycle_num = 0; ins_cycle_num < ins_num_cycles; ++ins_cycle_num)
+        dealii::TimerOutput::Scope local_scope(local_timer, "solve_ins");
+        d_ib_method_ops->preprocessSolveFluidEquations(current_time, new_time, cycle_num);
+        if (d_enable_logging)
+            plog << d_object_name << "::integrateHierarchy(): solving the incompressible Navier-Stokes equations\n";
+        if (d_current_num_cycles > 1)
         {
-            d_ins_hier_integrator->integrateHierarchy(current_time, new_time, ins_cycle_num);
+            d_ins_hier_integrator->integrateHierarchy(current_time, new_time, cycle_num);
         }
+        else
+        {
+#if !defined(NDEBUG)
+            TBOX_ASSERT(d_current_num_cycles == 1);
+#endif
+            const int ins_num_cycles = d_ins_hier_integrator->getNumberOfCycles();
+            for (int ins_cycle_num = 0; ins_cycle_num < ins_num_cycles; ++ins_cycle_num)
+            {
+                d_ins_hier_integrator->integrateHierarchy(current_time, new_time, ins_cycle_num);
+            }
+        }
+        d_ib_method_ops->postprocessSolveFluidEquations(current_time, new_time, cycle_num);
     }
-    d_ib_method_ops->postprocessSolveFluidEquations(current_time, new_time, cycle_num);
+
+    // start the next section in synch
+    {
+        dealii::TimerOutput::Scope local_scope(local_timer, "post_fluid_barrier");
+        SAMRAI_MPI::barrier();
+    }
 
     // Interpolate the Eulerian velocity to the curvilinear mesh.
-    switch (d_time_stepping_type)
     {
-    case FORWARD_EULER:
-    case BACKWARD_EULER:
-        d_hier_velocity_data_ops->copyData(d_u_idx, u_new_idx);
-        if (d_enable_logging)
-            plog << d_object_name
-                 << "::integrateHierarchy(): interpolating Eulerian velocity to "
-                    "the Lagrangian mesh\n";
-        d_u_phys_bdry_op->setPatchDataIndex(d_u_idx);
-        d_u_phys_bdry_op->setHomogeneousBc(false);
-        d_ib_method_ops->interpolateVelocity(d_u_idx,
-                                             getCoarsenSchedules(d_object_name + "::u::CONSERVATIVE_COARSEN"),
-                                             getGhostfillRefineSchedules(d_object_name + "::u"),
-                                             new_time);
-        break;
-    case MIDPOINT_RULE:
-        d_hier_velocity_data_ops->linearSum(d_u_idx, 0.5, u_current_idx, 0.5, u_new_idx);
-        if (d_enable_logging)
-            plog << d_object_name
-                 << "::integrateHierarchy(): interpolating Eulerian velocity to "
-                    "the Lagrangian mesh\n";
-        d_u_phys_bdry_op->setPatchDataIndex(d_u_idx);
-        d_u_phys_bdry_op->setHomogeneousBc(false);
-        d_ib_method_ops->interpolateVelocity(d_u_idx,
-                                             getCoarsenSchedules(d_object_name + "::u::CONSERVATIVE_COARSEN"),
-                                             getGhostfillRefineSchedules(d_object_name + "::u"),
-                                             half_time);
-        break;
-    case TRAPEZOIDAL_RULE:
-        d_hier_velocity_data_ops->copyData(d_u_idx, u_new_idx);
-        if (d_enable_logging)
-            plog << d_object_name
-                 << "::integrateHierarchy(): interpolating Eulerian velocity to "
-                    "the Lagrangian mesh\n";
-        d_u_phys_bdry_op->setPatchDataIndex(d_u_idx);
-        d_u_phys_bdry_op->setHomogeneousBc(false);
-        d_ib_method_ops->interpolateVelocity(d_u_idx,
-                                             getCoarsenSchedules(d_object_name + "::u::CONSERVATIVE_COARSEN"),
-                                             getGhostfillRefineSchedules(d_object_name + "::u"),
-                                             new_time);
-        break;
-    default:
-        TBOX_ERROR(
-            d_object_name
-            << "::integrateHierarchy():\n"
-            << "  unsupported time stepping type: " << enum_to_string<TimeSteppingType>(d_time_stepping_type) << "\n"
-            << "  supported time stepping types are: FORWARD_EULER, BACKWARD_EULER, MIDPOINT_RULE, TRAPEZOIDAL_RULE\n");
+        dealii::TimerOutput::Scope local_scope(local_timer, "interpolate_velocity");
+
+        switch (d_time_stepping_type)
+        {
+        case FORWARD_EULER:
+        case BACKWARD_EULER:
+            d_hier_velocity_data_ops->copyData(d_u_idx, u_new_idx);
+            if (d_enable_logging)
+                plog << d_object_name
+                     << "::integrateHierarchy(): interpolating Eulerian velocity to "
+                        "the Lagrangian mesh\n";
+            d_u_phys_bdry_op->setPatchDataIndex(d_u_idx);
+            d_u_phys_bdry_op->setHomogeneousBc(false);
+
+            d_ib_method_ops->interpolateVelocity(d_u_idx,
+                                                 getCoarsenSchedules(d_object_name + "::u::CONSERVATIVE_COARSEN"),
+                                                 getGhostfillRefineSchedules(d_object_name + "::u"),
+                                                 new_time);
+            break;
+        case MIDPOINT_RULE:
+            d_hier_velocity_data_ops->linearSum(d_u_idx, 0.5, u_current_idx, 0.5, u_new_idx);
+            if (d_enable_logging)
+                plog << d_object_name
+                     << "::integrateHierarchy(): interpolating Eulerian velocity to "
+                        "the Lagrangian mesh\n";
+            d_u_phys_bdry_op->setPatchDataIndex(d_u_idx);
+            d_u_phys_bdry_op->setHomogeneousBc(false);
+            d_ib_method_ops->interpolateVelocity(d_u_idx,
+                                                 getCoarsenSchedules(d_object_name + "::u::CONSERVATIVE_COARSEN"),
+                                                 getGhostfillRefineSchedules(d_object_name + "::u"),
+                                                 half_time);
+            break;
+        case TRAPEZOIDAL_RULE:
+            d_hier_velocity_data_ops->copyData(d_u_idx, u_new_idx);
+            if (d_enable_logging)
+                plog << d_object_name
+                     << "::integrateHierarchy(): interpolating Eulerian velocity to "
+                        "the Lagrangian mesh\n";
+            d_u_phys_bdry_op->setPatchDataIndex(d_u_idx);
+            d_u_phys_bdry_op->setHomogeneousBc(false);
+            d_ib_method_ops->interpolateVelocity(d_u_idx,
+                                                 getCoarsenSchedules(d_object_name + "::u::CONSERVATIVE_COARSEN"),
+                                                 getGhostfillRefineSchedules(d_object_name + "::u"),
+                                                 new_time);
+            break;
+        default:
+            TBOX_ERROR(d_object_name << "::integrateHierarchy():\n"
+                                     << "  unsupported time stepping type: "
+                                     << enum_to_string<TimeSteppingType>(d_time_stepping_type) << "\n"
+                                     << "  supported time stepping types are: FORWARD_EULER, BACKWARD_EULER, "
+                                        "MIDPOINT_RULE, TRAPEZOIDAL_RULE\n");
+        }
     }
 
+    {
+        dealii::TimerOutput::Scope local_scope(local_timer, "post_interpolate_velocity_barrier");
+        SAMRAI_MPI::barrier();
+    }
+
+    dealii::TimerOutput::Scope local_scope(local_timer, "update_structure_and_sinks");
     // Compute an updated prediction of the updated positions of the Lagrangian
     // structure.
     if (d_current_num_cycles > 1 && d_current_cycle_num == 0)
@@ -418,28 +488,41 @@ IBExplicitHierarchyIntegrator::postprocessIntegrateHierarchy(const double curren
                                                              const bool skip_synchronize_new_state_data,
                                                              const int num_cycles)
 {
-    IBHierarchyIntegrator::postprocessIntegrateHierarchy(
-        current_time, new_time, skip_synchronize_new_state_data, num_cycles);
-
-    const int coarsest_ln = 0;
-    const int finest_ln = d_hierarchy->getFinestLevelNumber();
     const double dt = new_time - current_time;
-    VariableDatabase<NDIM>* var_db = VariableDatabase<NDIM>::getDatabase();
-    const int u_new_idx = var_db->mapVariableAndContextToIndex(d_ins_hier_integrator->getVelocityVariable(),
-                                                               d_ins_hier_integrator->getNewContext());
+    int u_new_idx = IBTK::invalid_index;
+    {
+        dealii::TimerOutput::Scope local_scope(local_timer, "other_postprocess");
+        IBHierarchyIntegrator::postprocessIntegrateHierarchy(
+            current_time, new_time, skip_synchronize_new_state_data, num_cycles);
+        VariableDatabase<NDIM>* var_db = VariableDatabase<NDIM>::getDatabase();
+        u_new_idx = var_db->mapVariableAndContextToIndex(d_ins_hier_integrator->getVelocityVariable(),
+                                                         d_ins_hier_integrator->getNewContext());
+    }
 
     // Interpolate the Eulerian velocity to the curvilinear mesh.
-    d_hier_velocity_data_ops->copyData(d_u_idx, u_new_idx);
-    if (d_enable_logging)
-        plog << d_object_name
-             << "::postprocessIntegrateHierarchy(): interpolating Eulerian "
-                "velocity to the Lagrangian mesh\n";
-    d_u_phys_bdry_op->setPatchDataIndex(d_u_idx);
-    d_u_phys_bdry_op->setHomogeneousBc(false);
-    d_ib_method_ops->interpolateVelocity(d_u_idx,
-                                         getCoarsenSchedules(d_object_name + "::u::CONSERVATIVE_COARSEN"),
-                                         getGhostfillRefineSchedules(d_object_name + "::u"),
-                                         new_time);
+    {
+        dealii::TimerOutput::Scope local_scope(local_timer, "interpolate_velocity");
+        d_hier_velocity_data_ops->copyData(d_u_idx, u_new_idx);
+        if (d_enable_logging)
+            plog << d_object_name
+                 << "::postprocessIntegrateHierarchy(): interpolating Eulerian "
+                    "velocity to the Lagrangian mesh\n";
+        d_u_phys_bdry_op->setPatchDataIndex(d_u_idx);
+        d_u_phys_bdry_op->setHomogeneousBc(false);
+        d_ib_method_ops->interpolateVelocity(d_u_idx,
+                                             getCoarsenSchedules(d_object_name + "::u::CONSERVATIVE_COARSEN"),
+                                             getGhostfillRefineSchedules(d_object_name + "::u"),
+                                             new_time);
+    }
+
+    {
+        dealii::TimerOutput::Scope local_scope(local_timer, "post_interpolate_velocity_barrier");
+        SAMRAI_MPI::barrier();
+    }
+
+    dealii::TimerOutput::Scope local_scope(local_timer, "other_postprocess");
+    const int coarsest_ln = 0;
+    const int finest_ln = d_hierarchy->getFinestLevelNumber();
 
     // Synchronize new state data.
     if (!skip_synchronize_new_state_data)
