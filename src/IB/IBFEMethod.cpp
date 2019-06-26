@@ -392,6 +392,10 @@ IBFEMethod::IBFEMethod(const std::string& object_name,
                        bool register_for_restart,
                        const std::string& restart_read_dirname,
                        unsigned int restart_restore_number)
+    :
+      timer_output("ibfe-log-" + std::to_string(SAMRAI_MPI::getRank()) + ".txt"),
+      local_timer(MPI_COMM_SELF, timer_output, dealii::TimerOutput::summary,
+                  dealii::TimerOutput::cpu_and_wall_times)
 {
     commonConstructor(object_name,
                       input_db,
@@ -411,6 +415,9 @@ IBFEMethod::IBFEMethod(const std::string& object_name,
                        const std::string& restart_read_dirname,
                        unsigned int restart_restore_number)
     : d_num_parts(static_cast<int>(meshes.size()))
+    , timer_output("ibfe-log-" + std::to_string(SAMRAI_MPI::getRank()) + ".txt"),
+      local_timer(MPI_COMM_SELF, timer_output, dealii::TimerOutput::summary,
+                  dealii::TimerOutput::cpu_and_wall_times)
 {
     commonConstructor(object_name,
                       input_db,
@@ -1056,10 +1063,14 @@ IBFEMethod::interpolateVelocity(const int u_data_idx,
 
     std::vector<Pointer<RefineSchedule<NDIM> > > no_fill(u_ghost_fill_scheds.size(), nullptr);
 
-    batch_vec_copy(X_vecs, d_X_IB_ghost_vecs);
-    batch_vec_ghost_update(d_X_IB_ghost_vecs, INSERT_VALUES, SCATTER_FORWARD);
+    {
+        dealii::TimerOutput::Scope local_ghost_reverse(local_timer, "batch_vec_ghost_update_X");
+        batch_vec_copy(X_vecs, d_X_IB_ghost_vecs);
+        batch_vec_ghost_update(d_X_IB_ghost_vecs, INSERT_VALUES, SCATTER_FORWARD);
+    }
 
     // Build the right-hand-sides to compute the interpolated data.
+    dealii::TimerOutput::Scope local_interp_weighted(local_timer, "interp_weighted_U");
     for (unsigned int part = 0; part < d_num_parts; ++part)
     {
         d_fe_data_managers[part]->interpWeighted(u_data_idx,
@@ -1071,20 +1082,29 @@ IBFEMethod::interpolateVelocity(const int u_data_idx,
                                                  /*close_F*/ false,
                                                  /*close_X*/ false);
     }
+    local_interp_weighted.stop();
+
     // note that FEDataManager only reads (no writes) Eulerian info so no data
     // needs to be transferred back to d_hierarchy
-
     if (d_use_ghosted_velocity_rhs)
     {
+        {
+        dealii::TimerOutput::Scope local_ghost_reverse(local_timer, "batch_vec_ghost_update_U_reverse");
         batch_vec_ghost_update(d_U_rhs_vecs, ADD_VALUES, SCATTER_REVERSE);
+        }
+        {
+        dealii::TimerOutput::Scope local_ghost_forward(local_timer, "batch_vec_ghost_update_U_forward");
         batch_vec_ghost_update(d_U_rhs_vecs, INSERT_VALUES, SCATTER_FORWARD);
+        }
     }
     else
     {
+        dealii::TimerOutput::Scope local_ghost_update(local_timer, "batch_vec_U_assembly");
         batch_vec_assembly(d_U_rhs_vecs);
     }
 
     // Solve for the interpolated data.
+    dealii::TimerOutput::Scope local_l2_solve(local_timer, "compute_U_l2_projection");
     for (unsigned int part = 0; part < d_num_parts; ++part)
     {
         *d_U_systems[part]->solution = *U_vecs[part]; // TODO: Commenting out this line changes the solution slightly.
@@ -1096,8 +1116,10 @@ IBFEMethod::interpolateVelocity(const int u_data_idx,
                                                       /*close_F*/ false);
         *U_vecs[part] = *d_U_systems[part]->solution;
     }
+    local_l2_solve.stop();
 
     // Account for any velocity constraints.
+    dealii::TimerOutput::Scope local_reset_overlap(local_timer, "reset_velocity_overlap");
     if (d_has_overlap_velocity_parts)
     {
         resetOverlapNodalValues(VELOCITY_SYSTEM_NAME, U_vecs);
@@ -1197,6 +1219,7 @@ IBFEMethod::computeLagrangianForce(const double data_time)
 {
     TBOX_ASSERT(MathUtilities<double>::equalEps(data_time, d_half_time));
     batch_vec_ghost_update(d_X_half_vecs, INSERT_VALUES, SCATTER_FORWARD);
+    dealii::TimerOutput::Scope local_force_computation(local_timer, "compute_force_density");
     for (unsigned part = 0; part < d_num_parts; ++part)
     {
         if (d_is_stress_normalization_part[part])
@@ -1207,7 +1230,13 @@ IBFEMethod::computeLagrangianForce(const double data_time)
         assembleInteriorForceDensityRHS(
             *d_F_rhs_vecs[part], *d_X_half_vecs[part], d_Phi_half_vecs[part], data_time, part);
     }
-    batch_vec_assembly(d_F_rhs_vecs);
+    local_force_computation.stop();
+    {
+        dealii::TimerOutput::Scope local_batch(local_timer, "assemble_F_rhs");
+        batch_vec_assembly(d_F_rhs_vecs);
+    }
+
+    dealii::TimerOutput::Scope local_project_force(local_timer, "compute_force_l2_projection");
     for (unsigned part = 0; part < d_num_parts; ++part)
     {
         d_F_systems[part]->solution->zero(); // TODO: Commenting out this line changes the solution slightly but
@@ -1228,6 +1257,8 @@ IBFEMethod::computeLagrangianForce(const double data_time)
             IBTK_CHKERRQ(ierr);
         }
     }
+    local_project_force.stop();
+    dealii::TimerOutput::Scope fix_overlaps(local_timer, "fix_overlaps");
     if (d_has_overlap_force_parts)
     {
         std::vector<std::unique_ptr<libMesh::PetscVector<double> > > X_half_ghost_vecs(d_X_half_vecs.size());
@@ -1263,8 +1294,10 @@ IBFEMethod::spreadForce(const int f_data_idx,
     TBOX_ASSERT(MathUtilities<double>::equalEps(data_time, d_half_time));
 
     // Communicate ghost data.
+    dealii::TimerOutput::Scope local_batch(local_timer, "spread_update_X");
     batch_vec_copy({ d_X_half_vecs, d_F_half_vecs }, { d_X_IB_ghost_vecs, d_F_IB_ghost_vecs });
     batch_vec_ghost_update({ d_X_IB_ghost_vecs, d_F_IB_ghost_vecs }, INSERT_VALUES, SCATTER_FORWARD);
+    local_batch.stop();
 
     // only valid if the scratch hierarchy is set up
     TBOX_ASSERT(d_scratch_hierarchy);
@@ -1282,6 +1315,7 @@ IBFEMethod::spreadForce(const int f_data_idx,
     }
     d_scratch_transfer_forward_schedules[f_data_idx]->fillData(0.0);
 
+    dealii::TimerOutput::Scope local_spread(local_timer, "spread_force");
     // Spread interior force density values.
     for (unsigned int part = 0; part < d_num_parts; ++part)
     {
@@ -1296,6 +1330,8 @@ IBFEMethod::spreadForce(const int f_data_idx,
                                          /*close_F*/ false,
                                          /*close_X*/ false);
     }
+    local_spread.stop();
+
 
     if (d_scratch_transfer_backward_schedules.count(f_data_idx) == 0)
     {
@@ -1310,6 +1346,7 @@ IBFEMethod::spreadForce(const int f_data_idx,
     }
     d_scratch_transfer_backward_schedules[f_data_idx]->fillData(0.0);
 
+    dealii::TimerOutput::Scope local_other(local_timer, "spread_other");
     // Handle any transmission conditions.
     for (unsigned int part = 0; part < d_num_parts; ++part)
     {

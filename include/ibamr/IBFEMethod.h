@@ -54,6 +54,8 @@
 #include "libmesh/enum_quadrature_type.h"
 #include "libmesh/explicit_system.h"
 
+#include <deal.II/base/timer.h>
+
 #include <array>
 #include <set>
 #include <string>
@@ -1139,6 +1141,16 @@ private:
      * Update the caches of IB-ghosted vectors.
      */
     void updateCachedIBGhostedVectors();
+
+    /*!
+     * Output of the timer object.
+     */
+    std::ofstream timer_output;
+
+    /*!
+     * Local (this MPI rank) timer.
+     */
+    dealii::TimerOutput local_timer;
 };
 } // namespace IBAMR
 
