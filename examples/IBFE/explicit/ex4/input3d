@@ -139,9 +139,11 @@ IBFEMethod {
    use_jump_conditions        = USE_JUMP_CONDITIONS
    use_consistent_mass_matrix = USE_CONSISTENT_MASS_MATRIX
    IB_point_density           = IB_POINT_DENSITY
+   workload_quad_point_weight = 1.0
 }
 
 INSCollocatedHierarchyIntegrator {
+   cell_workload                 = 0.0
    mu                            = MU
    rho                           = RHO
    start_time                    = START_TIME
@@ -167,6 +169,7 @@ INSCollocatedHierarchyIntegrator {
 }
 
 INSStaggeredHierarchyIntegrator {
+   cell_workload                 = 0.0
    mu                            = MU
    rho                           = RHO
    start_time                    = START_TIME
