@@ -518,7 +518,7 @@ HierarchyIntegrator::updateWorkloadEstimates()
     if (d_workload_idx != IBTK::invalid_index)
     {
         HierarchyCellDataOpsReal<NDIM, double> hier_cc_data_ops(d_hierarchy);
-        hier_cc_data_ops.setToScalar(d_workload_idx, 1.0, /*interior_only*/ false);
+        hier_cc_data_ops.setToScalar(d_workload_idx, d_cell_workload, /*interior_only*/ false);
 
         addWorkloadEstimate(d_hierarchy, d_workload_idx);
         for (HierarchyIntegrator* child : d_child_integrators)
@@ -1165,6 +1165,7 @@ HierarchyIntegrator::putToDatabase(Pointer<Database> db)
     db->putBool("d_enable_logging_solver_iterations", d_enable_logging_solver_iterations);
     db->putIntegerArray("d_tag_buffer", d_tag_buffer);
     db->putString("d_bdry_extrap_type", d_bdry_extrap_type);
+    db->putDouble("d_cell_workload", d_cell_workload);
     putToDatabaseSpecialized(db);
     return;
 } // putToDatabase
@@ -1620,6 +1621,7 @@ HierarchyIntegrator::getFromInput(Pointer<Database> db, bool is_from_restart)
     }
     if (db->keyExists("bdry_extrap_type")) d_bdry_extrap_type = db->getString("bdry_extrap_type");
     if (db->keyExists("tag_buffer")) d_tag_buffer = db->getIntegerArray("tag_buffer");
+    if (db->keyExists("cell_workload")) d_cell_workload = db->getDouble("cell_workload");
     return;
 } // getFromInput
 
@@ -1668,6 +1670,7 @@ HierarchyIntegrator::getFromRestart()
     d_enable_logging_solver_iterations = db->getBool("d_enable_logging_solver_iterations");
     d_bdry_extrap_type = db->getString("d_bdry_extrap_type");
     d_tag_buffer = db->getIntegerArray("d_tag_buffer");
+    d_cell_workload = db->getDouble("cell_workload");
     return;
 } // getFromRestart
 

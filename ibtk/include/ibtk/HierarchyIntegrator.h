@@ -1007,6 +1007,11 @@ protected:
     SAMRAI::tbox::Pointer<SAMRAI::pdat::CellVariable<NDIM, double> > d_workload_var;
 
     /*!
+     * Default workload per cell.
+     */
+    double d_cell_workload = 1.0;
+
+    /*!
      * The index of the workload estimate variable. If the current integrator
      * is a child integrator then this variable index may not be set to the
      * correct variable index since the parent is assumed to manage the
