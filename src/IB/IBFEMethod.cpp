@@ -1084,6 +1084,11 @@ IBFEMethod::interpolateVelocity(const int u_data_idx,
     }
     local_interp_weighted.stop();
 
+    {
+        dealii::TimerOutput::Scope local_scope(local_timer, "post_interpweighted_barrier");
+        SAMRAI_MPI::barrier();
+    }
+
     // note that FEDataManager only reads (no writes) Eulerian info so no data
     // needs to be transferred back to d_hierarchy
     if (d_use_ghosted_velocity_rhs)

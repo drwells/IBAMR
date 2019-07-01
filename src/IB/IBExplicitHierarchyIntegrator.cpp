@@ -126,7 +126,7 @@ IBExplicitHierarchyIntegrator::preprocessIntegrateHierarchy(const double current
                                                             const int num_cycles)
 {
     {
-        dealii::TimerOutput::Scope local_scope(local_timer, "other_preprocess");
+        dealii::TimerOutput::Scope local_scope(local_timer, "parent_integrator_preprocess");
         IBHierarchyIntegrator::preprocessIntegrateHierarchy(current_time, new_time, num_cycles);
     }
 
@@ -134,8 +134,8 @@ IBExplicitHierarchyIntegrator::preprocessIntegrateHierarchy(const double current
     const int finest_ln = d_hierarchy->getFinestLevelNumber();
 
     {
-        dealii::TimerOutput::Scope local_scope(local_timer, "other_preprocess");
         // Allocate Eulerian scratch and new data.
+        dealii::TimerOutput::Scope local_allocate(local_timer, "preprocess_allocate");
         for (int ln = coarsest_ln; ln <= finest_ln; ++ln)
         {
             Pointer<PatchLevel<NDIM> > level = d_hierarchy->getPatchLevel(ln);
@@ -150,11 +150,15 @@ IBExplicitHierarchyIntegrator::preprocessIntegrateHierarchy(const double current
             level->allocatePatchData(d_scratch_data, current_time);
             level->allocatePatchData(d_new_data, new_time);
         }
+        local_allocate.stop();
 
         // Initialize IB data.
+        dealii::TimerOutput::Scope local_integrate_data(local_timer, "preprocess_integrate_data");
         d_ib_method_ops->preprocessIntegrateData(current_time, new_time, num_cycles);
+        local_integrate_data.stop();
 
         // Initialize the fluid solver.
+        dealii::TimerOutput::Scope local_ins_preprocess(local_timer, "preprocess_ins");
         const int ins_num_cycles = d_ins_hier_integrator->getNumberOfCycles();
         if (ins_num_cycles != d_current_num_cycles && d_current_num_cycles != 1)
         {
@@ -168,6 +172,11 @@ IBExplicitHierarchyIntegrator::preprocessIntegrateHierarchy(const double current
                                      << "  or that the IB solver use only a single cycle.\n");
         }
         d_ins_hier_integrator->preprocessIntegrateHierarchy(current_time, new_time, ins_num_cycles);
+    }
+
+    {
+        dealii::TimerOutput::Scope local_scope(local_timer, "pre_spread_barrier");
+        SAMRAI_MPI::barrier();
     }
 
     // Compute the Lagrangian forces and spread them to the Eulerian grid.
@@ -189,7 +198,7 @@ IBExplicitHierarchyIntegrator::preprocessIntegrateHierarchy(const double current
                      << "::preprocessIntegrateHierarchy(): spreading Lagrangian force "
                         "to the Eulerian grid\n";
             {
-                dealii::TimerOutput::Scope local_scope(local_timer, "other_preprocess");
+                dealii::TimerOutput::Scope local_scope(local_timer, "spread_lagrangian_force");
                 d_hier_velocity_data_ops->setToScalar(d_f_idx, 0.0);
                 d_u_phys_bdry_op->setPatchDataIndex(d_f_idx);
                 d_u_phys_bdry_op->setHomogeneousBc(true);
