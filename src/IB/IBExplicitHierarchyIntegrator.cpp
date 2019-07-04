@@ -125,17 +125,13 @@ IBExplicitHierarchyIntegrator::preprocessIntegrateHierarchy(const double current
                                                             const double new_time,
                                                             const int num_cycles)
 {
-    {
-        dealii::TimerOutput::Scope local_scope(local_timer, "parent_integrator_preprocess");
-        IBHierarchyIntegrator::preprocessIntegrateHierarchy(current_time, new_time, num_cycles);
-    }
+    IBHierarchyIntegrator::preprocessIntegrateHierarchy(current_time, new_time, num_cycles);
 
     const int coarsest_ln = 0;
     const int finest_ln = d_hierarchy->getFinestLevelNumber();
 
     {
         // Allocate Eulerian scratch and new data.
-        dealii::TimerOutput::Scope local_allocate(local_timer, "preprocess_allocate");
         for (int ln = coarsest_ln; ln <= finest_ln; ++ln)
         {
             Pointer<PatchLevel<NDIM> > level = d_hierarchy->getPatchLevel(ln);
@@ -150,12 +146,9 @@ IBExplicitHierarchyIntegrator::preprocessIntegrateHierarchy(const double current
             level->allocatePatchData(d_scratch_data, current_time);
             level->allocatePatchData(d_new_data, new_time);
         }
-        local_allocate.stop();
 
         // Initialize IB data.
-        dealii::TimerOutput::Scope local_integrate_data(local_timer, "preprocess_integrate_data");
         d_ib_method_ops->preprocessIntegrateData(current_time, new_time, num_cycles);
-        local_integrate_data.stop();
 
         // Initialize the fluid solver.
         dealii::TimerOutput::Scope local_ins_preprocess(local_timer, "preprocess_ins");
@@ -231,7 +224,6 @@ IBExplicitHierarchyIntegrator::preprocessIntegrateHierarchy(const double current
     //
     // NOTE: The velocity should already have been interpolated to the
     // curvilinear mesh and should not need to be re-interpolated.
-    dealii::TimerOutput::Scope local_scope(local_timer, "other_preprocess");
     if (d_use_structure_predictor)
     {
         if (d_enable_logging)
@@ -318,7 +310,6 @@ IBExplicitHierarchyIntegrator::integrateHierarchy(const double current_time, con
     // Compute the Lagrangian source/sink strengths and spread them to the
     // Eulerian grid.
     {
-        dealii::TimerOutput::Scope local_scope(local_timer, "spread_fluid_source");
         if (d_ib_method_ops->hasFluidSources())
         {
             if (d_enable_logging)
@@ -365,12 +356,7 @@ IBExplicitHierarchyIntegrator::integrateHierarchy(const double current_time, con
         }
         d_ib_method_ops->postprocessSolveFluidEquations(current_time, new_time, cycle_num);
     }
-
-    // start the next section in synch
-    {
-        dealii::TimerOutput::Scope local_scope(local_timer, "post_fluid_barrier");
-        SAMRAI_MPI::barrier();
-    }
+    // fluid solver ends in synch
 
     // Interpolate the Eulerian velocity to the curvilinear mesh.
     {
@@ -427,13 +413,8 @@ IBExplicitHierarchyIntegrator::integrateHierarchy(const double current_time, con
                                         "MIDPOINT_RULE, TRAPEZOIDAL_RULE\n");
         }
     }
+    // interpolate velocity ends in synch
 
-    {
-        dealii::TimerOutput::Scope local_scope(local_timer, "post_interpolate_velocity_barrier");
-        SAMRAI_MPI::barrier();
-    }
-
-    dealii::TimerOutput::Scope local_scope(local_timer, "update_structure_and_sinks");
     // Compute an updated prediction of the updated positions of the Lagrangian
     // structure.
     if (d_current_num_cycles > 1 && d_current_cycle_num == 0)

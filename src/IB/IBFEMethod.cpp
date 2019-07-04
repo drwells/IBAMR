@@ -1124,7 +1124,6 @@ IBFEMethod::interpolateVelocity(const int u_data_idx,
     local_l2_solve.stop();
 
     // Account for any velocity constraints.
-    dealii::TimerOutput::Scope local_reset_overlap(local_timer, "reset_velocity_overlap");
     if (d_has_overlap_velocity_parts)
     {
         resetOverlapNodalValues(VELOCITY_SYSTEM_NAME, U_vecs);
@@ -1263,7 +1262,6 @@ IBFEMethod::computeLagrangianForce(const double data_time)
         }
     }
     local_project_force.stop();
-    dealii::TimerOutput::Scope fix_overlaps(local_timer, "fix_overlaps");
     if (d_has_overlap_force_parts)
     {
         std::vector<std::unique_ptr<libMesh::PetscVector<double> > > X_half_ghost_vecs(d_X_half_vecs.size());
