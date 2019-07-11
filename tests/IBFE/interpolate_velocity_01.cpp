@@ -251,6 +251,9 @@ main(int argc, char** argv)
         ib_method_ops->initializeFEEquationSystems();
         ib_method_ops->initializeFEData();
         time_integrator->initializePatchHierarchy(patch_hierarchy, gridding_algorithm);
+        // TODO: surely there is a better way to finish initialization.
+        ib_method_ops->beginDataRedistribution(nullptr, nullptr);
+        ib_method_ops->endDataRedistribution(nullptr, nullptr);
 
         Pointer<CartGridFunction> u_init = new muParserCartGridFunction(
             "u_init", app_initializer->getComponentDatabase("VelocityInitialConditions"), grid_geometry);

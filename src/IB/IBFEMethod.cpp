@@ -1013,6 +1013,26 @@ IBFEMethod::interpolateVelocity(const int u_data_idx,
                                 const std::vector<Pointer<RefineSchedule<NDIM> > >& u_ghost_fill_scheds,
                                 const double data_time)
 {
+    // TODO can we get rid of this?
+    // Communicate ghost data.
+    for (const auto& u_ghost_fill_sched : u_ghost_fill_scheds)
+    {
+        if (u_ghost_fill_sched) u_ghost_fill_sched->fillData(data_time);
+    }
+
+    // start of testing block
+    const int ln = d_hierarchy->getFinestLevelNumber();
+    Pointer<PatchLevel<NDIM> > level = d_hierarchy->getPatchLevel(ln);
+    Pointer<PatchLevel<NDIM> > scratch_level = d_scratch_hierarchy->getPatchLevel(ln);
+    scratch_level->allocatePatchData(u_data_idx, data_time);
+    RefineAlgorithm<NDIM> refine_algorithm;
+    Pointer<RefineOperator<NDIM> > refine_op_u = new CopyAsRefineOperator<NDIM>();
+    refine_algorithm.registerRefine(u_data_idx, u_data_idx, u_data_idx, refine_op_u);
+    Pointer<RefineSchedule<NDIM> > schedule = refine_algorithm.createSchedule
+        ("DEFAULT_FILL", scratch_level, level, nullptr, false, nullptr);
+    schedule->fillData(data_time);
+    // end of testing block
+
     std::vector<PetscVector<double>*> U_vecs(d_num_parts), X_vecs(d_num_parts);
     for (unsigned int part = 0; part < d_num_parts; ++part)
     {
@@ -1034,11 +1054,6 @@ IBFEMethod::interpolateVelocity(const int u_data_idx,
         }
     }
 
-    // Communicate ghost data.
-    for (const auto& u_ghost_fill_sched : u_ghost_fill_scheds)
-    {
-        if (u_ghost_fill_sched) u_ghost_fill_sched->fillData(data_time);
-    }
     std::vector<Pointer<RefineSchedule<NDIM> > > no_fill(u_ghost_fill_scheds.size(), nullptr);
 
     batch_vec_copy(X_vecs, d_X_IB_ghost_vecs);
@@ -1754,6 +1769,11 @@ IBFEMethod::initializePatchHierarchy(Pointer<PatchHierarchy<NDIM> > hierarchy,
     d_hierarchy = hierarchy;
     d_gridding_alg = gridding_alg;
 
+    initializeFEData();
+
+    Pointer<PatchHierarchy<NDIM> > patch_hierarchy2 = d_hierarchy->makeRefinedPatchHierarchy
+        (d_object_name + "::scratch_hierarchy", IntVector<NDIM>(1), /*register_for_restart*/false);
+
     // Initialize the FE data manager.
     for (unsigned int part = 0; part < d_num_parts; ++part)
     {
@@ -1872,6 +1892,30 @@ void IBFEMethod::endDataRedistribution(Pointer<PatchHierarchy<NDIM> > /*hierarch
             }
         }
 
+        // Set up the patch hierarchy that is partitioned according to the
+        // number of IB interaction points and reset the FEDataManagers to use
+        // it.
+        d_scratch_hierarchy = d_hierarchy->makeRefinedPatchHierarchy
+            ("IBFEMethod:: scratch_hierarchy", IntVector<NDIM>(1), false);
+        // TODO: repartition the scratch hierarchy by IB points here!
+
+        // TODO: this assumes that all Lagrangian data is on the finest patch
+        // level. Replace this with loops over the different parts to get the
+        // real patch level range.
+        const int ln = d_scratch_hierarchy->getFinestLevelNumber();
+        d_scratch_data_cache.setPatchHierarchy(d_scratch_hierarchy);
+        d_scratch_data_cache.resetLevels(ln, ln);
+
+        // TODO: FEDataManager needs
+        // 1. velocity
+        // 2. force
+        // 3. workload or some quadrature point per cell count
+        // 4. tagging?
+        for (unsigned int part = 0; part < d_num_parts; ++part)
+        {
+            d_fe_data_managers[part]->setPatchHierarchy(d_scratch_hierarchy);
+        }
+
         reinitializeFEData();
         for (unsigned int part = 0; part < d_num_parts; ++part)
         {
@@ -1884,12 +1928,12 @@ void IBFEMethod::endDataRedistribution(Pointer<PatchHierarchy<NDIM> > /*hierarch
 
 void
 IBFEMethod::initializeLevelData(Pointer<BasePatchHierarchy<NDIM> > hierarchy,
-                                int level_number,
-                                double init_data_time,
-                                bool can_be_refined,
-                                bool initial_time,
-                                Pointer<BasePatchLevel<NDIM> > old_level,
-                                bool allocate_data)
+                                int /*level_number*/,
+                                double /*init_data_time*/,
+                                bool /*can_be_refined*/,
+                                bool /*initial_time*/,
+                                Pointer<BasePatchLevel<NDIM> > /*old_level*/,
+                                bool /*allocate_data*/)
 {
     const int finest_hier_level = hierarchy->getFinestLevelNumber();
     for (unsigned int part = 0; part < d_num_parts; ++part)
@@ -1902,10 +1946,9 @@ IBFEMethod::initializeLevelData(Pointer<BasePatchHierarchy<NDIM> > hierarchy,
 
 void
 IBFEMethod::resetHierarchyConfiguration(Pointer<BasePatchHierarchy<NDIM> > hierarchy,
-                                        int coarsest_level,
+                                        int /*coarsest_level*/,
                                         int /*finest_level*/)
 {
-    const int finest_hier_level = hierarchy->getFinestLevelNumber();
     for (unsigned int part = 0; part < d_num_parts; ++part)
     {
         d_fe_data_managers[part]->setPatchHierarchy(hierarchy);

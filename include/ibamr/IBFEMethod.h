@@ -41,6 +41,7 @@
 
 #include "ibtk/FEDataManager.h"
 #include "ibtk/libmesh_utilities.h"
+#include "ibtk/SAMRAIDataCache.h"
 
 #include "GriddingAlgorithm.h"
 #include "IntVector.h"
@@ -825,6 +826,14 @@ protected:
     SAMRAI::tbox::Pointer<SAMRAI::hier::PatchHierarchy<NDIM> > d_hierarchy;
     SAMRAI::tbox::Pointer<SAMRAI::mesh::GriddingAlgorithm<NDIM> > d_gridding_alg;
     bool d_is_initialized = false;
+
+    /*
+     * Pointers to the scratch patch hierarchy (which is only used for
+     * interaction) and associated gridding algorithm.
+     */
+    SAMRAI::tbox::Pointer<SAMRAI::hier::PatchHierarchy<NDIM> > d_scratch_hierarchy;
+    SAMRAI::tbox::Pointer<SAMRAI::mesh::GriddingAlgorithm<NDIM> > d_scratch_gridding_alg;
+    IBTK::SAMRAIDataCache d_scratch_data_cache;
 
     /*
      * The current time step interval.
