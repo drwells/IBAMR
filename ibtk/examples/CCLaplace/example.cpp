@@ -50,6 +50,62 @@
 // Set up application namespace declarations
 #include <ibtk/app_namespaces.h>
 
+template <int DIM>
+class CopyAsRefineOperator : public xfer::RefineOperator<DIM>
+{
+public:
+    bool findRefineOperator(const Pointer<Variable<DIM> > &/*var*/,
+                            const std::string &/*op_name*/) const override
+    {
+        return true;
+    }
+
+    const std::string &getOperatorName() const override
+    {
+        return d_name_id;
+    }
+
+    int getOperatorPriority() const
+    {
+        return 0; // TODO: What should we actually do here?
+    }
+
+    IntVector<DIM> getStencilWidth() const
+    {
+        return hier::IntVector<DIM>(0);
+    }
+
+    void
+    refine(Patch<DIM> &fine,
+           const Patch<DIM> &coarse,
+           const int dst_component,
+           const int src_component,
+           const Box<DIM> &fine_box,
+           const IntVector<DIM> &ratio) const
+    {
+        TBOX_ASSERT(ratio == IntVector<DIM>(1));
+        tbox::Pointer<PatchData<DIM> > coarse_data = coarse.getPatchData(src_component);
+        tbox::Pointer<PatchData<DIM> > fine_data = fine.getPatchData(dst_component);
+        TBOX_ASSERT(typeid(*coarse_data) == typeid(*fine_data));
+        // TBOX_ASSERT(fine->getDepth() == fine_data->getDepth()); // TODO implement depth check
+
+        // TODO: implement non-cell overlaps
+        tbox::Array<Box<DIM> > boxes(2);
+        boxes[0] = fine_box;
+        boxes[1] = coarse.getBox();
+        BoxList<DIM> boxes_list(boxes);
+        CellOverlap<DIM> cell_overlap(boxes_list, IntVector<DIM>(0));
+
+        fine_data->copy(*coarse_data, cell_overlap);
+    }
+
+private:
+    std::string d_name_id = "COPY_AS_REFINE";
+};
+
+
+
+
 /*******************************************************************************
  * For each run, the input filename must be given on the command line.  In all *
  * cases, the command line is:                                                 *
@@ -84,6 +140,9 @@ run_example(int argc, char* argv[])
         Pointer<CartesianGridGeometry<NDIM> > grid_geometry = new CartesianGridGeometry<NDIM>(
             "CartesianGeometry", app_initializer->getComponentDatabase("CartesianGeometry"));
         Pointer<PatchHierarchy<NDIM> > patch_hierarchy = new PatchHierarchy<NDIM>("PatchHierarchy", grid_geometry);
+        // TODO: there is a bug in SAMRAI where if we use the same error
+        // detector to set up an initial refinement for both hierarchies then
+        // the second call to create boxes doesn't do anything.
         Pointer<StandardTagAndInitialize<NDIM> > error_detector = new StandardTagAndInitialize<NDIM>(
             "StandardTagAndInitialize", NULL, app_initializer->getComponentDatabase("StandardTagAndInitialize"));
         Pointer<BergerRigoutsos<NDIM> > box_generator = new BergerRigoutsos<NDIM>();
@@ -143,6 +202,11 @@ run_example(int argc, char* argv[])
 
         const int finest_level = patch_hierarchy->getFinestLevelNumber();
 
+        // this is not a complete copy: no patch data is allocated, but these
+        // have the same structure.
+        Pointer<PatchHierarchy<NDIM> > patch_hierarchy2 = patch_hierarchy->makeRefinedPatchHierarchy
+            ("patch_hierarchy2", IntVector<NDIM>(1), false);
+
         // Allocate data for each variable on each level of the patch
         // hierarchy.
         for (int ln = 0; ln <= finest_level; ++ln)
@@ -152,6 +216,11 @@ run_example(int argc, char* argv[])
             level->allocatePatchData(f_cc_idx, 0.0);
             level->allocatePatchData(e_cc_idx, 0.0);
             level->allocatePatchData(f_approx_cc_idx, 0.0);
+
+            // only copy some data
+            Pointer<PatchLevel<NDIM> > level2 = patch_hierarchy2->getPatchLevel(ln);
+            level2->allocatePatchData(u_cc_idx, 0.0);
+            level2->allocatePatchData(e_cc_idx, 0.0);
         }
 
         // By default, the norms defined on SAMRAI vectors are vectors in R^n:
@@ -270,8 +339,23 @@ run_example(int argc, char* argv[])
             }
         }
 
+        // copy data to the other hierarchy.
+        for (int ln = 0; ln <= finest_level; ++ln)
+        {
+            Pointer<PatchLevel<NDIM> > level = patch_hierarchy->getPatchLevel(ln);
+            Pointer<PatchLevel<NDIM> > level2 = patch_hierarchy2->getPatchLevel(ln);
+            RefineAlgorithm<NDIM> refine_algorithm;
+
+            Pointer<RefineOperator<NDIM> > refine_op_u = new CopyAsRefineOperator<NDIM>();
+            refine_algorithm.registerRefine(u_cc_idx, u_cc_idx, u_cc_idx, refine_op_u);
+            refine_algorithm.registerRefine(e_cc_idx, e_cc_idx, e_cc_idx, refine_op_u);
+
+            Pointer<RefineSchedule<NDIM> > schedule = refine_algorithm.createSchedule
+                ("DEFAULT_FILL", level2, level, nullptr, false, nullptr);
+            schedule->fillData(0.0);
+        }
         // Output data for plotting.
-        visit_data_writer->writePlotData(patch_hierarchy, 0, 0.0);
+        visit_data_writer->writePlotData(patch_hierarchy2, 0, 0.0);
     }
 
     // At this point all SAMRAI, PETSc, and IBAMR objects have been cleaned
