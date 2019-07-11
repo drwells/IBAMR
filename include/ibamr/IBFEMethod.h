@@ -41,6 +41,7 @@
 
 #include "ibtk/FEDataManager.h"
 #include "ibtk/libmesh_utilities.h"
+#include "ibtk/SAMRAIDataCache.h"
 
 #include "GriddingAlgorithm.h"
 #include "IntVector.h"
@@ -762,6 +763,22 @@ protected:
      */
     void initializeVelocity(unsigned int part);
 
+    /*!
+     * Get the forward transfer schedule (i.e., from the main hierarchy to the
+     * scratch hierarchy) associated with the given level and index. If
+     * necessary the schedule is created.
+     */
+    SAMRAI::xfer::RefineSchedule<NDIM> &
+    getForwardScratchSchedule(const int level_number, const int data_idx);
+
+    /*!
+     * Get the backward transfer schedule (i.e., from the scratch hierarchy to
+     * the main hierarchy) associated with the given level and index. If
+     * necessary the schedule is created.
+     */
+    SAMRAI::xfer::RefineSchedule<NDIM> &
+    getBackwardScratchSchedule(const int level_number, const int data_idx);
+
     /*
      * Indicates whether the integrator should output logging messages.
      */
@@ -774,6 +791,50 @@ protected:
     SAMRAI::tbox::Pointer<SAMRAI::hier::PatchHierarchy<NDIM> > d_hierarchy;
     SAMRAI::tbox::Pointer<SAMRAI::mesh::GriddingAlgorithm<NDIM> > d_gridding_alg;
     bool d_is_initialized = false;
+
+    /*
+     * Boolean controlling whether or not the scratch hierarchy should be
+     * used.
+     */
+    bool d_use_scratch_hierarchy = false;
+
+    /*
+     * Pointer to the scratch patch hierarchy (which is only used for
+     * interaction).
+     */
+    SAMRAI::tbox::Pointer<SAMRAI::hier::PatchHierarchy<NDIM> > d_scratch_hierarchy;
+
+    int d_lagrangian_workload_current_idx = IBTK::invalid_index;
+    int d_lagrangian_workload_new_idx = IBTK::invalid_index;
+    int d_lagrangian_workload_scratch_idx = IBTK::invalid_index;
+
+    // TODO this tag index is static and known to the gridding algorithm. Is
+    // there a better way to look it up?
+    int d_tag_index = IBTK::invalid_index;
+
+    SAMRAI::tbox::Pointer<SAMRAI::hier::Variable<NDIM> > d_lagrangian_workload_var;
+    const std::string d_lagrangian_workload_coarsen_type = "CONSERVATIVE_COARSEN";
+    const std::string d_lagrangian_workload_refine_type = "CONSERVATIVE_LINEAR_REFINE";
+
+    /*
+     * Refinement schedules for transferring data from d_hierarchy to
+     * d_scratch_hierarchy. The keys are the level number and data index (in
+     * that order).
+     *
+     * @note this function assumes that only data on the finest level needs to
+     * be transferred.
+     */
+    std::map<std::pair<int, int>, SAMRAI::tbox::Pointer<SAMRAI::xfer::RefineSchedule<NDIM> > > d_scratch_transfer_forward_schedules;
+
+    /*
+     * Refinement schedules for transferring data from d_scratch_hierarchy to
+     * d_hierarchy. The keys are the level number and data index (in
+     * that order).
+     *
+     * @note this function assumes that only data on the finest level needs to
+     * be transferred.
+     */
+    std::map<std::pair<int, int>, SAMRAI::tbox::Pointer<SAMRAI::xfer::RefineSchedule<NDIM> > > d_scratch_transfer_backward_schedules;
 
     /*
      * The current time step interval.
@@ -957,6 +1018,16 @@ protected:
      * Restart file type for libMesh equation systems (e.g. xda or xdr).
      */
     std::string d_libmesh_restart_file_extension;
+
+    /**
+     * database for the GriddingAlgorithm used with the scratch hierarchy.
+     */
+    SAMRAI::tbox::Pointer<SAMRAI::tbox::Database> d_gridding_algorithm_db;
+
+    /**
+     * database for the LoadBalancer used with the scratch hierarchy.
+     */
+    SAMRAI::tbox::Pointer<SAMRAI::tbox::Database> d_load_balancer_db;
 
 private:
     /*!

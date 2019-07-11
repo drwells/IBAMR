@@ -51,6 +51,7 @@
 
 #include "BasePatchHierarchy.h"
 #include "BasePatchLevel.h"
+#include "BergerRigoutsos.h"
 #include "Box.h"
 #include "CartesianPatchGeometry.h"
 #include "CellIndex.h"
@@ -64,11 +65,12 @@
 #include "Patch.h"
 #include "PatchHierarchy.h"
 #include "PatchLevel.h"
+#include "RefineOperator.h"
 #include "SideData.h"
 #include "SideIndex.h"
+#include "StandardTagAndInitialize.h"
 #include "Variable.h"
 #include "VariableDatabase.h"
-#include "RefineOperator.h"
 #include "tbox/Array.h"
 #include "tbox/Database.h"
 #include "tbox/MathUtilities.h"
@@ -791,13 +793,25 @@ IBFEMethod::postprocessIntegrateData(double current_time, double new_time, int n
     return;
 } // postprocessIntegrateData
 
-
 void
 IBFEMethod::interpolateVelocity(const int u_data_idx,
                                 const std::vector<Pointer<CoarsenSchedule<NDIM> > >& /*u_synch_scheds*/,
                                 const std::vector<Pointer<RefineSchedule<NDIM> > >& u_ghost_fill_scheds,
                                 const double data_time)
 {
+    // TODO can we get rid of this?
+    // Communicate ghost data.
+    for (const auto& u_ghost_fill_sched : u_ghost_fill_scheds)
+    {
+        if (u_ghost_fill_sched) u_ghost_fill_sched->fillData(data_time);
+    }
+
+    if (d_use_scratch_hierarchy)
+    {
+        // TODO: this assumes the structure is always on the finest level
+        getForwardScratchSchedule(d_hierarchy->getFinestLevelNumber(), u_data_idx).fillData(0.0);
+    }
+
     std::vector<PetscVector<double>*> U_vecs(d_num_parts), X_vecs(d_num_parts);
     for (unsigned int part = 0; part < d_num_parts; ++part)
     {
@@ -819,11 +833,6 @@ IBFEMethod::interpolateVelocity(const int u_data_idx,
         }
     }
 
-    // Communicate ghost data.
-    for (const auto& u_ghost_fill_sched : u_ghost_fill_scheds)
-    {
-        if (u_ghost_fill_sched) u_ghost_fill_sched->fillData(data_time);
-    }
     std::vector<Pointer<RefineSchedule<NDIM> > > no_fill(u_ghost_fill_scheds.size(), nullptr);
 
     batch_vec_copy(X_vecs, d_X_IB_ghost_vecs);
@@ -837,10 +846,13 @@ IBFEMethod::interpolateVelocity(const int u_data_idx,
                                                  *d_X_IB_ghost_vecs[part],
                                                  VELOCITY_SYSTEM_NAME,
                                                  no_fill,
-                                                 data_time,
+                                                 data_time, // this is not used since we do not fill here
                                                  /*close_F*/ false,
                                                  /*close_X*/ false);
     }
+    // note that FEDataManager only reads (no writes) Eulerian info so no data
+    // needs to be transferred back to d_hierarchy
+
     if (d_use_ghosted_velocity_rhs)
     {
         batch_vec_ghost_update(d_U_rhs_vecs, ADD_VALUES, SCATTER_REVERSE);
@@ -983,6 +995,12 @@ IBFEMethod::spreadForce(const int f_data_idx,
     batch_vec_copy({ d_X_half_vecs, d_F_half_vecs }, { d_X_IB_ghost_vecs, d_F_IB_ghost_vecs });
     batch_vec_ghost_update({ d_X_IB_ghost_vecs, d_F_IB_ghost_vecs }, INSERT_VALUES, SCATTER_FORWARD);
 
+    if (d_use_scratch_hierarchy)
+    {
+        // TODO: this assumes the structure is always on the finest level
+        getForwardScratchSchedule(d_hierarchy->getFinestLevelNumber(), f_data_idx).fillData(0.0);
+    }
+
     // Spread interior force density values.
     for (unsigned int part = 0; part < d_num_parts; ++part)
     {
@@ -996,6 +1014,12 @@ IBFEMethod::spreadForce(const int f_data_idx,
                                          data_time,
                                          /*close_F*/ false,
                                          /*close_X*/ false);
+    }
+
+    if (d_use_scratch_hierarchy)
+    {
+        // TODO: this assumes the structure is always on the finest level
+        getBackwardScratchSchedule(d_hierarchy->getFinestLevelNumber(), f_data_idx).fillData(0.0);
     }
 
     // Handle any transmission conditions.
@@ -1472,6 +1496,15 @@ IBFEMethod::registerEulerianVariables()
                      ghosts,
                      "CONSERVATIVE_COARSEN",
                      "CONSERVATIVE_LINEAR_REFINE");
+
+    d_lagrangian_workload_var = new CellVariable<NDIM, double>(d_object_name + "::lagrangian_workload");
+    registerVariable(d_lagrangian_workload_current_idx,
+                     d_lagrangian_workload_new_idx,
+                     d_lagrangian_workload_scratch_idx,
+                     d_lagrangian_workload_var,
+                     ghosts,
+                     d_lagrangian_workload_coarsen_type,
+                     d_lagrangian_workload_refine_type);
     return;
 } // registerEulerianVariables
 
@@ -1488,6 +1521,11 @@ IBFEMethod::initializePatchHierarchy(Pointer<PatchHierarchy<NDIM> > hierarchy,
     // Cache pointers to the patch hierarchy and gridding algorithm.
     d_hierarchy = hierarchy;
     d_gridding_alg = gridding_alg;
+
+    initializeFEData();
+
+    Pointer<PatchHierarchy<NDIM> > patch_hierarchy2 = d_hierarchy->makeRefinedPatchHierarchy(
+        d_object_name + "::scratch_hierarchy", IntVector<NDIM>(1), /*register_for_restart*/ false);
 
     // Initialize the FE data manager.
     for (unsigned int part = 0; part < d_num_parts; ++part)
@@ -1513,9 +1551,31 @@ IBFEMethod::registerLoadBalancer(Pointer<LoadBalancer<NDIM> > load_balancer, int
 void
 IBFEMethod::addWorkloadEstimate(Pointer<PatchHierarchy<NDIM> > hierarchy, const int workload_data_idx)
 {
-    for (unsigned int part = 0; part < d_num_parts; ++part)
+    // TODO: can we get rid of the check on whether or not d_scratch_hierarchy is set up?
+    if (d_use_scratch_hierarchy && d_scratch_hierarchy)
     {
-        d_fe_data_managers[part]->addWorkloadEstimate(hierarchy, workload_data_idx);
+        const int index = d_lagrangian_workload_current_idx;
+        for (int ln = 0; ln <= d_hierarchy->getFinestLevelNumber(); ++ln)
+        {
+            getForwardScratchSchedule(ln, index).fillData(d_current_time);
+        }
+
+        for (unsigned int part = 0; part < d_num_parts; ++part)
+        {
+            d_fe_data_managers[part]->addWorkloadEstimate(d_scratch_hierarchy, index);
+        }
+
+        for (int ln = 0; ln <= d_hierarchy->getFinestLevelNumber(); ++ln)
+        {
+            getBackwardScratchSchedule(ln, index).fillData(d_current_time);
+        }
+    }
+    else
+    {
+        for (unsigned int part = 0; part < d_num_parts; ++part)
+        {
+            d_fe_data_managers[part]->addWorkloadEstimate(d_hierarchy, workload_data_idx);
+        }
     }
 
     if (d_do_log)
@@ -1578,7 +1638,54 @@ IBFEMethod::addWorkloadEstimate(Pointer<PatchHierarchy<NDIM> > hierarchy, const 
 void IBFEMethod::beginDataRedistribution(Pointer<PatchHierarchy<NDIM> > /*hierarchy*/,
                                          Pointer<GriddingAlgorithm<NDIM> > /*gridding_alg*/)
 {
-    // intentionally blank
+    // Record the specifically Lagrangian workload estimation.
+    // TODO: this assumes that all parts are on the finest level
+    //
+    // TODO: this is really complicated since we won't have the scratch
+    // hierarchy available until we have finished the first regrid
+    // operation. Make it simpler.
+    //
+    // naught to do if we are not initialized
+    if (d_is_initialized)
+    {
+        auto& hierarchy = d_scratch_hierarchy ? d_scratch_hierarchy : d_hierarchy;
+        const int ln = hierarchy->getFinestLevelNumber();
+        const int index = d_lagrangian_workload_current_idx;
+
+        // shouldn't this already be allocated?
+        for (int level = 0; level <= ln; ++level)
+        {
+            Pointer<PatchLevel<NDIM> > patch_level = hierarchy->getPatchLevel(level);
+            if (!patch_level->checkAllocated(index))
+            {
+                hierarchy->getPatchLevel(level)->allocatePatchData(index, 0.0);
+            }
+        }
+
+        HierarchyCellDataOpsReal<NDIM, double> hier_cc_data_ops(hierarchy, 0, ln);
+        hier_cc_data_ops.setToScalar(index, 0.0);
+        for (unsigned int part = 0; part < d_num_parts; ++part)
+        {
+            // TODO: this assumes all parts are on the finest level.
+            d_fe_data_managers[part]->addWorkloadEstimate(hierarchy, index, ln, ln);
+        }
+
+        if (d_scratch_hierarchy)
+        {
+            Pointer<RefineAlgorithm<NDIM> > refine_algorithm = new RefineAlgorithm<NDIM>();
+            Pointer<RefineOperator<NDIM> > refine_op = new CopyAsRefineOperator<NDIM>();
+            refine_algorithm->registerRefine(index, index, index, refine_op);
+            Pointer<PatchLevel<NDIM> > level = d_hierarchy->getPatchLevel(ln);
+            Pointer<PatchLevel<NDIM> > scratch_level = d_scratch_hierarchy->getPatchLevel(ln);
+            // We are about to repartition, so there is no reason to save this schedule
+            Pointer<RefineSchedule<NDIM> > sched =
+                refine_algorithm->createSchedule("DEFAULT_FILL", level, scratch_level, nullptr, false, nullptr);
+            sched->fillData(d_current_time);
+        }
+    }
+
+    // otherwise the data is already on the hierarchy which we are about to
+    // repartition
     return;
 } // beginDataRedistribution
 
@@ -1588,7 +1695,54 @@ void IBFEMethod::endDataRedistribution(Pointer<PatchHierarchy<NDIM> > /*hierarch
     // if we are not initialized then there is nothing to do
     if (d_is_initialized)
     {
-        // Checking the workload index like this breaks incapsulation, but
+        // Set up the patch hierarchy that is partitioned according to the
+        // number of IB interaction points and reset the FEDataManagers to use
+        // it.
+        if (d_use_scratch_hierarchy)
+        {
+           if (!d_scratch_hierarchy)
+           {
+               d_scratch_hierarchy =
+                   d_hierarchy->makeRefinedPatchHierarchy("IBFEMethod:: scratch_hierarchy", IntVector<NDIM>(1), false);
+           }
+           else
+           {
+               // otherwise the hierarchy already exists but has not yet been repartitioned.
+               Pointer<BergerRigoutsos<NDIM> > box_generator = new BergerRigoutsos<NDIM>();
+               Pointer<LoadBalancer<NDIM> > load_balancer = new LoadBalancer<NDIM>(d_load_balancer_db);
+               load_balancer->setWorkloadPatchDataIndex(d_lagrangian_workload_current_idx);
+
+               // only tag cells for refinement based on this class' refinement
+               // criterion: we won't ever read boxes that are away from the
+               // structure. Note that IBFEMethod implements
+               // applyGradientDetector so we have to turn that on.
+               Pointer<InputDatabase> database(new InputDatabase(d_object_name + ":: tag_db"));
+               database->putString("tagging_method", "GRADIENT_DETECTOR");
+
+               Pointer<StandardTagAndInitialize<NDIM> > error_detector =
+                   new StandardTagAndInitialize<NDIM>(d_object_name + ":: tag", this, database);
+
+               Pointer<GriddingAlgorithm<NDIM> > gridding_algorithm =
+                   new GriddingAlgorithm<NDIM>(d_object_name + ":: gridding_alg",
+                                               d_gridding_algorithm_db,
+                                               error_detector,
+                                               box_generator,
+                                               load_balancer);
+
+               // TODO: we don't need more ghost cells than FEDataManager asks for, right?
+               Array<int> tag_buffer;
+               setupTagBuffer(tag_buffer, gridding_algorithm);
+
+               // TODO: d_current_time is actually nan here. Since we don't do
+               // any sort of tagging based on the current time I think we can
+               // just put in a bogus (nonnegative) value.
+               gridding_algorithm->regridAllFinerLevels
+                   (d_scratch_hierarchy, 0, 0.0/*d_current_time*/,
+                    tag_buffer);
+           }
+        }
+
+        // Checking the workload index like this breaks encapsulation, but
         // since this is inside the library and not user code its not so bad
         const bool workload_is_setup = d_ib_solver ? d_ib_solver->getWorkloadDataIndex() != IBTK::invalid_index : false;
         // At this point in the code SAMRAI has already redistributed the
@@ -1607,6 +1761,26 @@ void IBFEMethod::endDataRedistribution(Pointer<PatchHierarchy<NDIM> > /*hierarch
             }
         }
 
+        if (d_use_scratch_hierarchy)
+        {
+            // FEDataManager needs
+            // 1. velocity
+            // 2. force
+            // 3. workload or some quadrature point per cell count
+            // 4. tagging
+            //
+            // patches in the scratch hierarchy. However, the data index is not
+            // known until the call to interpolateVelocity or spreadForce, so
+            // clear existing data but do not allocate yet.
+            d_scratch_transfer_forward_schedules.clear();
+            d_scratch_transfer_backward_schedules.clear();
+
+            for (unsigned int part = 0; part < d_num_parts; ++part)
+            {
+                d_fe_data_managers[part]->setPatchHierarchy(d_scratch_hierarchy);
+            }
+        }
+
         reinitializeFEData();
         for (unsigned int part = 0; part < d_num_parts; ++part)
         {
@@ -1619,17 +1793,21 @@ void IBFEMethod::endDataRedistribution(Pointer<PatchHierarchy<NDIM> > /*hierarch
 
 void
 IBFEMethod::initializeLevelData(Pointer<BasePatchHierarchy<NDIM> > hierarchy,
-                                int level_number,
-                                double init_data_time,
-                                bool can_be_refined,
-                                bool initial_time,
-                                Pointer<BasePatchLevel<NDIM> > old_level,
-                                bool allocate_data)
+                                int /*level_number*/,
+                                double /*init_data_time*/,
+                                bool /*can_be_refined*/,
+                                bool /*initial_time*/,
+                                Pointer<BasePatchLevel<NDIM> > /*old_level*/,
+                                bool /*allocate_data*/)
 {
     const int finest_hier_level = hierarchy->getFinestLevelNumber();
     for (unsigned int part = 0; part < d_num_parts; ++part)
     {
-        d_fe_data_managers[part]->setPatchHierarchy(hierarchy);
+        // TODO: this is also really complicated: we do not want to reset this
+        // once the scratch hierarchy is set up since we currently initialize
+        // FE data somewhere else.
+        if (!d_scratch_hierarchy)
+            d_fe_data_managers[part]->setPatchHierarchy(hierarchy);
         d_fe_data_managers[part]->setPatchLevels(0, finest_hier_level);
     }
     return;
@@ -1637,13 +1815,16 @@ IBFEMethod::initializeLevelData(Pointer<BasePatchHierarchy<NDIM> > hierarchy,
 
 void
 IBFEMethod::resetHierarchyConfiguration(Pointer<BasePatchHierarchy<NDIM> > hierarchy,
-                                        int coarsest_level,
+                                        int /*coarsest_level*/,
                                         int /*finest_level*/)
 {
-    const int finest_hier_level = hierarchy->getFinestLevelNumber();
     for (unsigned int part = 0; part < d_num_parts; ++part)
     {
-        d_fe_data_managers[part]->setPatchHierarchy(hierarchy);
+        // TODO: this is also really complicated: we do not want to reset this
+        // once the scratch hierarchy is set up since we currently initialize
+        // FE data somewhere else.
+        if (!d_scratch_hierarchy)
+            d_fe_data_managers[part]->setPatchHierarchy(hierarchy);
         d_fe_data_managers[part]->setPatchLevels(0, hierarchy->getFinestLevelNumber());
     }
     return;
@@ -1657,15 +1838,60 @@ IBFEMethod::applyGradientDetector(Pointer<BasePatchHierarchy<NDIM> > base_hierar
                                   bool initial_time,
                                   bool uses_richardson_extrapolation_too)
 {
+    d_tag_index = tag_index; // TODO: this technically works since SAMRAI only lets us ever use one tag index (its static)
     Pointer<PatchHierarchy<NDIM> > hierarchy = base_hierarchy;
     TBOX_ASSERT(hierarchy);
     TBOX_ASSERT((level_number >= 0) && (level_number <= hierarchy->getFinestLevelNumber()));
     TBOX_ASSERT(hierarchy->getPatchLevel(level_number));
+
+    // TODO: this is really complicated since we have to call this function
+    // both before and after the scratch hierarchy is set up
+
+    const bool use_scratch = d_scratch_hierarchy && hierarchy.getPointer() != d_scratch_hierarchy.getPointer();
+
+    if (use_scratch)
+    {
+        getForwardScratchSchedule(level_number, tag_index).fillData(0.0);
+    }
+
+
     for (unsigned int part = 0; part < d_num_parts; ++part)
     {
-        d_fe_data_managers[part]->applyGradientDetector(
-            hierarchy, level_number, error_data_time, tag_index, initial_time, uses_richardson_extrapolation_too);
+        if (use_scratch)
+            d_fe_data_managers[part]->applyGradientDetector(d_scratch_hierarchy,
+                                                            level_number,
+                                                            error_data_time,
+                                                            tag_index,
+                                                            initial_time,
+                                                            uses_richardson_extrapolation_too);
+        else
+        {
+            // TODO why is this not allocated?
+            Pointer<PatchLevel<NDIM> > level = base_hierarchy->getPatchLevel(level_number);
+            if (!level->checkAllocated(tag_index)) level->allocatePatchData(tag_index, 0.0);
+            d_fe_data_managers[part]->applyGradientDetector(base_hierarchy,
+                                                        level_number,
+                                                        error_data_time,
+                                                        tag_index,
+                                                        initial_time,
+                                                        uses_richardson_extrapolation_too);
+        }
     }
+
+    if (use_scratch)
+    {
+        // TODO: petition the SAMRAI guys to add extra assertions to check
+        // that these things are actually allocated. I messed up the level
+        // number here and got a segmentation fault since SAMRAI ends up
+        // constructing a null reference (!)
+        getBackwardScratchSchedule(level_number, tag_index).fillData(0.0);
+
+        // SAMRAI really doesn't always check that this is not already
+        // allocated, so deallocate it to be safe
+        Pointer<PatchLevel<NDIM> > scratch_level = d_scratch_hierarchy->getPatchLevel(level_number);
+        scratch_level->deallocatePatchData(tag_index);
+    }
+
     return;
 } // applyGradientDetector
 
@@ -3111,6 +3337,45 @@ IBFEMethod::initializeVelocity(const unsigned int part)
     return;
 } // initializeVelocity
 
+SAMRAI::xfer::RefineSchedule<NDIM> &
+IBFEMethod::getForwardScratchSchedule(const int level_number, const int data_idx)
+{
+    TBOX_ASSERT(d_scratch_hierarchy);
+    const auto key = std::make_pair(level_number, data_idx);
+    if (d_scratch_transfer_forward_schedules.count(key) == 0)
+    {
+        Pointer<PatchLevel<NDIM> > level = d_hierarchy->getPatchLevel(level_number);
+        Pointer<PatchLevel<NDIM> > scratch_level = d_scratch_hierarchy->getPatchLevel(level_number);
+        // TODO: its not clear to me why, but we need the allocation check for
+        // workload data.
+        if (!scratch_level->checkAllocated(data_idx)) scratch_level->allocatePatchData(data_idx, 0.0);
+        Pointer<RefineAlgorithm<NDIM> > refine_algorithm = new RefineAlgorithm<NDIM>();
+        Pointer<RefineOperator<NDIM> > refine_op_f = new CopyAsRefineOperator<NDIM>();
+        refine_algorithm->registerRefine(data_idx, data_idx, data_idx, refine_op_f);
+        d_scratch_transfer_forward_schedules[key] =
+            refine_algorithm->createSchedule("DEFAULT_FILL", scratch_level, level, nullptr, false, nullptr);
+    }
+    return *d_scratch_transfer_forward_schedules[key];
+} // getForwardScratchSchedule
+
+SAMRAI::xfer::RefineSchedule<NDIM> &
+IBFEMethod::getBackwardScratchSchedule(const int level_number, const int data_idx)
+{
+    TBOX_ASSERT(d_scratch_hierarchy);
+    const auto key = std::make_pair(level_number, data_idx);
+    if (d_scratch_transfer_backward_schedules.count(key) == 0)
+    {
+        Pointer<PatchLevel<NDIM> > level = d_hierarchy->getPatchLevel(level_number);
+        Pointer<PatchLevel<NDIM> > scratch_level = d_scratch_hierarchy->getPatchLevel(level_number);
+        Pointer<RefineAlgorithm<NDIM> > refine_algorithm = new RefineAlgorithm<NDIM>();
+        Pointer<RefineOperator<NDIM> > refine_op_b = new CopyAsRefineOperator<NDIM>();
+        refine_algorithm->registerRefine(data_idx, data_idx, data_idx, refine_op_b);
+        d_scratch_transfer_backward_schedules[key] =
+            refine_algorithm->createSchedule("DEFAULT_FILL", level, scratch_level, nullptr, false, nullptr);
+    }
+    return *d_scratch_transfer_backward_schedules[key];
+} // getBackwardScratchSchedule
+
 /////////////////////////////// PRIVATE //////////////////////////////////////
 
 void
@@ -3369,6 +3634,20 @@ IBFEMethod::getFromInput(Pointer<Database> db, bool /*is_from_restart*/)
     {
         d_default_workload_spec.q_point_weight = db->getDouble("workload_quad_point_weight");
     }
+
+    d_use_scratch_hierarchy = db->getBoolWithDefault("use_scratch_hierarchy", false);
+    if (d_use_scratch_hierarchy)
+    {
+        if (!db->isDatabase("GriddingAlgorithm") || !db->isDatabase("LoadBalancer"))
+        {
+            TBOX_ERROR(d_object_name << ": if the scratch hierarchy is enabled "
+                       "then the input database should contain entries for the "
+                       "scratch GriddingAlgorithm and LoadBalancer." << std::endl);
+        }
+        d_gridding_algorithm_db = db->getDatabase("GriddingAlgorithm");
+        d_load_balancer_db = db->getDatabase("LoadBalancer");
+    }
+
     return;
 } // getFromInput
 
