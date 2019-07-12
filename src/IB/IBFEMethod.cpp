@@ -1021,16 +1021,18 @@ IBFEMethod::interpolateVelocity(const int u_data_idx,
     }
 
     // start of testing block
-    const int ln = d_hierarchy->getFinestLevelNumber();
-    Pointer<PatchLevel<NDIM> > level = d_hierarchy->getPatchLevel(ln);
-    Pointer<PatchLevel<NDIM> > scratch_level = d_scratch_hierarchy->getPatchLevel(ln);
-    scratch_level->allocatePatchData(u_data_idx, data_time);
-    RefineAlgorithm<NDIM> refine_algorithm;
-    Pointer<RefineOperator<NDIM> > refine_op_u = new CopyAsRefineOperator<NDIM>();
-    refine_algorithm.registerRefine(u_data_idx, u_data_idx, u_data_idx, refine_op_u);
-    Pointer<RefineSchedule<NDIM> > schedule = refine_algorithm.createSchedule
-        ("DEFAULT_FILL", scratch_level, level, nullptr, false, nullptr);
-    schedule->fillData(data_time);
+    {
+        const int ln = d_hierarchy->getFinestLevelNumber();
+        Pointer<PatchLevel<NDIM> > level = d_hierarchy->getPatchLevel(ln);
+        Pointer<PatchLevel<NDIM> > scratch_level = d_scratch_hierarchy->getPatchLevel(ln);
+        scratch_level->allocatePatchData(u_data_idx, data_time);
+        RefineAlgorithm<NDIM> refine_algorithm;
+        Pointer<RefineOperator<NDIM> > refine_op_u = new CopyAsRefineOperator<NDIM>();
+        refine_algorithm.registerRefine(u_data_idx, u_data_idx, u_data_idx, refine_op_u);
+        Pointer<RefineSchedule<NDIM> > schedule = refine_algorithm.createSchedule
+            ("DEFAULT_FILL", scratch_level, level, nullptr, false, nullptr);
+        schedule->fillData(data_time);
+    }
     // end of testing block
 
     std::vector<PetscVector<double>*> U_vecs(d_num_parts), X_vecs(d_num_parts);
@@ -1071,6 +1073,15 @@ IBFEMethod::interpolateVelocity(const int u_data_idx,
                                                  /*close_F*/ false,
                                                  /*close_X*/ false);
     }
+
+    // start of testing block
+    {
+        const int ln = d_hierarchy->getFinestLevelNumber();
+        Pointer<PatchLevel<NDIM> > scratch_level = d_scratch_hierarchy->getPatchLevel(ln);
+        scratch_level->deallocatePatchData(u_data_idx);
+    }
+    // end of testing block
+
     if (d_use_ghosted_velocity_rhs)
     {
         batch_vec_ghost_update(d_U_rhs_vecs, ADD_VALUES, SCATTER_REVERSE);
