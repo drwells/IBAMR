@@ -320,6 +320,61 @@ libmesh_restart_file_name(const std::string& restart_dump_dirname,
                      << std::setfill('0') << std::right << time_step_number << "." << extension;
     return file_name_prefix.str();
 }
+
+template <int DIM>
+class CopyAsRefineOperator : public xfer::RefineOperator<DIM>
+{
+public:
+    bool
+    findRefineOperator(const Pointer<hier::Variable<DIM> > &/*var*/,
+                       const std::string &/*op_name*/) const override
+    {
+        return true;
+    }
+
+    const std::string &getOperatorName() const override
+    {
+        return d_name_id;
+    }
+
+    int getOperatorPriority() const
+    {
+        return 0; // TODO: What should we actually do here?
+    }
+
+    IntVector<DIM> getStencilWidth() const
+    {
+        return hier::IntVector<DIM>(0);
+    }
+
+    void
+    refine(Patch<DIM> &fine,
+           const Patch<DIM> &coarse,
+           const int dst_component,
+           const int src_component,
+           const Box<DIM> &fine_box,
+           const IntVector<DIM> &ratio) const
+    {
+        TBOX_ASSERT(ratio == IntVector<DIM>(1));
+        tbox::Pointer<PatchData<DIM> > coarse_data = coarse.getPatchData(src_component);
+        tbox::Pointer<PatchData<DIM> > fine_data = fine.getPatchData(dst_component);
+        TBOX_ASSERT(typeid(*coarse_data) == typeid(*fine_data));
+        // TBOX_ASSERT(fine->getDepth() == fine_data->getDepth()); // TODO implement depth check
+
+        // TODO: implement non-cell overlaps
+        tbox::Array<Box<DIM> > boxes(2);
+        boxes[0] = fine_box;
+        boxes[1] = coarse.getBox();
+        BoxList<DIM> boxes_list(boxes);
+        CellOverlap<DIM> cell_overlap(boxes_list, IntVector<DIM>(0));
+
+        fine_data->copy(*coarse_data, cell_overlap);
+    }
+
+private:
+    const std::string d_name_id = "COPY_AS_REFINE";
+};
+
 } // namespace
 
 const std::string IBFEMethod::COORDS_SYSTEM_NAME = "IB coordinates system";
@@ -949,62 +1004,6 @@ IBFEMethod::postprocessIntegrateData(double current_time, double new_time, int n
     d_half_time = std::numeric_limits<double>::quiet_NaN();
     return;
 } // postprocessIntegrateData
-
-
-
-template <int DIM>
-class CopyAsRefineOperator : public xfer::RefineOperator<DIM>
-{
-public:
-    bool
-    findRefineOperator(const Pointer<hier::Variable<DIM> > &/*var*/,
-                       const std::string &/*op_name*/) const override
-    {
-        return true;
-    }
-
-    const std::string &getOperatorName() const override
-    {
-        return d_name_id;
-    }
-
-    int getOperatorPriority() const
-    {
-        return 0; // TODO: What should we actually do here?
-    }
-
-    IntVector<DIM> getStencilWidth() const
-    {
-        return hier::IntVector<DIM>(0);
-    }
-
-    void
-    refine(Patch<DIM> &fine,
-           const Patch<DIM> &coarse,
-           const int dst_component,
-           const int src_component,
-           const Box<DIM> &fine_box,
-           const IntVector<DIM> &ratio) const
-    {
-        TBOX_ASSERT(ratio == IntVector<DIM>(1));
-        tbox::Pointer<PatchData<DIM> > coarse_data = coarse.getPatchData(src_component);
-        tbox::Pointer<PatchData<DIM> > fine_data = fine.getPatchData(dst_component);
-        TBOX_ASSERT(typeid(*coarse_data) == typeid(*fine_data));
-        // TBOX_ASSERT(fine->getDepth() == fine_data->getDepth()); // TODO implement depth check
-
-        // TODO: implement non-cell overlaps
-        tbox::Array<Box<DIM> > boxes(2);
-        boxes[0] = fine_box;
-        boxes[1] = coarse.getBox();
-        BoxList<DIM> boxes_list(boxes);
-        CellOverlap<DIM> cell_overlap(boxes_list, IntVector<DIM>(0));
-
-        fine_data->copy(*coarse_data, cell_overlap);
-    }
-
-private:
-    const std::string d_name_id = "COPY_AS_REFINE";
-};
 
 
 void
