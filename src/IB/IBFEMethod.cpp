@@ -1270,20 +1270,19 @@ IBFEMethod::spreadForce(const int f_data_idx,
 
     // only valid if the scratch hierarchy is set up
     TBOX_ASSERT(d_scratch_hierarchy);
-    // start of testing block
+    if (d_scratch_transfer_forward_schedules.count(f_data_idx) == 0)
     {
         const int ln = d_hierarchy->getFinestLevelNumber();
         Pointer<PatchLevel<NDIM> > level = d_hierarchy->getPatchLevel(ln);
         Pointer<PatchLevel<NDIM> > scratch_level = d_scratch_hierarchy->getPatchLevel(ln);
-        scratch_level->allocatePatchData(f_data_idx, data_time);
-        RefineAlgorithm<NDIM> refine_algorithm;
+        scratch_level->allocatePatchData(f_data_idx, 0.0);
+        Pointer<RefineAlgorithm<NDIM> > refine_algorithm = new RefineAlgorithm<NDIM>();
         Pointer<RefineOperator<NDIM> > refine_op_f = new CopyAsRefineOperator<NDIM>();
-        refine_algorithm.registerRefine(f_data_idx, f_data_idx, f_data_idx, refine_op_f);
-        Pointer<RefineSchedule<NDIM> > schedule_forward = refine_algorithm.createSchedule
+        refine_algorithm->registerRefine(f_data_idx, f_data_idx, f_data_idx, refine_op_f);
+        d_scratch_transfer_forward_schedules[f_data_idx] = refine_algorithm->createSchedule
             ("DEFAULT_FILL", scratch_level, level, nullptr, false, nullptr);
-        schedule_forward->fillData(data_time);
     }
-    // end of testing block
+    d_scratch_transfer_forward_schedules[f_data_idx]->fillData(0.0);
 
     // Spread interior force density values.
     for (unsigned int part = 0; part < d_num_parts; ++part)
@@ -1300,20 +1299,18 @@ IBFEMethod::spreadForce(const int f_data_idx,
                                          /*close_X*/ false);
     }
 
-    // start of testing block
+    if (d_scratch_transfer_backward_schedules.count(f_data_idx) == 0)
     {
         const int ln = d_hierarchy->getFinestLevelNumber();
         Pointer<PatchLevel<NDIM> > level = d_hierarchy->getPatchLevel(ln);
         Pointer<PatchLevel<NDIM> > scratch_level = d_scratch_hierarchy->getPatchLevel(ln);
-        RefineAlgorithm<NDIM> refine_algorithm;
+        Pointer<RefineAlgorithm<NDIM> > refine_algorithm = new RefineAlgorithm<NDIM>();
         Pointer<RefineOperator<NDIM> > refine_op_f = new CopyAsRefineOperator<NDIM>();
-        refine_algorithm.registerRefine(f_data_idx, f_data_idx, f_data_idx, refine_op_f);
-        Pointer<RefineSchedule<NDIM> > schedule_backward = refine_algorithm.createSchedule
+        refine_algorithm->registerRefine(f_data_idx, f_data_idx, f_data_idx, refine_op_f);
+        d_scratch_transfer_backward_schedules[f_data_idx] = refine_algorithm->createSchedule
             ("DEFAULT_FILL", level, scratch_level, nullptr, false, nullptr);
-        schedule_backward->fillData(data_time);
-        scratch_level->deallocatePatchData(f_data_idx);
     }
-    // end of testing block
+    d_scratch_transfer_backward_schedules[f_data_idx]->fillData(0.0);
 
     // Handle any transmission conditions.
     for (unsigned int part = 0; part < d_num_parts; ++part)
