@@ -263,6 +263,9 @@ main(int argc, char** argv)
         ib_method_ops->initializeFEEquationSystems();
         ib_method_ops->initializeFEData();
         time_integrator->initializePatchHierarchy(patch_hierarchy, gridding_algorithm);
+        // TODO: surely there is a better way to finish initialization.
+        ib_method_ops->beginDataRedistribution(nullptr, nullptr);
+        ib_method_ops->endDataRedistribution(nullptr, nullptr);
 
         // Now for the actual test. Set up a new variable containing ghost data:
         VariableDatabase<NDIM>* var_db = VariableDatabase<NDIM>::getDatabase();

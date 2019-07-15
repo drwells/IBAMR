@@ -382,6 +382,11 @@ main(int argc, char** argv)
         ib_method_ops->initializeFEData();
         if (ib_post_processor) ib_post_processor->initializeFEData();
         time_integrator->initializePatchHierarchy(patch_hierarchy, gridding_algorithm);
+        // TODO: patch hierarchy initialization should communicate this. Could
+        // we add a callback to patch_hierarchy?
+        ib_method_ops->beginDataRedistribution(nullptr, nullptr);
+        ib_method_ops->endDataRedistribution(nullptr, nullptr);
+
 
         // Deallocate initialization objects.
         app_initializer.setNull();
