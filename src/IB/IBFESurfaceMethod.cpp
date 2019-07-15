@@ -1377,12 +1377,12 @@ void IBFESurfaceMethod::endDataRedistribution(Pointer<PatchHierarchy<NDIM> > /*h
 
 void
 IBFESurfaceMethod::initializeLevelData(Pointer<BasePatchHierarchy<NDIM> > hierarchy,
-                                       int level_number,
-                                       double init_data_time,
-                                       bool can_be_refined,
-                                       bool initial_time,
-                                       Pointer<BasePatchLevel<NDIM> > old_level,
-                                       bool allocate_data)
+                                       int /*level_number*/,
+                                       double /*init_data_time*/,
+                                       bool /*can_be_refined*/,
+                                       bool /*initial_time*/,
+                                       Pointer<BasePatchLevel<NDIM> > /*old_level*/,
+                                       bool /*allocate_data*/)
 {
     const int finest_hier_level = hierarchy->getFinestLevelNumber();
     for (unsigned int part = 0; part < d_num_parts; ++part)
