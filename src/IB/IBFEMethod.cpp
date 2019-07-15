@@ -2046,16 +2046,19 @@ IBFEMethod::applyGradientDetector(Pointer<BasePatchHierarchy<NDIM> > base_hierar
     // start of testing block
     if (d_scratch_hierarchy)
     {
-        const int ln = level_number;
-        Pointer<PatchLevel<NDIM> > level = base_hierarchy->getPatchLevel(ln);
-        Pointer<PatchLevel<NDIM> > scratch_level = d_scratch_hierarchy->getPatchLevel(ln);
-        scratch_level->allocatePatchData(tag_index, error_data_time);
-        RefineAlgorithm<NDIM> refine_algorithm;
-        Pointer<RefineOperator<NDIM> > refine_op = new CopyAsRefineOperator<NDIM>();
-        refine_algorithm.registerRefine(tag_index, tag_index, tag_index, refine_op);
-        Pointer<RefineSchedule<NDIM> > schedule = refine_algorithm.createSchedule
-            ("DEFAULT_FILL", scratch_level, level, nullptr, false, nullptr);
-        schedule->fillData(error_data_time);
+        if (d_scratch_transfer_forward_schedules.count(tag_index) == 0)
+        {
+            const int ln = level_number;
+            Pointer<PatchLevel<NDIM> > level = base_hierarchy->getPatchLevel(ln);
+            Pointer<PatchLevel<NDIM> > scratch_level = d_scratch_hierarchy->getPatchLevel(ln);
+            scratch_level->allocatePatchData(tag_index, 0.0);
+            Pointer<RefineAlgorithm<NDIM> > refine_algorithm = new RefineAlgorithm<NDIM>();
+            Pointer<RefineOperator<NDIM> > refine_op = new CopyAsRefineOperator<NDIM>();
+            refine_algorithm->registerRefine(tag_index, tag_index, tag_index, refine_op);
+            d_scratch_transfer_forward_schedules[tag_index] = refine_algorithm->createSchedule
+                ("DEFAULT_FILL", scratch_level, level, nullptr, false, nullptr);
+        }
+        d_scratch_transfer_forward_schedules[tag_index]->fillData(0.0);
     }
     // end of testing block
 
@@ -2067,26 +2070,25 @@ IBFEMethod::applyGradientDetector(Pointer<BasePatchHierarchy<NDIM> > base_hierar
             d_fe_data_managers[part]->applyGradientDetector(base_hierarchy, level_number, error_data_time, tag_index, initial_time, uses_richardson_extrapolation_too);
     }
 
-    // start of testing block
     if (d_scratch_hierarchy)
     {
         // TODO: petition the SAMRAI guys to add extra assertions to check
         // that these things are actually allocated. I messed up the level
         // number here and got a segmentation fault since SAMRAI ends up
         // constructing a null reference (!)
-        const int ln = level_number;
-        Pointer<PatchLevel<NDIM> > level = d_hierarchy->getPatchLevel(ln);
-        Pointer<PatchLevel<NDIM> > scratch_level = d_scratch_hierarchy->getPatchLevel(ln);
-        RefineAlgorithm<NDIM> refine_algorithm;
-        Pointer<RefineOperator<NDIM> > refine_op = new CopyAsRefineOperator<NDIM>();
-        refine_algorithm.registerRefine(tag_index, tag_index, tag_index, refine_op);
-        Pointer<RefineSchedule<NDIM> > schedule_backward = refine_algorithm.createSchedule
-            ("DEFAULT_FILL", level, scratch_level, nullptr, false, nullptr);
-        schedule_backward->fillData(error_data_time);
-        scratch_level->deallocatePatchData(tag_index);
+        if (d_scratch_transfer_backward_schedules.count(tag_index) == 0)
+        {
+            const int ln = level_number;
+            Pointer<PatchLevel<NDIM> > level = d_hierarchy->getPatchLevel(ln);
+            Pointer<PatchLevel<NDIM> > scratch_level = d_scratch_hierarchy->getPatchLevel(ln);
+            Pointer<RefineAlgorithm<NDIM> > refine_algorithm = new RefineAlgorithm<NDIM>();
+            Pointer<RefineOperator<NDIM> > refine_op = new CopyAsRefineOperator<NDIM>();
+            refine_algorithm->registerRefine(tag_index, tag_index, tag_index, refine_op);
+            d_scratch_transfer_backward_schedules[tag_index] = refine_algorithm->createSchedule
+                ("DEFAULT_FILL", level, scratch_level, nullptr, false, nullptr);
+        }
+        d_scratch_transfer_backward_schedules[tag_index]->fillData(0.0);
     }
-    // end of testing block
-
 
     return;
 } // applyGradientDetector
