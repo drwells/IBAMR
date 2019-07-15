@@ -1019,20 +1019,21 @@ IBFEMethod::interpolateVelocity(const int u_data_idx,
         if (u_ghost_fill_sched) u_ghost_fill_sched->fillData(data_time);
     }
 
-    // start of testing block
+    // only valid if the scratch hierarchy is set up
+    TBOX_ASSERT(d_scratch_hierarchy);
+    if (d_scratch_transfer_forward_schedules.count(u_data_idx) == 0)
     {
         const int ln = d_hierarchy->getFinestLevelNumber();
         Pointer<PatchLevel<NDIM> > level = d_hierarchy->getPatchLevel(ln);
         Pointer<PatchLevel<NDIM> > scratch_level = d_scratch_hierarchy->getPatchLevel(ln);
-        scratch_level->allocatePatchData(u_data_idx, data_time);
-        RefineAlgorithm<NDIM> refine_algorithm;
+        scratch_level->allocatePatchData(u_data_idx, 0.0);
+        Pointer<RefineAlgorithm<NDIM> > refine_algorithm = new RefineAlgorithm<NDIM>();
         Pointer<RefineOperator<NDIM> > refine_op_u = new CopyAsRefineOperator<NDIM>();
-        refine_algorithm.registerRefine(u_data_idx, u_data_idx, u_data_idx, refine_op_u);
-        Pointer<RefineSchedule<NDIM> > schedule = refine_algorithm.createSchedule
+        refine_algorithm->registerRefine(u_data_idx, u_data_idx, u_data_idx, refine_op_u);
+        d_scratch_transfer_forward_schedules[u_data_idx] = refine_algorithm->createSchedule
             ("DEFAULT_FILL", scratch_level, level, nullptr, false, nullptr);
-        schedule->fillData(data_time);
     }
-    // end of testing block
+    d_scratch_transfer_forward_schedules[u_data_idx]->fillData(0.0);
 
     std::vector<PetscVector<double>*> U_vecs(d_num_parts), X_vecs(d_num_parts);
     for (unsigned int part = 0; part < d_num_parts; ++part)
@@ -1068,18 +1069,12 @@ IBFEMethod::interpolateVelocity(const int u_data_idx,
                                                  *d_X_IB_ghost_vecs[part],
                                                  VELOCITY_SYSTEM_NAME,
                                                  no_fill,
-                                                 data_time,
+                                                 data_time, // this is not used since we do not fill here
                                                  /*close_F*/ false,
                                                  /*close_X*/ false);
     }
-
-    // start of testing block
-    {
-        const int ln = d_hierarchy->getFinestLevelNumber();
-        Pointer<PatchLevel<NDIM> > scratch_level = d_scratch_hierarchy->getPatchLevel(ln);
-        scratch_level->deallocatePatchData(u_data_idx);
-    }
-    // end of testing block
+    // note that FEDataManager only reads (no writes) Eulerian info so no data
+    // needs to be transferred back to d_hierarchy
 
     if (d_use_ghosted_velocity_rhs)
     {
@@ -1964,18 +1959,26 @@ void IBFEMethod::endDataRedistribution(Pointer<PatchHierarchy<NDIM> > /*hierarch
             ("IBFEMethod:: scratch_hierarchy", IntVector<NDIM>(1), false);
         // TODO: repartition the scratch hierarchy by IB points here!
 
-        // TODO: this assumes that all Lagrangian data is on the finest patch
-        // level. Replace this with loops over the different parts to get the
-        // real patch level range.
+        // TODO: this assumes that all Lagrangian data is on the finest or
+        // next to finest (cells are tagged on the next to finest level so we
+        // need it too) patch levels. Replace this with loops over the
+        // different parts to get the real patch level range.
         const int ln = d_scratch_hierarchy->getFinestLevelNumber();
         d_scratch_data_cache.setPatchHierarchy(d_scratch_hierarchy);
-        d_scratch_data_cache.resetLevels(ln, ln);
+        d_scratch_data_cache.resetLevels(std::max(ln - 1, 0), ln);
 
-        // TODO: FEDataManager needs
+        // FEDataManager needs
         // 1. velocity
         // 2. force
         // 3. workload or some quadrature point per cell count
-        // 4. tagging?
+        // 4. tagging
+        //
+        // patches in the scratch hierarchy. However, the data index is not
+        // known until the call to interpolateVelocity or spreadForce, so
+        // clear existing data but do not allocate yet.
+        d_scratch_transfer_forward_schedules.clear();
+        d_scratch_transfer_backward_schedules.clear();
+
         for (unsigned int part = 0; part < d_num_parts; ++part)
         {
             d_fe_data_managers[part]->setPatchHierarchy(d_scratch_hierarchy);

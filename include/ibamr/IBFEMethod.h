@@ -836,6 +836,18 @@ protected:
     IBTK::SAMRAIDataCache d_scratch_data_cache;
 
     /*
+     * Refinement schedules for transferring data from d_hierarchy to
+     * d_scratch_hierarchy.
+     */
+    std::map<int, SAMRAI::tbox::Pointer<SAMRAI::xfer::RefineSchedule<NDIM> > > d_scratch_transfer_forward_schedules;
+
+    /*
+     * Refinement schedules for transferring data from d_scratch_hierarchy to
+     * d_hierarchy.
+     */
+    std::map<int, SAMRAI::tbox::Pointer<SAMRAI::xfer::RefineSchedule<NDIM> > > d_scratch_transfer_backward_schedules;
+
+    /*
      * The current time step interval.
      */
     double d_current_time = std::numeric_limits<double>::quiet_NaN(),
