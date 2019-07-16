@@ -1935,7 +1935,14 @@ void IBFEMethod::endDataRedistribution(Pointer<PatchHierarchy<NDIM> > /*hierarch
     // if we are not initialized then there is nothing to do
     if (d_is_initialized)
     {
-        // Checking the workload index like this breaks incapsulation, but
+        // Set up the patch hierarchy that is partitioned according to the
+        // number of IB interaction points and reset the FEDataManagers to use
+        // it.
+        d_scratch_hierarchy = d_hierarchy->makeRefinedPatchHierarchy
+            ("IBFEMethod:: scratch_hierarchy", IntVector<NDIM>(1), false);
+        // At this point the scratch hierarchy
+
+        // Checking the workload index like this breaks encapsulation, but
         // since this is inside the library and not user code its not so bad
         const bool workload_is_setup = d_ib_solver ? d_ib_solver->getWorkloadDataIndex() != IBTK::invalid_index : false;
         // At this point in the code SAMRAI has already redistributed the
@@ -1953,13 +1960,6 @@ void IBFEMethod::endDataRedistribution(Pointer<PatchHierarchy<NDIM> > /*hierarch
                 partitioner.repartition(mesh);
             }
         }
-
-        // Set up the patch hierarchy that is partitioned according to the
-        // number of IB interaction points and reset the FEDataManagers to use
-        // it.
-        d_scratch_hierarchy = d_hierarchy->makeRefinedPatchHierarchy
-            ("IBFEMethod:: scratch_hierarchy", IntVector<NDIM>(1), false);
-        // TODO: repartition the scratch hierarchy by IB points here!
 
         // TODO: this assumes that all Lagrangian data is on the finest or
         // next to finest (cells are tagged on the next to finest level so we
