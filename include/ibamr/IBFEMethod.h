@@ -835,6 +835,14 @@ protected:
     SAMRAI::tbox::Pointer<SAMRAI::mesh::GriddingAlgorithm<NDIM> > d_scratch_gridding_alg;
     IBTK::SAMRAIDataCache d_scratch_data_cache;
 
+    int d_lagrangian_workload_current_idx = IBTK::invalid_index;
+    int d_lagrangian_workload_new_idx = IBTK::invalid_index;
+    int d_lagrangian_workload_scratch_idx = IBTK::invalid_index;
+
+    SAMRAI::tbox::Pointer<SAMRAI::hier::Variable<NDIM> > d_lagrangian_workload_var;
+    const std::string d_lagrangian_workload_coarsen_type = "CONSERVATIVE_COARSEN";
+    const std::string d_lagrangian_workload_refine_type = "CONSERVATIVE_LINEAR_REFINE";
+
     /*
      * Refinement schedules for transferring data from d_hierarchy to
      * d_scratch_hierarchy.

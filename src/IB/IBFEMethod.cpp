@@ -1786,6 +1786,15 @@ IBFEMethod::registerEulerianVariables()
                      ghosts,
                      "CONSERVATIVE_COARSEN",
                      "CONSERVATIVE_LINEAR_REFINE");
+
+    d_lagrangian_workload_var = new CellVariable<NDIM, double>(d_object_name + "::lagrangian_workload");
+    registerVariable(d_lagrangian_workload_current_idx,
+                     d_lagrangian_workload_new_idx,
+                     d_lagrangian_workload_scratch_idx,
+                     d_lagrangian_workload_var,
+                     ghosts,
+                     d_lagrangian_workload_coarsen_type,
+                     d_lagrangian_workload_refine_type);
     return;
 } // registerEulerianVariables
 
@@ -1925,7 +1934,54 @@ IBFEMethod::addWorkloadEstimate(Pointer<PatchHierarchy<NDIM> > hierarchy, const 
 void IBFEMethod::beginDataRedistribution(Pointer<PatchHierarchy<NDIM> > /*hierarchy*/,
                                          Pointer<GriddingAlgorithm<NDIM> > /*gridding_alg*/)
 {
-    // intentionally blank
+    // Record the specifically Lagrangian workload estimation.
+    // TODO: this assumes that all parts are on the finest level
+    //
+    // TODO: this is really complicated since we won't have the scratch
+    // hierarchy available until we have finished the first regrid
+    // operation. Make it simpler.
+    //
+    // naught to do if we are not initialized
+    if (d_is_initialized)
+    {
+        auto &hierarchy = d_scratch_hierarchy ? d_scratch_hierarchy : d_hierarchy;
+        const int ln = hierarchy->getFinestLevelNumber();
+        const int index = d_lagrangian_workload_current_idx;
+
+        if (d_scratch_hierarchy)
+        {
+            // TODO why is this already allocated?
+            Pointer<PatchLevel<NDIM> > patch_level = d_scratch_hierarchy->getPatchLevel(ln);
+            if (!patch_level->checkAllocated(index))
+            {
+                d_scratch_hierarchy->getPatchLevel(ln)->allocatePatchData(index, d_current_time);
+            }
+        }
+
+        HierarchyCellDataOpsReal<NDIM, double> hier_cc_data_ops(hierarchy, ln, ln);
+        hier_cc_data_ops.setToScalar(index, 0.0);
+        for (unsigned int part = 0; part < d_num_parts; ++part)
+        {
+            d_fe_data_managers[part]->addWorkloadEstimate(hierarchy, index, ln, ln);
+        }
+
+        if (d_scratch_hierarchy)
+        {
+            Pointer<RefineAlgorithm<NDIM> > refine_algorithm = new RefineAlgorithm<NDIM>();
+            Pointer<RefineOperator<NDIM> > refine_op = new CopyAsRefineOperator<NDIM>();
+            refine_algorithm->registerRefine(index, index, index, refine_op);
+            Pointer<PatchLevel<NDIM> > level = d_hierarchy->getPatchLevel(ln);
+            Pointer<PatchLevel<NDIM> > scratch_level = d_scratch_hierarchy->getPatchLevel(ln);
+            // We are about to repartition, so there is no reason to save this schedule
+            Pointer<RefineSchedule<NDIM> > sched = refine_algorithm->createSchedule
+                ("DEFAULT_FILL", level, scratch_level, nullptr, false, nullptr);
+            sched->fillData(d_current_time);
+            d_scratch_hierarchy->getPatchLevel(ln)->deallocatePatchData(index);
+        }
+    }
+
+    // otherwise the data is already on the hierarchy which we are about to
+    // repartition
     return;
 } // beginDataRedistribution
 
@@ -1940,7 +1996,34 @@ void IBFEMethod::endDataRedistribution(Pointer<PatchHierarchy<NDIM> > /*hierarch
         // it.
         d_scratch_hierarchy = d_hierarchy->makeRefinedPatchHierarchy
             ("IBFEMethod:: scratch_hierarchy", IntVector<NDIM>(1), false);
-        // At this point the scratch hierarchy
+        {
+            // TODO: this assumes that all parts are on the finest level
+            const int ln = d_scratch_hierarchy->getFinestLevelNumber();
+            const int index = d_lagrangian_workload_current_idx;
+            Pointer<PatchLevel<NDIM> > level = d_hierarchy->getPatchLevel(ln);
+            Pointer<PatchLevel<NDIM> > scratch_level = d_scratch_hierarchy->getPatchLevel(ln);
+            scratch_level->allocatePatchData(index, d_current_time);
+
+            PatchLevelIterator<NDIM> patch_it(level);
+            PatchLevelIterator<NDIM> scratch_patch_it(level);
+            for (; patch_it; patch_it++, scratch_patch_it++)
+            {
+                TBOX_ASSERT(scratch_patch_it);
+                Pointer<Patch<NDIM> > patch = level->getPatch(patch_it());
+                Pointer<Patch<NDIM> > scratch_patch = scratch_level->getPatch(scratch_patch_it());
+                scratch_patch->getPatchData(index)->copy(*patch->getPatchData(index));
+            }
+
+            // TODO: pull the trigger and use index to load balance d_scratch_hierarchy
+            Pointer<LoadBalancer<NDIM> > load_balancer = new LoadBalancer<NDIM>();
+            load_balancer->setWorkloadPatchDataIndex(index);
+            // TODO: un-hardcode these parameters
+            load_balancer->setMaxWorkloadFactor(0.0625);
+            load_balancer->setBinPackMethod("GREEDY");
+
+            Pointer<GriddingAlgorithm<NDIM> > gridding_algorithm = d_ib_solver->getGriddingAlgorithm();
+        }
+
 
         // Checking the workload index like this breaks encapsulation, but
         // since this is inside the library and not user code its not so bad
