@@ -327,14 +327,12 @@ template <int DIM>
 class CopyAsRefineOperator : public xfer::RefineOperator<DIM>
 {
 public:
-    bool
-    findRefineOperator(const Pointer<hier::Variable<DIM> > &/*var*/,
-                       const std::string &/*op_name*/) const override
+    bool findRefineOperator(const Pointer<hier::Variable<DIM> >& /*var*/, const std::string& /*op_name*/) const override
     {
         return true;
     }
 
-    const std::string &getOperatorName() const override
+    const std::string& getOperatorName() const override
     {
         return d_name_id;
     }
@@ -349,13 +347,12 @@ public:
         return hier::IntVector<DIM>(0);
     }
 
-    void
-    refine(Patch<DIM> &fine,
-           const Patch<DIM> &coarse,
-           const int dst_component,
-           const int src_component,
-           const Box<DIM> &fine_box,
-           const IntVector<DIM> &ratio) const
+    void refine(Patch<DIM>& fine,
+                const Patch<DIM>& coarse,
+                const int dst_component,
+                const int src_component,
+                const Box<DIM>& fine_box,
+                const IntVector<DIM>& ratio) const
     {
         TBOX_ASSERT(ratio == IntVector<DIM>(1));
         tbox::Pointer<PatchData<DIM> > coarse_data = coarse.getPatchData(src_component);
@@ -1007,7 +1004,6 @@ IBFEMethod::postprocessIntegrateData(double current_time, double new_time, int n
     return;
 } // postprocessIntegrateData
 
-
 void
 IBFEMethod::interpolateVelocity(const int u_data_idx,
                                 const std::vector<Pointer<CoarsenSchedule<NDIM> > >& /*u_synch_scheds*/,
@@ -1032,8 +1028,8 @@ IBFEMethod::interpolateVelocity(const int u_data_idx,
         Pointer<RefineAlgorithm<NDIM> > refine_algorithm = new RefineAlgorithm<NDIM>();
         Pointer<RefineOperator<NDIM> > refine_op_u = new CopyAsRefineOperator<NDIM>();
         refine_algorithm->registerRefine(u_data_idx, u_data_idx, u_data_idx, refine_op_u);
-        d_scratch_transfer_forward_schedules[u_data_idx] = refine_algorithm->createSchedule
-            ("DEFAULT_FILL", scratch_level, level, nullptr, false, nullptr);
+        d_scratch_transfer_forward_schedules[u_data_idx] =
+            refine_algorithm->createSchedule("DEFAULT_FILL", scratch_level, level, nullptr, false, nullptr);
     }
     d_scratch_transfer_forward_schedules[u_data_idx]->fillData(0.0);
 
@@ -1281,8 +1277,8 @@ IBFEMethod::spreadForce(const int f_data_idx,
         Pointer<RefineAlgorithm<NDIM> > refine_algorithm = new RefineAlgorithm<NDIM>();
         Pointer<RefineOperator<NDIM> > refine_op_f = new CopyAsRefineOperator<NDIM>();
         refine_algorithm->registerRefine(f_data_idx, f_data_idx, f_data_idx, refine_op_f);
-        d_scratch_transfer_forward_schedules[f_data_idx] = refine_algorithm->createSchedule
-            ("DEFAULT_FILL", scratch_level, level, nullptr, false, nullptr);
+        d_scratch_transfer_forward_schedules[f_data_idx] =
+            refine_algorithm->createSchedule("DEFAULT_FILL", scratch_level, level, nullptr, false, nullptr);
     }
     d_scratch_transfer_forward_schedules[f_data_idx]->fillData(0.0);
 
@@ -1309,8 +1305,8 @@ IBFEMethod::spreadForce(const int f_data_idx,
         Pointer<RefineAlgorithm<NDIM> > refine_algorithm = new RefineAlgorithm<NDIM>();
         Pointer<RefineOperator<NDIM> > refine_op_f = new CopyAsRefineOperator<NDIM>();
         refine_algorithm->registerRefine(f_data_idx, f_data_idx, f_data_idx, refine_op_f);
-        d_scratch_transfer_backward_schedules[f_data_idx] = refine_algorithm->createSchedule
-            ("DEFAULT_FILL", level, scratch_level, nullptr, false, nullptr);
+        d_scratch_transfer_backward_schedules[f_data_idx] =
+            refine_algorithm->createSchedule("DEFAULT_FILL", level, scratch_level, nullptr, false, nullptr);
     }
     d_scratch_transfer_backward_schedules[f_data_idx]->fillData(0.0);
 
@@ -1816,8 +1812,8 @@ IBFEMethod::initializePatchHierarchy(Pointer<PatchHierarchy<NDIM> > hierarchy,
 
     initializeFEData();
 
-    Pointer<PatchHierarchy<NDIM> > patch_hierarchy2 = d_hierarchy->makeRefinedPatchHierarchy
-        (d_object_name + "::scratch_hierarchy", IntVector<NDIM>(1), /*register_for_restart*/false);
+    Pointer<PatchHierarchy<NDIM> > patch_hierarchy2 = d_hierarchy->makeRefinedPatchHierarchy(
+        d_object_name + "::scratch_hierarchy", IntVector<NDIM>(1), /*register_for_restart*/ false);
 
     // Initialize the FE data manager.
     for (unsigned int part = 0; part < d_num_parts; ++part)
