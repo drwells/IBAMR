@@ -68,6 +68,13 @@
 // Set up application namespace declarations
 #include <ibamr/app_namespaces.h>
 
+
+
+#include <sys/time.h>
+#include <sys/resource.h>
+
+
+
 // Elasticity model data.
 namespace ModelData
 {
@@ -464,6 +471,11 @@ run_example(int argc, char** argv)
         {
             iteration_num = time_integrator->getIntegratorStep();
             loop_time = time_integrator->getIntegratorTime();
+
+            rusage r_usage;
+            getrusage(RUSAGE_SELF, &r_usage);
+            long mem_usage = r_usage.ru_maxrss;
+            pout << "Current memory max:" << SAMRAI_MPI::sumReduction(double(mem_usage)) << "\n";
 
             pout << "\n";
             pout << "+++++++++++++++++++++++++++++++++++++++++++++++++++\n";
