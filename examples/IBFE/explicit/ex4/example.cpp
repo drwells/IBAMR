@@ -292,7 +292,8 @@ run_example(int argc, char** argv)
                                               app_initializer->getComponentDatabase("IBHierarchyIntegrator"),
                                               ib_method_ops,
                                               navier_stokes_integrator);
-        time_integrator->registerLoadBalancer(load_balancer);
+        // time_integrator->registerLoadBalancer(load_balancer);
+        load_balancer->setUniformWorkload();
 
         Pointer<StandardTagAndInitialize<NDIM> > error_detector =
             new StandardTagAndInitialize<NDIM>("StandardTagAndInitialize",
@@ -326,11 +327,11 @@ run_example(int argc, char** argv)
         ib_method_ops->initializeFEEquationSystems();
         FEDataManager* fe_data_manager = ib_method_ops->getFEDataManager();
 
-        Pointer<IBFEPostProcessor> ib_post_processor =
-            new IBFECentroidPostProcessor("IBFEPostProcessor", fe_data_manager);
+        Pointer<IBFEPostProcessor> ib_post_processor = nullptr;
+        //    new IBFECentroidPostProcessor("IBFEPostProcessor", fe_data_manager);
 
+#if 0
         ib_post_processor->registerTensorVariable("FF", MONOMIAL, CONSTANT, IBFEPostProcessor::FF_fcn);
-
         pair<IBTK::TensorMeshFcnPtr, void*> PK1_dev_stress_fcn_data(PK1_dev_stress_function, static_cast<void*>(NULL));
         ib_post_processor->registerTensorVariable("sigma_dev",
                                                   MONOMIAL,
@@ -360,6 +361,7 @@ run_example(int argc, char** argv)
                                                 /*use_nodal_quadrature*/ false);
         ib_post_processor->registerInterpolatedScalarEulerianVariable(
             "p_f", LAGRANGE, FIRST, p_var, p_current_ctx, p_ghostfill, p_interp_spec);
+#endif
 
         // Create Eulerian initial condition specification objects.
         if (input_db->keyExists("VelocityInitialConditions"))
@@ -413,7 +415,7 @@ run_example(int argc, char** argv)
         if (uses_visit)
         {
             time_integrator->registerVisItDataWriter(visit_data_writer);
-            visit_data_writer->registerPlotQuantity("workload", "SCALAR", time_integrator->getWorkloadDataIndex());
+            // visit_data_writer->registerPlotQuantity("workload", "SCALAR", time_integrator->getWorkloadDataIndex());
         }
         std::unique_ptr<ExodusII_IO> exodus_io(uses_exodus ? new ExodusII_IO(mesh) : NULL);
 
@@ -507,8 +509,14 @@ run_example(int argc, char** argv)
                     visit_data_writer->writePlotData(patch_hierarchy, iteration_num, loop_time);
                     if (NDIM < 3)
                     {
-                        IBTK::BoxPartitioner partitioner(*patch_hierarchy, position_system);
-                        partitioner.writePartitioning("patch-part-" + std::to_string(iteration_num) + ".txt");
+                        {
+                            IBTK::BoxPartitioner partitioner(ib_method_ops->getScratchHierarchy(), position_system);
+                            partitioner.writePartitioning("patch-lagrangian-part-" + std::to_string(iteration_num) + ".txt");
+                        }
+                        {
+                            IBTK::BoxPartitioner partitioner(*patch_hierarchy, position_system);
+                            partitioner.writePartitioning("patch-eulerian-part-" + std::to_string(iteration_num) + ".txt");
+                        }
                         IBTK::write_node_partitioning("node-part-" + std::to_string(iteration_num) + ".txt",
                                                       position_system);
                     }
