@@ -2033,6 +2033,23 @@ void IBFEMethod::endDataRedistribution(Pointer<PatchHierarchy<NDIM> > /*hierarch
                 new StandardTagAndInitialize<NDIM>(d_object_name + ":: tag", this);
             error_detector->turnOnGradientDetector();
 
+            if (d_tag_index != -1)
+            {
+                for (int ln = 0; ln < d_scratch_hierarchy->getFinestLevelNumber(); ++ln)
+                {
+                    Pointer<PatchLevel<NDIM> > level = d_scratch_hierarchy->getPatchLevel(ln);
+                    for (PatchLevel<NDIM>::Iterator p(level); p; p++)
+                    {
+                        Pointer<Patch<NDIM> > patch = level->getPatch(p());
+                        if (patch->checkAllocated(d_tag_index))
+                        {
+                            Pointer<CellData<NDIM, int> > tags_data = patch->getPatchData(d_tag_index);
+                            tags_data->fillAll(0);
+                        }
+                    }
+                }
+            }
+
             Pointer<GriddingAlgorithm<NDIM> > gridding_algorithm =
                 new GriddingAlgorithm<NDIM>(d_object_name + ":: gridding_alg",
                                             d_gridding_algorithm_db,
@@ -2044,7 +2061,7 @@ void IBFEMethod::endDataRedistribution(Pointer<PatchHierarchy<NDIM> > /*hierarch
             // any sort of tagging based on the current time I think we can
             // just put in a bogus (nonnegative) value.
             gridding_algorithm->regridAllFinerLevels
-                (d_scratch_hierarchy, 0, 0.0/*d_current_time*/,
+                (d_scratch_hierarchy, 0, d_ib_solver->getIntegratorTime(),
                  d_ib_solver->getTagBuffer());
         }
 
