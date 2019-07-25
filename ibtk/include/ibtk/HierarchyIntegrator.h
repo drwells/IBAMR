@@ -687,6 +687,14 @@ public:
      */
     void putToDatabase(SAMRAI::tbox::Pointer<SAMRAI::tbox::Database> db) override;
 
+    const SAMRAI::tbox::Array<int> &
+    getTagBuffer() const
+    {
+        if (d_parent_integrator)
+            return d_parent_integrator->getTagBuffer();
+        return d_tag_buffer;
+    }
+
 protected:
     /*!
      * Perform any necessary work relevant to data owned by the current

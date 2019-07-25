@@ -2448,6 +2448,7 @@ FEDataManager::applyGradientDetector(const Pointer<BasePatchHierarchy<NDIM> > hi
     TBOX_ASSERT(hierarchy);
     TBOX_ASSERT((level_number >= 0) && (level_number <= hierarchy->getFinestLevelNumber()));
     TBOX_ASSERT(hierarchy->getPatchLevel(level_number));
+    TBOX_ASSERT(hierarchy.getPointer() == d_hierarchy.getPointer());
 
     if (initial_time)
     {

@@ -106,6 +106,7 @@ BoxPartitioner::writePartitioning(const std::string& file_name) const
         const unsigned int n_x_points = dx / ref_dx;
         const unsigned int n_y_points = dy / ref_dx;
         const unsigned int n_z_points = NDIM == 3 ? dz / ref_dx : 1;
+#if 0
         for (unsigned int i = 0; i < n_x_points; ++i)
         {
             for (unsigned int j = 0; j < n_y_points; ++j)
@@ -119,7 +120,41 @@ BoxPartitioner::writePartitioning(const std::string& file_name) const
                 }
             }
         }
+#else
+        // left
+        for (unsigned int j = 0; j < n_y_points; ++j)
+        {
+            current_processor_output << bottom[0] << ','
+                                     << bottom[1] + j / double(n_y_points) * dy << ','
+                                     << 0.0 << ','
+                                     << current_rank << '\n';
+        }
+        // right
+        for (unsigned int j = 0; j < n_y_points; ++j)
+        {
+            current_processor_output << top[0] << ','
+                                     << bottom[1] + j / double(n_y_points) * dy << ','
+                                     << 0.0 << ','
+                                     << current_rank << '\n';
+        }
+        // bottom
+        for (unsigned int i = 0; i < n_x_points; ++i)
+        {
+            current_processor_output << bottom[0] + i / double(n_x_points) * dx << ','
+                                     << bottom[1] << ','
+                                     << 0.0 << ','
+                                     << current_rank << '\n';
+        }
+        // top
+        for (unsigned int i = 0; i < n_x_points; ++i)
+        {
+            current_processor_output << bottom[0] + i / double(n_x_points) * dx << ','
+                                     << top[1] << ','
+                                     << 0.0 << ','
+                                     << current_rank << '\n';
+        }
     }
+#endif
 
     // clear the file before we append to it
     if (current_rank == 0)

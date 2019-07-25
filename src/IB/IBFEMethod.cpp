@@ -51,6 +51,7 @@
 
 #include "BasePatchHierarchy.h"
 #include "BasePatchLevel.h"
+#include "BergerRigoutsos.h"
 #include "Box.h"
 #include "CartesianPatchGeometry.h"
 #include "CellIndex.h"
@@ -64,11 +65,12 @@
 #include "Patch.h"
 #include "PatchHierarchy.h"
 #include "PatchLevel.h"
+#include "RefineOperator.h"
 #include "SideData.h"
 #include "SideIndex.h"
+#include "StandardTagAndInitialize.h"
 #include "Variable.h"
 #include "VariableDatabase.h"
-#include "RefineOperator.h"
 #include "tbox/Array.h"
 #include "tbox/Database.h"
 #include "tbox/MathUtilities.h"
@@ -4142,6 +4144,10 @@ IBFEMethod::getFromInput(Pointer<Database> db, bool /*is_from_restart*/)
     {
         d_default_workload_spec.q_point_weight = db->getDouble("workload_quad_point_weight");
     }
+
+    // TODO: this is not backwards compatible
+    d_gridding_algorithm_db = db->getDatabase("GriddingAlgorithm");
+
     return;
 } // getFromInput
 

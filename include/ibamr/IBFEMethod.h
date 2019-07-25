@@ -207,6 +207,13 @@ public:
      */
     IBTK::FEDataManager* getFEDataManager(unsigned int part = 0) const;
 
+    const SAMRAI::hier::PatchHierarchy<NDIM>&
+    getScratchHierarchy() const
+    {
+        TBOX_ASSERT(d_scratch_hierarchy);
+        return *d_scratch_hierarchy;
+    }
+
     /*!
      * Indicate that a part should use stress normalization.
      */
@@ -839,6 +846,10 @@ protected:
     int d_lagrangian_workload_new_idx = IBTK::invalid_index;
     int d_lagrangian_workload_scratch_idx = IBTK::invalid_index;
 
+    // TODO this tag index is static and known to the gridding algorithm. Is
+    // there a better way to look it up?
+    int d_tag_index = IBTK::invalid_index;
+
     SAMRAI::tbox::Pointer<SAMRAI::hier::Variable<NDIM> > d_lagrangian_workload_var;
     const std::string d_lagrangian_workload_coarsen_type = "CONSERVATIVE_COARSEN";
     const std::string d_lagrangian_workload_refine_type = "CONSERVATIVE_LINEAR_REFINE";
@@ -1059,6 +1070,11 @@ protected:
      * Restart file type for libMesh equation systems (e.g. xda or xdr).
      */
     std::string d_libmesh_restart_file_extension;
+
+    /**
+     * database for Lagrangian GriddingAlgorithm.
+     */
+    SAMRAI::tbox::Pointer<SAMRAI::tbox::Database> d_gridding_algorithm_db;
 
 private:
     /*!
