@@ -2010,13 +2010,64 @@ void IBFEMethod::endDataRedistribution(Pointer<PatchHierarchy<NDIM> > /*hierarch
     {
         // Set up the patch hierarchy that is partitioned according to the
         // number of IB interaction points and reset the FEDataManagers to use
-        // it.
-        if (!d_scratch_hierarchy)
+        // it. Immediately associate it with the FEDataManagers so that we can
+        // appropriately repartition the scratch hierarchy in the next block.
+        //
+        // TODO: it should be possible to recycle the same scratch hierarchy
+        // (which would save us from calculating things on the actual
+        // hierarchy) but doing that presently causes the finest level to be
+        // expanded to cover the entire domain, which is a huge waste of
+        // memory.
+        //
+        // if (!d_scratch_hierarchy)
+        if (true)
         {
             d_scratch_hierarchy =
                 d_hierarchy->makeRefinedPatchHierarchy("IBFEMethod:: scratch_hierarchy", IntVector<NDIM>(1), false);
+            for (unsigned int part = 0; part < d_num_parts; ++part)
+                {
+                    d_fe_data_managers[part]->setPatchHierarchy(d_scratch_hierarchy);
+                }
+
+            // reinitializeFEData(); // TODO: I am pretty sure that we can skip this call at the moment
+            for (unsigned int part = 0; part < d_num_parts; ++part)
+                {
+                    d_fe_data_managers[part]->reinitElementMappings();
+                }
+
+            // set up the workload estimate (which is just the number of
+            // quadrature points per cell)
+            const int ln = d_scratch_hierarchy->getFinestLevelNumber();
+            const int index = d_lagrangian_workload_current_idx;
+
+            for (int level = 0; level <= ln; ++level)
+            {
+                Pointer<PatchLevel<NDIM> > patch_level = d_scratch_hierarchy->getPatchLevel(level);
+                // TODO: d_current_time is NaN
+                if (!patch_level->checkAllocated(index)) patch_level->allocatePatchData(index, 0.0);
+            }
+
+            // TODO: this function is called before we are completely set up,
+            // which results in bizarre errors when we use more than two
+            // levels: e.g., if only two of three levels are set up, then the
+            // workload is zero and the load balancer cannot work
+            // correctly. Get around this by filling the workload per cell
+            // with a negligible positive value.
+            HierarchyCellDataOpsReal<NDIM, double> hier_cc_data_ops(d_scratch_hierarchy, 0, ln);
+            hier_cc_data_ops.setToScalar(index, 1e-20);
+            for (unsigned int part = 0; part < d_num_parts; ++part)
+            {
+                // TODO: this assumes all parts are on the finest level.
+                d_fe_data_managers[part]->addWorkloadEstimate(d_scratch_hierarchy, index, ln, ln);
+            }
+            plog << "workload: "
+                 << hier_cc_data_ops.L1Norm(index, IBTK::invalid_index, true)
+                 << '\n';
         }
-        else
+
+        // Now that we have a scratch hierarchy (and the FEDataManager is
+        // configured to use it), repartition the scratch hierarchy w.r.t. the
+        // number of quadrature points on each processor.
         {
             // otherwise the hierarchy already exists but has not yet been repartitioned.
             Pointer<BergerRigoutsos<NDIM> > box_generator = new BergerRigoutsos<NDIM>();
