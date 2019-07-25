@@ -93,8 +93,11 @@ BoxPartitioner::writePartitioning(const std::string& file_name) const
     const int current_rank = SAMRAI_MPI::getRank();
     for (const PartitioningBox& box : d_partitioning_boxes)
     {
-        const Point bottom = box.bottom();
-        const Point top = box.top();
+        // shrink the box slightly to make the plot easier to read (no
+        // overlapping lines)
+        const double t = 0.05;
+        const Point bottom = ((1.0 - t)*box.bottom() + t*box.top());
+        const Point top = (t*box.bottom() + (1.0 - t)*box.top());
 
         // This reference value is chosen so that the plots look good when the
         // domain is a square or cube with edge length 1
