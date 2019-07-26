@@ -706,11 +706,14 @@ public:
      * \brief Update the cell workload estimate by adding a value (see the
      * main documentation of this class for information on how this is
      * computed) to the <code>d_workload_idx</code> cell variable.
+     *
+     * Returns the sum of the computed workload.
      */
-    void addWorkloadEstimate(SAMRAI::tbox::Pointer<SAMRAI::hier::PatchHierarchy<NDIM> > hierarchy,
-                             const int workload_data_idx,
-                             const int coarsest_ln = -1,
-                             const int finest_ln = -1);
+    unsigned long
+    addWorkloadEstimate(SAMRAI::tbox::Pointer<SAMRAI::hier::PatchHierarchy<NDIM> > hierarchy,
+                        const int workload_data_idx,
+                        const int coarsest_ln = -1,
+                        const int finest_ln = -1);
 
     /*!
      * Set integer tags to "one" in cells where refinement of the given level

@@ -2405,7 +2405,7 @@ FEDataManager::updateSpreadQuadratureRule(std::unique_ptr<QBase>& qrule,
         qrule, spec.quad_type, spec.quad_order, spec.use_adaptive_quadrature, spec.point_density, elem, X_node, dx_min);
 }
 
-void
+unsigned long
 FEDataManager::addWorkloadEstimate(Pointer<PatchHierarchy<NDIM> > hierarchy,
                                    const int workload_data_idx,
                                    const int coarsest_ln_in,
@@ -2421,16 +2421,18 @@ FEDataManager::addWorkloadEstimate(Pointer<PatchHierarchy<NDIM> > hierarchy,
     // Workload estimates are computed only on the level to which the FE mesh
     // has been assigned.
     const int ln = d_level_number;
+    unsigned long total_work = 0;
     if (coarsest_ln <= ln && ln <= finest_ln)
     {
         updateQuadPointCountData(ln, ln);
         HierarchyCellDataOpsReal<NDIM, double> hier_cc_data_ops(hierarchy, ln, ln);
         hier_cc_data_ops.axpy(
             workload_data_idx, d_default_workload_spec.q_point_weight, d_qp_count_idx, workload_data_idx);
+        total_work = hier_cc_data_ops.L1Norm(workload_data_idx, IBTK::invalid_index, true);
     }
 
     IBTK_TIMER_STOP(t_update_workload_estimates);
-    return;
+    return total_work;
 } // addWorkloadEstimate
 
 void
@@ -2681,7 +2683,6 @@ FEDataManager::updateQuadPointCountData(const int coarsest_ln, const int finest_
 {
     // Set the node count data on the specified range of levels of the
     // hierarchy.
-    unsigned long n_local_q_points = 0;
     for (int ln = coarsest_ln; ln <= finest_ln; ++ln)
     {
         Pointer<PatchLevel<NDIM> > level = d_hierarchy->getPatchLevel(ln);
@@ -2768,38 +2769,10 @@ FEDataManager::updateQuadPointCountData(const int coarsest_ln, const int finest_
                     if (patch_box.contains(i))
                     {
                         (*qp_count_data)(i) += 1.0;
-                        ++n_local_q_points;
                     }
                 }
             }
         }
-
-        if (d_enable_logging)
-        {
-            const int n_processes = SAMRAI::tbox::SAMRAI_MPI::getNodes();
-            const int current_rank = SAMRAI::tbox::SAMRAI_MPI::getRank();
-            const auto right_padding = std::size_t(std::log10(n_processes)) + 1;
-
-            std::vector<unsigned long> n_q_points_on_processors(n_processes);
-            n_q_points_on_processors[current_rank] = n_local_q_points;
-
-            const int ierr = MPI_Allreduce(MPI_IN_PLACE,
-                                           n_q_points_on_processors.data(),
-                                           n_q_points_on_processors.size(),
-                                           MPI_UNSIGNED_LONG,
-                                           MPI_SUM,
-                                           SAMRAI::tbox::SAMRAI_MPI::commWorld);
-            TBOX_ASSERT(ierr == 0);
-            if (current_rank == 0)
-            {
-                for (int rank = 0; rank < n_processes; ++rank)
-                {
-                    SAMRAI::tbox::plog << "quadrature points on processor " << std::setw(right_padding) << std::left
-                                       << rank << " = " << n_q_points_on_processors[rank] << '\n';
-                }
-            }
-        }
-
         X_petsc_vec->restore_array();
     }
     return;

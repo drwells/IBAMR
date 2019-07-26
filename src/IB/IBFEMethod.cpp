@@ -2109,20 +2109,19 @@ void IBFEMethod::endDataRedistribution(Pointer<PatchHierarchy<NDIM> > /*hierarch
             // with a negligible positive value.
             HierarchyCellDataOpsReal<NDIM, double> hier_cc_data_ops(d_scratch_hierarchy, 0, ln);
             hier_cc_data_ops.setToScalar(index, 1e-20);
+            unsigned long total_work = 0;
             for (unsigned int part = 0; part < d_num_parts; ++part)
             {
                 // TODO: this assumes all parts are on the finest level.
-                d_fe_data_managers[part]->addWorkloadEstimate(d_scratch_hierarchy, index, ln, ln);
+                total_work += d_fe_data_managers[part]->addWorkloadEstimate(d_scratch_hierarchy, index, ln, ln);
             }
-            plog << "workload: "
-                 << hier_cc_data_ops.L1Norm(index, IBTK::invalid_index, true)
-                 << '\n';
         }
 
         // Now that we have a scratch hierarchy (and the FEDataManager is
         // configured to use it), repartition the scratch hierarchy w.r.t. the
         // number of quadrature points on each processor.
         {
+            dealii::TimerOutput::Scope scope(local_timer, "setup_scratch_hierarchy");
             // otherwise the hierarchy already exists but has not yet been repartitioned.
             Pointer<BergerRigoutsos<NDIM> > box_generator = new BergerRigoutsos<NDIM>();
             Pointer<LoadBalancer<NDIM> > load_balancer = new LoadBalancer<NDIM>();
@@ -2220,6 +2219,51 @@ void IBFEMethod::endDataRedistribution(Pointer<PatchHierarchy<NDIM> > /*hierarch
             d_fe_data_managers[part]->reinitElementMappings();
         }
         updateCachedIBGhostedVectors();
+
+        // allocate workload data even if we don't log.
+        const int index = d_lagrangian_workload_current_idx;
+        for (int level = 0; level <= ln; ++level)
+        {
+            Pointer<PatchLevel<NDIM> > patch_level = d_scratch_hierarchy->getPatchLevel(level);
+            // TODO: d_current_time is NaN
+            if (!patch_level->checkAllocated(index)) patch_level->allocatePatchData(index, 0.0);
+        }
+
+        // Log the amount of Lagrangian work on each processor.
+        if (d_do_log)
+        {
+            HierarchyCellDataOpsReal<NDIM, double> hier_cc_data_ops(d_scratch_hierarchy, 0, ln);
+            hier_cc_data_ops.setToScalar(index, 0.0);
+            unsigned long total_work = 0;
+            for (unsigned int part = 0; part < d_num_parts; ++part)
+            {
+                // TODO: this assumes all parts are on the finest level.
+                total_work += d_fe_data_managers[part]->addWorkloadEstimate(d_scratch_hierarchy, index, ln, ln);
+            }
+            const int n_processes = SAMRAI::tbox::SAMRAI_MPI::getNodes();
+            const int current_rank = SAMRAI::tbox::SAMRAI_MPI::getRank();
+            const auto right_padding = std::size_t(std::log10(n_processes)) + 1;
+
+            std::vector<unsigned long> workload_per_processor(n_processes);
+            workload_per_processor[current_rank] = total_work;
+
+            const int ierr = MPI_Allreduce(MPI_IN_PLACE,
+                                           workload_per_processor.data(),
+                                           workload_per_processor.size(),
+                                           MPI_UNSIGNED_LONG,
+                                           MPI_SUM,
+                                           SAMRAI::tbox::SAMRAI_MPI::commWorld);
+            TBOX_ASSERT(ierr == 0);
+            if (current_rank == 0)
+            {
+                for (int rank = 0; rank < n_processes; ++rank)
+                {
+                    SAMRAI::tbox::plog << "FEDataManager work on processor "
+                                       << std::setw(right_padding) << std::left
+                                       << rank << " = " << workload_per_processor[rank] << '\n';
+                }
+            }
+        }
     }
     return;
 } // endDataRedistribution
