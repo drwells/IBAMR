@@ -2076,6 +2076,7 @@ void IBFEMethod::endDataRedistribution(Pointer<PatchHierarchy<NDIM> > /*hierarch
         // if (!d_scratch_hierarchy)
         if (true)
         {
+            dealii::TimerOutput::Scope scope(local_timer, "setup_scratch_hierarchy");
             d_scratch_hierarchy =
                 d_hierarchy->makeRefinedPatchHierarchy("IBFEMethod:: scratch_hierarchy", IntVector<NDIM>(1), false);
             for (unsigned int part = 0; part < d_num_parts; ++part)
