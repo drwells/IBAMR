@@ -2110,11 +2110,11 @@ void IBFEMethod::endDataRedistribution(Pointer<PatchHierarchy<NDIM> > /*hierarch
             // with a negligible positive value.
             HierarchyCellDataOpsReal<NDIM, double> hier_cc_data_ops(d_scratch_hierarchy, 0, ln);
             hier_cc_data_ops.setToScalar(index, 1e-20);
-            unsigned long total_work = 0;
+
             for (unsigned int part = 0; part < d_num_parts; ++part)
             {
                 // TODO: this assumes all parts are on the finest level.
-                total_work += d_fe_data_managers[part]->addWorkloadEstimate(d_scratch_hierarchy, index, ln, ln);
+                d_fe_data_managers[part]->addWorkloadEstimate(d_scratch_hierarchy, index, ln, ln);
             }
         }
 
