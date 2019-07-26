@@ -1078,6 +1078,11 @@ protected:
      */
     SAMRAI::tbox::Pointer<SAMRAI::tbox::Database> d_gridding_algorithm_db;
 
+    /**
+     * database for Lagrangian LoadBalancer.
+     */
+    SAMRAI::tbox::Pointer<SAMRAI::tbox::Database> d_load_balancer_db;
+
 private:
     /*!
      * \brief Default constructor.

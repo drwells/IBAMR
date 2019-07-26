@@ -2125,10 +2125,9 @@ void IBFEMethod::endDataRedistribution(Pointer<PatchHierarchy<NDIM> > /*hierarch
             dealii::TimerOutput::Scope scope(local_timer, "setup_scratch_hierarchy");
             // otherwise the hierarchy already exists but has not yet been repartitioned.
             Pointer<BergerRigoutsos<NDIM> > box_generator = new BergerRigoutsos<NDIM>();
-            Pointer<LoadBalancer<NDIM> > load_balancer = new LoadBalancer<NDIM>();
+            Pointer<LoadBalancer<NDIM> > load_balancer = new LoadBalancer<NDIM>
+                (d_object_name + ":: lagrangian load_balancer", d_load_balancer_db);
             load_balancer->setWorkloadPatchDataIndex(d_lagrangian_workload_current_idx);
-            load_balancer->setMaxWorkloadFactor(0.0625);
-            load_balancer->setBinPackMethod("GREEDY");
 
             // only tag cells for refinement based on this class' refinement
             // criterion: we won't ever read boxes that are away from the
@@ -4356,6 +4355,9 @@ IBFEMethod::getFromInput(Pointer<Database> db, bool /*is_from_restart*/)
 
     // TODO: this is not backwards compatible
     d_gridding_algorithm_db = db->getDatabase("GriddingAlgorithm");
+
+    // TODO: this is not backwards compatible
+    d_load_balancer_db = db->getDatabase("LoadBalancer");
 
     return;
 } // getFromInput
