@@ -2111,10 +2111,15 @@ void IBFEMethod::endDataRedistribution(Pointer<PatchHierarchy<NDIM> > /*hierarch
             HierarchyCellDataOpsReal<NDIM, double> hier_cc_data_ops(d_scratch_hierarchy, 0, ln);
             hier_cc_data_ops.setToScalar(index, 1e-20);
 
-            for (unsigned int part = 0; part < d_num_parts; ++part)
+            // TODO: this implementation of "don't use the scratch hierarchy" is a bit odd:
+            // we really just don't partition it w.r.t. Lagrangian data.
+            if (d_use_scratch_hierarchy)
             {
-                // TODO: this assumes all parts are on the finest level.
-                d_fe_data_managers[part]->addWorkloadEstimate(d_scratch_hierarchy, index, ln, ln);
+                for (unsigned int part = 0; part < d_num_parts; ++part)
+                {
+                    // TODO: this assumes all parts are on the finest level.
+                    d_fe_data_managers[part]->addWorkloadEstimate(d_scratch_hierarchy, index, ln, ln);
+                }
             }
         }
 
@@ -4358,6 +4363,9 @@ IBFEMethod::getFromInput(Pointer<Database> db, bool /*is_from_restart*/)
 
     // TODO: this is not backwards compatible
     d_load_balancer_db = db->getDatabase("LoadBalancer");
+
+    // TODO: this is not backwards compatible
+    d_use_scratch_hierarchy = db->getBool("use_scratch_hierarchy");
 
     return;
 } // getFromInput

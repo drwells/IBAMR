@@ -837,6 +837,11 @@ protected:
     bool d_is_initialized = false;
 
     /*
+     * Whether or not to use a scratch hierarchy. TODO: describe DB requirements.
+     */
+    bool d_use_scratch_hierarchy = false;
+
+    /*
      * Pointers to the scratch patch hierarchy (which is only used for
      * interaction) and associated gridding algorithm.
      */
@@ -847,6 +852,7 @@ protected:
     int d_lagrangian_workload_current_idx = IBTK::invalid_index;
     int d_lagrangian_workload_new_idx = IBTK::invalid_index;
     int d_lagrangian_workload_scratch_idx = IBTK::invalid_index;
+
 
     // TODO this tag index is static and known to the gridding algorithm. Is
     // there a better way to look it up?
