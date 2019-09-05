@@ -100,7 +100,7 @@ IBExplicitHierarchyIntegrator::IBExplicitHierarchyIntegrator(std::string object_
                                                              Pointer<INSHierarchyIntegrator> ins_hier_integrator,
                                                              bool register_for_restart)
     : IBHierarchyIntegrator(std::move(object_name), input_db, ib_method_ops, ins_hier_integrator, register_for_restart),
-      timer_output("ibintegrator-log-" + std::to_string(SAMRAI_MPI::getRank()) + ".txt"),
+      timer_output("ibintegrator-log-" + dealii::Utilities::to_string(SAMRAI_MPI::getRank(), 3) + ".txt"),
       local_timer(MPI_COMM_SELF, timer_output, dealii::TimerOutput::summary,
                   dealii::TimerOutput::cpu_and_wall_times)
 {

@@ -392,8 +392,7 @@ IBFEMethod::IBFEMethod(const std::string& object_name,
                        bool register_for_restart,
                        const std::string& restart_read_dirname,
                        unsigned int restart_restore_number)
-    :
-      timer_output("ibfe-log-" + std::to_string(SAMRAI_MPI::getRank()) + ".txt"),
+    : timer_output("ibfe-log-" + dealii::Utilities::to_string(SAMRAI_MPI::getRank(), 3) + ".txt"),
       local_timer(MPI_COMM_SELF, timer_output, dealii::TimerOutput::summary,
                   dealii::TimerOutput::cpu_and_wall_times)
 {
