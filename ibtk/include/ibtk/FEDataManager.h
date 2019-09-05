@@ -751,6 +751,31 @@ public:
      */
     void putToDatabase(SAMRAI::tbox::Pointer<SAMRAI::tbox::Database> db) override;
 
+     /*!
+      * Get the number of elements owned by this processor in the IB
+      * partitioning.
+      */
+    std::size_t getNumberOfIBElements() const
+    {
+        std::size_t n_elems = 0;
+        for (const std::vector<libMesh::Elem *> &elems : d_active_patch_elem_map)
+            n_elems += elems.size();
+        return n_elems;
+    }
+
+     /*!
+      * Get the number of nodes owned by this processor in the IB
+      * partitioning.
+      */
+    std::size_t getNumberOfIBNodes() const
+    {
+        std::size_t n_nodes = 0;
+        for (const std::vector<libMesh::Node *> &nodes : d_active_patch_node_map)
+            n_nodes += nodes.size();
+        return n_nodes;
+    }
+
+
 protected:
     /*!
      * \brief Constructor.

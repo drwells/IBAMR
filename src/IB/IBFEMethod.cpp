@@ -2239,25 +2239,52 @@ void IBFEMethod::endDataRedistribution(Pointer<PatchHierarchy<NDIM> > /*hierarch
             HierarchyCellDataOpsReal<NDIM, double> hier_cc_data_ops(d_scratch_hierarchy, 0, ln);
             hier_cc_data_ops.setToScalar(index, 0.0);
             unsigned long total_work = 0;
+            unsigned long n_elements = 0;
+            unsigned long n_nodes = 0;
             for (unsigned int part = 0; part < d_num_parts; ++part)
             {
                 // TODO: this assumes all parts are on the finest level.
                 total_work += d_fe_data_managers[part]->addWorkloadEstimate(d_scratch_hierarchy, index, ln, ln);
+                n_elements += d_fe_data_managers[part]->getNumberOfIBElements();
+                n_nodes += d_fe_data_managers[part]->getNumberOfIBNodes();
             }
+
             const int n_processes = SAMRAI::tbox::SAMRAI_MPI::getNodes();
             const int current_rank = SAMRAI::tbox::SAMRAI_MPI::getRank();
             const auto right_padding = std::size_t(std::log10(n_processes)) + 1;
 
             std::vector<unsigned long> workload_per_processor(n_processes);
-            workload_per_processor[current_rank] = total_work;
+            std::vector<unsigned long> elements_per_processor(n_processes);
+            std::vector<unsigned long> nodes_per_processor(n_processes);
 
-            const int ierr = MPI_Allreduce(MPI_IN_PLACE,
-                                           workload_per_processor.data(),
-                                           workload_per_processor.size(),
-                                           MPI_UNSIGNED_LONG,
-                                           MPI_SUM,
-                                           SAMRAI::tbox::SAMRAI_MPI::commWorld);
+            workload_per_processor[current_rank] = total_work;
+            elements_per_processor[current_rank] = n_elements;
+            nodes_per_processor[current_rank] = n_nodes;
+
+            int ierr = MPI_Allreduce(MPI_IN_PLACE,
+                                     workload_per_processor.data(),
+                                     workload_per_processor.size(),
+                                     MPI_UNSIGNED_LONG,
+                                     MPI_SUM,
+                                     SAMRAI::tbox::SAMRAI_MPI::commWorld);
             TBOX_ASSERT(ierr == 0);
+
+            ierr = MPI_Allreduce(MPI_IN_PLACE,
+                                 elements_per_processor.data(),
+                                 elements_per_processor.size(),
+                                 MPI_UNSIGNED_LONG,
+                                 MPI_SUM,
+                                 SAMRAI::tbox::SAMRAI_MPI::commWorld);
+            TBOX_ASSERT(ierr == 0);
+
+            ierr = MPI_Allreduce(MPI_IN_PLACE,
+                                 nodes_per_processor.data(),
+                                 nodes_per_processor.size(),
+                                 MPI_UNSIGNED_LONG,
+                                 MPI_SUM,
+                                 SAMRAI::tbox::SAMRAI_MPI::commWorld);
+            TBOX_ASSERT(ierr == 0);
+
             if (current_rank == 0)
             {
                 for (int rank = 0; rank < n_processes; ++rank)
@@ -2265,6 +2292,22 @@ void IBFEMethod::endDataRedistribution(Pointer<PatchHierarchy<NDIM> > /*hierarch
                     SAMRAI::tbox::plog << "FEDataManager work on processor "
                                        << std::setw(right_padding) << std::left
                                        << rank << " = " << workload_per_processor[rank] << '\n';
+                }
+                SAMRAI::tbox::plog << '\n';
+
+                for (int rank = 0; rank < n_processes; ++rank)
+                {
+                    SAMRAI::tbox::plog << "FEDataManager elements on processor "
+                                       << std::setw(right_padding) << std::left
+                                       << rank << " = " << elements_per_processor[rank] << '\n';
+                }
+                SAMRAI::tbox::plog << '\n';
+
+                for (int rank = 0; rank < n_processes; ++rank)
+                {
+                    SAMRAI::tbox::plog << "FEDataManager nodes on processor "
+                                       << std::setw(right_padding) << std::left
+                                       << rank << " = " << nodes_per_processor[rank] << '\n';
                 }
             }
         }
