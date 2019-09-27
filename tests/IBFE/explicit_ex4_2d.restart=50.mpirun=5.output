@@ -615,6 +615,11 @@ local active DoFs on processor 2 = 432
 local active DoFs on processor 3 = 414
 local active DoFs on processor 4 = 390
 IBHierarchyIntegrator::regridHierarchy(): starting Lagrangian data movement
+quadrature points on processor 0 = 0
+quadrature points on processor 1 = 1070
+quadrature points on processor 2 = 4112
+quadrature points on processor 3 = 0
+quadrature points on processor 4 = 0
 IBHierarchyIntegrator::regridHierarchy(): regridding the patch hierarchy
 quadrature points on processor 0 = 0
 quadrature points on processor 1 = 1070
@@ -1243,6 +1248,11 @@ local active DoFs on processor 2 = 432
 local active DoFs on processor 3 = 414
 local active DoFs on processor 4 = 390
 IBHierarchyIntegrator::regridHierarchy(): starting Lagrangian data movement
+quadrature points on processor 0 = 0
+quadrature points on processor 1 = 1075
+quadrature points on processor 2 = 4135
+quadrature points on processor 3 = 0
+quadrature points on processor 4 = 0
 IBHierarchyIntegrator::regridHierarchy(): regridding the patch hierarchy
 quadrature points on processor 0 = 0
 quadrature points on processor 1 = 1075
