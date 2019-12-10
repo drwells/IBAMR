@@ -441,6 +441,25 @@ main(int argc, char** argv)
         plog << "Total number of DoFs: " << equation_systems->n_dofs() << std::endl;
         while (!MathUtilities<double>::equalEps(loop_time, loop_time_end) && time_integrator->stepsRemaining())
         {
+            {
+                {
+                    std::ofstream out("log-" + std::to_string(SAMRAI_MPI::getRank()) + ".txt");
+                    patch_hierarchy->recursivePrint(out, {}, 8);
+                }
+                SAMRAI_MPI::barrier();
+                const int n_ranks = SAMRAI_MPI::getNodes();
+                for (int r = 0; r < n_ranks; ++r)
+                {
+                    plog << "\nRank " << r << '\n';
+                    std::ifstream input("log-" + std::to_string(r) + ".txt");
+                    std::string input_line;
+                    while (std::getline(input, input_line))
+                    {
+                        plog << "    " << input_line << '\n';
+                    }
+                }
+            }
+
             iteration_num = time_integrator->getIntegratorStep();
             loop_time = time_integrator->getIntegratorTime();
 

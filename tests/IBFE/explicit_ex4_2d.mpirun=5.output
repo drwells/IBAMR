@@ -5,6 +5,55 @@ IBHierarchyIntegrator::initializePatchHierarchy(): tag_buffer = 3
 INSStaggeredHierarchyIntegrator::initializeCompositeHierarchyData():
   projecting the interpolated velocity field
 INSStaggeredHierarchyIntegrator::regridProjection(): regrid projection solve residual norm        = 0
+
+Rank 0
+    Number of levels = 2
+    Level 0/2
+    	Number of patches = 1
+    	Patch 0/1
+    		[(0,0),(9,9)]	dims: 10 X 10	size: 100
+    Level 1/2
+    	Number of patches = 1
+    	Patch 0/1
+    		[(0,0),(39,39)]	dims: 40 X 40	size: 1600
+    Total number of patches = 2
+    Total number of cells = 1700
+
+Rank 1
+    Number of levels = 2
+    Level 0/2
+    	Number of patches = 1
+    Level 1/2
+    	Number of patches = 1
+    Total number of patches = 2
+    Total number of cells = 1700
+
+Rank 2
+    Number of levels = 2
+    Level 0/2
+    	Number of patches = 1
+    Level 1/2
+    	Number of patches = 1
+    Total number of patches = 2
+    Total number of cells = 1700
+
+Rank 3
+    Number of levels = 2
+    Level 0/2
+    	Number of patches = 1
+    Level 1/2
+    	Number of patches = 1
+    Total number of patches = 2
+    Total number of cells = 1700
+
+Rank 4
+    Number of levels = 2
+    Level 0/2
+    	Number of patches = 1
+    Level 1/2
+    	Number of patches = 1
+    Total number of patches = 2
+    Total number of cells = 1700
 Total number of elems: 122
 Total number of DoFs: 2139
 
