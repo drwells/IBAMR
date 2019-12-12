@@ -974,6 +974,17 @@ public:
                                    std::vector<double>& F_qp,
                                    int n_vars);
 
+    // number of unique and total IB elems
+    std::pair<std::size_t, std::size_t>
+    getNumberOfIBElems() const;
+
+    // number of unique and total IB nodes
+    std::pair<std::size_t, std::size_t>
+    getNumberOfIBNodes() const;
+
+    void
+    printIBNodes(std::ostream &out);
+
 protected:
     /*!
      * \brief Constructor.

@@ -1483,6 +1483,248 @@ void IBFEMethod::endDataRedistribution(Pointer<PatchHierarchy<NDIM> > /*hierarch
             addWorkloadEstimate(d_scratch_hierarchy, d_lagrangian_workload_current_idx);
             if (d_do_log) plog << "IBFEMethod:: end scratch hierarchy workload" << std::endl;
         }
+
+        if (d_do_log)
+        {
+            {
+                const int rank = SAMRAI_MPI::getRank();
+                std::vector<unsigned long> n_unique_ib_elements(SAMRAI_MPI::getNodes());
+                std::vector<unsigned long> n_total_ib_elements(SAMRAI_MPI::getNodes());
+                std::vector<unsigned long> n_unique_ib_nodes(SAMRAI_MPI::getNodes());
+                std::vector<unsigned long> n_total_ib_nodes(SAMRAI_MPI::getNodes());
+                for (unsigned int part_n = 0; part_n < d_primary_fe_data_managers.size();
+                     ++part_n)
+                {
+                    auto* fe_data_manager = d_primary_fe_data_managers[part_n];
+                    const auto pair_1 = fe_data_manager->getNumberOfIBElems();
+                    n_unique_ib_elements[rank] += pair_1.first;
+                    n_total_ib_elements[rank] += pair_1.second;
+                    const auto pair_2 = fe_data_manager->getNumberOfIBNodes();
+                    n_unique_ib_nodes[rank] += pair_2.first;
+                    n_total_ib_nodes[rank] += pair_2.second;
+                }
+
+                // elements:
+                int ierr = MPI_Allreduce(MPI_IN_PLACE,
+                                         n_unique_ib_elements.data(),
+                                         n_unique_ib_elements.size(),
+                                         MPI_UNSIGNED_LONG,
+                                         MPI_SUM,
+                                         MPI_COMM_WORLD);
+                TBOX_ASSERT(ierr == 0);
+                ierr = MPI_Allreduce(MPI_IN_PLACE,
+                                     n_total_ib_elements.data(),
+                                     n_total_ib_elements.size(),
+                                     MPI_UNSIGNED_LONG,
+                                     MPI_SUM,
+                                     MPI_COMM_WORLD);
+
+                // nodes:
+                ierr = MPI_Allreduce(MPI_IN_PLACE,
+                                     n_unique_ib_nodes.data(),
+                                     n_unique_ib_nodes.size(),
+                                     MPI_UNSIGNED_LONG,
+                                     MPI_SUM,
+                                     MPI_COMM_WORLD);
+                TBOX_ASSERT(ierr == 0);
+                ierr = MPI_Allreduce(MPI_IN_PLACE,
+                                     n_total_ib_nodes.data(),
+                                     n_total_ib_nodes.size(),
+                                     MPI_UNSIGNED_LONG,
+                                     MPI_SUM,
+                                     MPI_COMM_WORLD);
+
+                plog << "primary hierarchy:\n";
+                plog << "Number of unique IB elems:\n";
+                for (int r = 0; r < SAMRAI_MPI::getNodes(); ++r)
+                {
+                    plog << "processor " << r << ": " << n_unique_ib_elements[r] << '\n';
+                }
+                plog << "sum: " << std::accumulate(n_unique_ib_elements.begin(), n_unique_ib_elements.end(), 0.0) << '\n';
+                plog << "Number of total IB elems:\n";
+                for (int r = 0; r < SAMRAI_MPI::getNodes(); ++r)
+                {
+                    plog << "processor " << r << ": " << n_total_ib_elements[r] << '\n';
+                }
+                plog << "sum: " << std::accumulate(n_total_ib_elements.begin(), n_total_ib_elements.end(), 0.0) << '\n';
+                plog << "Number of unique IB nodes:\n";
+                for (int r = 0; r < SAMRAI_MPI::getNodes(); ++r)
+                {
+                    plog << "processor " << r << ": " << n_unique_ib_nodes[r] << '\n';
+                }
+                plog << "sum: " << std::accumulate(n_unique_ib_nodes.begin(), n_unique_ib_nodes.end(), 0.0) << '\n';
+                plog << "Number of total IB nodes:\n";
+                for (int r = 0; r < SAMRAI_MPI::getNodes(); ++r)
+                {
+                    plog << "processor " << r << ": " << n_total_ib_nodes[r] << '\n';
+                }
+                plog << "sum: " << std::accumulate(n_total_ib_nodes.begin(), n_total_ib_nodes.end(), 0.0) << '\n';
+
+                // TODO add a switch to print this out - we usually don't need
+                // it, but its sometimes handy
+                //
+                // std::ofstream out("ib-primary-nodes-" + std::to_string(SAMRAI_MPI::getRank()) + ".txt");
+                // e_data_manager->printIBNodes(out);
+            }
+
+            if (d_use_scratch_hierarchy)
+            {
+                // TODO: this assumes there is only 1 FEDataManager
+                const int rank = SAMRAI_MPI::getRank();
+                std::vector<unsigned long> n_unique_ib_elements(SAMRAI_MPI::getNodes());
+                std::vector<unsigned long> n_total_ib_elements(SAMRAI_MPI::getNodes());
+                std::vector<unsigned long> n_unique_ib_nodes(SAMRAI_MPI::getNodes());
+                std::vector<unsigned long> n_total_ib_nodes(SAMRAI_MPI::getNodes());
+                for (unsigned int part_n = 0; part_n < d_scratch_fe_data_managers.size();
+                     ++part_n)
+                {
+                    auto* fe_data_manager = d_scratch_fe_data_managers[part_n];
+                    const auto pair_1 = fe_data_manager->getNumberOfIBElems();
+                    n_unique_ib_elements[rank] += pair_1.first;
+                    n_total_ib_elements[rank] += pair_1.second;
+                    const auto pair_2 = fe_data_manager->getNumberOfIBNodes();
+                    n_unique_ib_nodes[rank] += pair_2.first;
+                    n_total_ib_nodes[rank] += pair_2.second;
+                }
+
+                // elements:
+                int ierr = MPI_Allreduce(MPI_IN_PLACE,
+                                         n_unique_ib_elements.data(),
+                                         n_unique_ib_elements.size(),
+                                         MPI_UNSIGNED_LONG,
+                                         MPI_SUM,
+                                         MPI_COMM_WORLD);
+                TBOX_ASSERT(ierr == 0);
+                ierr = MPI_Allreduce(MPI_IN_PLACE,
+                                     n_total_ib_elements.data(),
+                                     n_total_ib_elements.size(),
+                                     MPI_UNSIGNED_LONG,
+                                     MPI_SUM,
+                                     MPI_COMM_WORLD);
+                TBOX_ASSERT(ierr == 0);
+
+                // nodes:
+                ierr = MPI_Allreduce(MPI_IN_PLACE,
+                                     n_unique_ib_nodes.data(),
+                                     n_unique_ib_nodes.size(),
+                                     MPI_UNSIGNED_LONG,
+                                     MPI_SUM,
+                                     MPI_COMM_WORLD);
+                TBOX_ASSERT(ierr == 0);
+                ierr = MPI_Allreduce(MPI_IN_PLACE,
+                                     n_total_ib_nodes.data(),
+                                     n_total_ib_nodes.size(),
+                                     MPI_UNSIGNED_LONG,
+                                     MPI_SUM,
+                                     MPI_COMM_WORLD);
+                TBOX_ASSERT(ierr == 0);
+
+                plog << "scratch hierarchy:\n";
+                plog << "Number of unique IB elems:\n";
+                for (int r = 0; r < SAMRAI_MPI::getNodes(); ++r)
+                {
+                    plog << "processor " << r << ": " << n_unique_ib_elements[r] << '\n';
+                }
+                plog << "sum: " << std::accumulate(n_unique_ib_elements.begin(), n_unique_ib_elements.end(), 0.0) << '\n';
+                plog << "Number of total IB elems:\n";
+                for (int r = 0; r < SAMRAI_MPI::getNodes(); ++r)
+                {
+                    plog << "processor " << r << ": " << n_total_ib_elements[r] << '\n';
+                }
+                plog << "sum: " << std::accumulate(n_total_ib_elements.begin(), n_total_ib_elements.end(), 0.0) << '\n';
+
+                plog << "Number of unique IB nodes:\n";
+                for (int r = 0; r < SAMRAI_MPI::getNodes(); ++r)
+                {
+                    plog << "processor " << r << ": " << n_unique_ib_nodes[r] << '\n';
+                }
+                plog << "sum: " << std::accumulate(n_unique_ib_nodes.begin(), n_unique_ib_nodes.end(), 0.0) << '\n';
+                plog << "Number of total IB nodes:\n";
+                for (int r = 0; r < SAMRAI_MPI::getNodes(); ++r)
+                {
+                    plog << "processor " << r << ": " << n_total_ib_nodes[r] << '\n';
+                }
+                plog << "sum: " << std::accumulate(n_total_ib_nodes.begin(), n_total_ib_nodes.end(), 0.0) << '\n';
+
+                // TODO same as above with the primary hierarchy
+                //
+                // std::ofstream out("ib-scratch-nodes-" + std::to_string(SAMRAI_MPI::getRank()) + ".txt");
+                // fe_data_manager->printIBNodes(out);
+
+                // number of patches:
+                std::vector<int> patches_per_processor(SAMRAI_MPI::getNodes());
+                Pointer<PatchLevel<NDIM> > level = d_scratch_hierarchy->getPatchLevel
+                    (d_scratch_hierarchy->getFinestLevelNumber());
+                // PatchLevel::getNumberOfPatches is the global, not local, number
+                for (PatchLevel<NDIM>::Iterator p(level); p; p++)
+                ++patches_per_processor[rank];
+                ierr = MPI_Allreduce(MPI_IN_PLACE,
+                                     patches_per_processor.data(),
+                                     patches_per_processor.size(),
+                                     MPI_INT,
+                                     MPI_SUM,
+                                     SAMRAI::tbox::SAMRAI_MPI::commWorld);
+                TBOX_ASSERT(ierr == 0);
+
+                // number of cells:
+                std::vector<int> cells_per_processor(SAMRAI_MPI::getNodes());
+                for (PatchLevel<NDIM>::Iterator p(level); p; p++)
+                cells_per_processor[rank] += level->getPatch(p())->getBox().size();
+                ierr = MPI_Allreduce(MPI_IN_PLACE,
+                                cells_per_processor.data(),
+                                cells_per_processor.size(),
+                                MPI_INT,
+                                MPI_SUM,
+                                SAMRAI::tbox::SAMRAI_MPI::commWorld);
+                TBOX_ASSERT(ierr == 0);
+
+                const auto right_padding = std::size_t(std::log10(SAMRAI_MPI::getNodes())) + 1;
+                if (rank == 0)
+                {
+                    SAMRAI::tbox::plog << "scratch hierarchy + Lagrangian data distribution:\n";
+                    for (int rank = 0; rank < SAMRAI_MPI::getNodes(); ++rank)
+                    {
+                        SAMRAI::tbox::plog << "number of patches on processor "
+                                           << std::setw(right_padding) << std::left << rank
+                                           << " = " << long(patches_per_processor[rank]) << '\n';
+                    }
+                    for (int rank = 0; rank < SAMRAI_MPI::getNodes(); ++rank)
+                    {
+                        SAMRAI::tbox::plog << "number of cells on processor   "
+                                           << std::setw(right_padding) << std::left << rank
+                                           << " = " << long(cells_per_processor[rank]) << '\n';
+                    }
+                }
+
+                std::vector<std::size_t> dofs_per_processor(SAMRAI_MPI::getNodes());
+                for (unsigned int part = 0; part < d_meshes.size(); ++part)
+                {
+                    auto& equation_systems = *d_active_fe_data_managers[part]->getEquationSystems();
+                    for (unsigned int system_n = 0; system_n < equation_systems.n_systems(); ++system_n)
+                    {
+                        dofs_per_processor[rank]
+                            += equation_systems.get_system(system_n).n_local_dofs();
+                    }
+                }
+
+                ierr = MPI_Allreduce(MPI_IN_PLACE,
+                                     dofs_per_processor.data(),
+                                     dofs_per_processor.size(),
+                                     MPI_UNSIGNED_LONG,
+                                     MPI_SUM,
+                                     SAMRAI::tbox::SAMRAI_MPI::commWorld);
+                TBOX_ASSERT(ierr == 0);
+                if (rank == 0)
+                {
+                    for (int rank = 0; rank < SAMRAI_MPI::getNodes(); ++rank)
+                    {
+                        SAMRAI::tbox::plog << "local active DoFs on processor "
+                                           << std::setw(right_padding) << std::left << rank
+                                           << " = " << dofs_per_processor[rank] << '\n';
+                    }
+                }
+            }
+        }
     }
     return;
 } // endDataRedistribution
@@ -1541,7 +1783,8 @@ IBFEMethod::applyGradientDetector(Pointer<BasePatchHierarchy<NDIM> > base_hierar
     // last place where we will do gradient detection: hence it is our
     // responsibility to zero the array; otherwise SAMRAI tries to refine
     // everything.
-    if (hierarchy == d_scratch_hierarchy)
+    const bool is_scratch_hierarchy = hierarchy == d_scratch_hierarchy;
+    if (is_scratch_hierarchy)
     {
         HierarchyCellDataOpsInteger<NDIM> hier_cc_data_ops(hierarchy, level_number, level_number);
         hier_cc_data_ops.setToScalar(tag_index, 0);
@@ -1557,95 +1800,6 @@ IBFEMethod::applyGradientDetector(Pointer<BasePatchHierarchy<NDIM> > base_hierar
                                     d_scratch_fe_data_managers[part];
         fe_data_manager->applyGradientDetector(
             hierarchy, level_number, error_data_time, tag_index, initial_time, uses_richardson_extrapolation_too);
-
-        const int n_processes = SAMRAI::tbox::SAMRAI_MPI::getNodes();
-        const int current_rank = SAMRAI::tbox::SAMRAI_MPI::getRank();
-
-        // Eulerian workload:
-        std::vector<double> workload_per_processor(n_processes);
-        HierarchyCellDataOpsReal<NDIM, double> hier_cc_data_ops(hierarchy);
-        workload_per_processor[current_rank] = hier_cc_data_ops.L1Norm(d_workload_idx, IBTK::invalid_index, true);
-        int ierr = MPI_Allreduce(MPI_IN_PLACE,
-                                 workload_per_processor.data(),
-                                 workload_per_processor.size(),
-                                 MPI_DOUBLE,
-                                 MPI_SUM,
-                                 SAMRAI::tbox::SAMRAI_MPI::commWorld);
-        TBOX_ASSERT(ierr == 0);
-
-        // number of patches:
-        std::vector<int> patches_per_processor(n_processes);
-        Pointer<PatchLevel<NDIM> > level = d_use_scratch_hierarchy ?
-            d_scratch_hierarchy->getPatchLevel(d_scratch_hierarchy->getFinestLevelNumber()) :
-            d_hierarchy->getPatchLevel(d_hierarchy->getFinestLevelNumber());
-        // PatchLevel::getNumberOfPatches is the global, not local, number
-        for (PatchLevel<NDIM>::Iterator p(level); p; p++)
-            ++patches_per_processor[current_rank];
-        ierr = MPI_Allreduce(MPI_IN_PLACE,
-                             patches_per_processor.data(),
-                             patches_per_processor.size(),
-                             MPI_INT,
-                             MPI_SUM,
-                             SAMRAI::tbox::SAMRAI_MPI::commWorld);
-        TBOX_ASSERT(ierr == 0);
-
-        // number of cells:
-        std::vector<int> cells_per_processor(n_processes);
-        for (PatchLevel<NDIM>::Iterator p(level); p; p++)
-            cells_per_processor[current_rank] += level->getPatch(p())->getBox().size();
-        ierr = MPI_Allreduce(MPI_IN_PLACE,
-                             cells_per_processor.data(),
-                             cells_per_processor.size(),
-                             MPI_INT,
-                             MPI_SUM,
-                             SAMRAI::tbox::SAMRAI_MPI::commWorld);
-        TBOX_ASSERT(ierr == 0);
-
-        const auto right_padding = std::size_t(std::log10(n_processes)) + 1;
-        if (current_rank == 0)
-        {
-            for (int rank = 0; rank < n_processes; ++rank)
-            {
-                SAMRAI::tbox::plog << "workload estimate on processor " << std::setw(right_padding) << std::left << rank
-                                   << " = " << long(workload_per_processor[rank]) << '\n';
-            }
-            for (int rank = 0; rank < n_processes; ++rank)
-            {
-                SAMRAI::tbox::plog << "number of patches on processor " << std::setw(right_padding) << std::left << rank
-                                   << " = " << long(patches_per_processor[rank]) << '\n';
-            }
-            for (int rank = 0; rank < n_processes; ++rank)
-            {
-                SAMRAI::tbox::plog << "number of cells on processor   " << std::setw(right_padding) << std::left << rank
-                                   << " = " << long(cells_per_processor[rank]) << '\n';
-            }
-        }
-
-        std::vector<std::size_t> dofs_per_processor(n_processes);
-        for (unsigned int part = 0; part < d_meshes.size(); ++part)
-        {
-            auto& equation_systems = *d_active_fe_data_managers[part]->getEquationSystems();
-            for (unsigned int system_n = 0; system_n < equation_systems.n_systems(); ++system_n)
-            {
-                dofs_per_processor[current_rank] += equation_systems.get_system(system_n).n_local_dofs();
-            }
-        }
-
-        ierr = MPI_Allreduce(MPI_IN_PLACE,
-                             dofs_per_processor.data(),
-                             dofs_per_processor.size(),
-                             MPI_UNSIGNED_LONG,
-                             MPI_SUM,
-                             SAMRAI::tbox::SAMRAI_MPI::commWorld);
-        TBOX_ASSERT(ierr == 0);
-        if (current_rank == 0)
-        {
-            for (int rank = 0; rank < n_processes; ++rank)
-            {
-                SAMRAI::tbox::plog << "local active DoFs on processor " << std::setw(right_padding) << std::left << rank
-                                   << " = " << dofs_per_processor[rank] << '\n';
-            }
-        }
     }
 
     d_do_log = old_d_do_log;
@@ -1793,6 +1947,7 @@ IBFEMethod::doInitializeFEEquationSystems()
         default:
             F_vector_names = { "current", "half", "new", "tmp", "RHS Vector" };
         }
+
         setup_system_vectors(&equation_systems, { FORCE_SYSTEM_NAME }, F_vector_names);
     }
     return;

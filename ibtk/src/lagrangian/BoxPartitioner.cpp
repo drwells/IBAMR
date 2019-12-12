@@ -83,19 +83,20 @@ BoxPartitioner::writePartitioning(const std::string& file_name) const
     const int current_rank = SAMRAI_MPI::getRank();
     for (const PartitioningBox& box : d_partitioning_boxes)
     {
-        const Point bottom = box.bottom();
-        const Point top = box.top();
+        Point bottom = box.bottom();
+        Point top = box.top();
 
         // This reference value is chosen so that the plots look good when the
         // domain is a square or cube with edge length 1
-        const double ref_dx = 0.0025;
+        const double ref_dx = 0.0005;
         const double dx = top[0] - bottom[0];
         const double dy = top[1] - bottom[1];
         const double dz = NDIM == 3 ? top[NDIM - 1] - bottom[NDIM - 1] : 0.0;
 
-        const unsigned int n_x_points = dx / ref_dx;
-        const unsigned int n_y_points = dy / ref_dx;
-        const unsigned int n_z_points = NDIM == 3 ? dz / ref_dx : 1;
+        unsigned int n_x_points = dx / ref_dx;
+        unsigned int n_y_points = dy / ref_dx;
+        unsigned int n_z_points = NDIM == 3 ? dz / ref_dx : 1;
+#if 0
         for (unsigned int i = 0; i < n_x_points; ++i)
         {
             for (unsigned int j = 0; j < n_y_points; ++j)
@@ -108,6 +109,76 @@ BoxPartitioner::writePartitioning(const std::string& file_name) const
                                              << current_rank << '\n';
                 }
             }
+        }
+#endif
+
+        // new approach - only print edges
+        bottom(0) += dx / n_x_points;
+        bottom(1) += dy / n_y_points;
+#if NDIM == 3
+        bottom(2) += dz / n_z_points;
+#endif
+
+        top(0) -= dx / n_x_points;
+        top(1) -= dy / n_y_points;
+#if NDIM == 3
+        top(2) -= dz / n_z_points;
+#endif
+
+        auto write_left_or_right = [&](const double x) {
+            // edge with lower y value
+            for (unsigned int k = 0; k < n_z_points - 1; ++k)
+                current_processor_output << x
+                                         << ',' << bottom(1)
+                                         << ',' << bottom(2) + k / double(n_z_points) * dz
+                                         << ',' << current_rank << '\n';
+            // edge with higher y value
+            for (unsigned int k = 0; k < n_z_points - 1; ++k)
+                current_processor_output << x
+                                         << ',' << top(1)
+                                         << ',' << bottom(2) + k / double(n_z_points) * dz
+                                         << ','
+                                         << current_rank << '\n';
+        };
+
+        auto write_top_or_bottom = [&](const double z) {
+            // left edge
+            for (unsigned int j = 0; j < n_y_points - 1; ++j)
+                current_processor_output << bottom(0)
+                                         << ',' << bottom(1) + j / double(n_y_points) * dy
+                                         << ',' << z
+                                         << ',' << current_rank << '\n';
+            // right edge
+            for (unsigned int j = 1; j < n_y_points - 1; ++j)
+                current_processor_output << top(0)
+                                         << ',' << bottom(1) + j / double(n_y_points) * dy
+                                         << ',' << z
+                                         << ',' << current_rank << '\n';
+            // bottom edge
+            for (unsigned int i = 1; i < n_x_points - 1; ++i)
+                current_processor_output << bottom(0) + i / double(n_x_points) * dx
+                                         << ',' << bottom(1)
+                                         << ',' << z
+                                         << ',' << current_rank << '\n';
+
+            // top edge
+            for (unsigned int i = 1; i < n_x_points - 1; ++i)
+                current_processor_output << bottom(0) + i / double(n_x_points) * dx
+                                         << ',' << top(1)
+                                         << ',' << z
+                                         << ',' << current_rank << '\n';
+        };
+
+        if (NDIM == 2)
+        {
+            write_top_or_bottom(0.0); // hard-code z = 0
+        }
+        else if (NDIM == 3)
+        {
+            write_left_or_right(bottom(0));
+            write_left_or_right(top(0));
+            write_top_or_bottom(bottom(2));
+            write_top_or_bottom(top(2));
         }
     }
 

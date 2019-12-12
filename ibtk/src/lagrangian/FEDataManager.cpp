@@ -2440,6 +2440,122 @@ FEDataManager::zeroExteriorValues(const CartesianPatchGeometry<NDIM>& patch_geom
     }
 }
 
+std::pair<std::size_t, std::size_t>
+FEDataManager::getNumberOfIBElems() const
+{
+    std::set<const Elem*> ib_elems;
+    std::size_t n_ib_elems = 0;
+    for (const std::vector<Elem*> elems : d_active_patch_elem_map)
+    {
+        for (const Elem* elem : elems)
+        {
+            ib_elems.insert(elem);
+            ++n_ib_elems;
+        }
+    }
+
+    return std::make_pair(ib_elems.size(), n_ib_elems);
+}
+
+std::pair<std::size_t, std::size_t>
+FEDataManager::getNumberOfIBNodes() const
+{
+    std::set<const Node*> ib_nodes;
+    std::size_t n_ib_nodes = 0;
+    for (const std::vector<Elem*> elems : d_active_patch_elem_map)
+    {
+        for (const Elem* elem : elems)
+        {
+            const std::size_t nodes_per_elem = elem->n_nodes();
+            for (unsigned int node_n = 0; node_n < nodes_per_elem; ++node_n)
+            {
+                ++n_ib_nodes;
+                ib_nodes.insert(elem->node_ptr(node_n));
+            }
+        }
+    }
+
+    return std::make_pair(ib_nodes.size(), n_ib_nodes);
+}
+
+void
+FEDataManager::printIBNodes(std::ostream& out)
+{
+    const int rank = SAMRAI_MPI::getRank();
+
+    const MeshBase& mesh = d_fe_data->d_es->get_mesh();
+    System& X_system = d_fe_data->d_es->get_system(COORDINATES_SYSTEM_NAME);
+    const unsigned int X_sys_num = X_system.number();
+    auto& X_solution = dynamic_cast<libMesh::PetscVector<double>&>(*X_system.current_local_solution);
+    PetscVector<double> localized_solution(X_solution.comm(), X_solution.size());
+    X_solution.localize(localized_solution);
+
+    const unsigned int spacedim = mesh.spatial_dimension();
+    TBOX_ASSERT(spacedim == NDIM);
+    boost::multi_array<double, 2> X_node;
+    int patch_n = 0;
+    // write header
+    out << "x,y,z,p,r\n";
+#if 0 // nodal version. TODO this skips nodes on some processors for some reason
+    for (const std::vector<Node *> &nodes : d_active_patch_node_map)
+    {
+        std::vector<std::vector<libMesh::dof_id_type> > dof_indices(NDIM);
+        for (const Node* node : nodes)
+        {
+            for (unsigned int d = 0; d < NDIM; ++d)
+            {
+                TBOX_ASSERT(node->n_dofs(X_sys_num, d) == 1);
+                dof_indices[d].push_back(node->dof_number(X_sys_num, d, 0));
+            }
+        }
+        get_values_for_interpolation(X_node, localized_solution, dof_indices);
+
+        // write nodes
+        for (unsigned int k = 0; k < nodes.size(); ++k)
+        {
+            for (unsigned int d = 0; d < NDIM; ++d)
+            {
+                out << X_node[k][d] << ", ";
+            }
+            out << patch_n << ", " << rank << '\n';
+        }
+        ++patch_n;
+    }
+#else // element version
+    for (const std::vector<Elem *> &elems : d_active_patch_elem_map)
+    {
+        std::vector<std::vector<libMesh::dof_id_type> > dof_indices(NDIM);
+        for (const Elem* elem : elems)
+        {
+            const int n_nodes = elem->n_nodes();
+            for (int k = 0; k < n_nodes; ++k)
+            {
+                for (unsigned int d = 0; d < NDIM; ++d)
+                {
+                    const auto *node = elem->node_ptr(k);
+                    TBOX_ASSERT(node->n_dofs(X_sys_num, d) == 1);
+                    dof_indices[d].push_back(node->dof_number(X_sys_num, d, 0));
+                }
+            }
+        }
+        get_values_for_interpolation(X_node, localized_solution, dof_indices);
+
+        // write nodes
+        for (unsigned int k = 0; k < dof_indices[0].size(); ++k)
+        {
+            for (unsigned int d = 0; d < NDIM; ++d)
+            {
+                out << X_node[k][d] << ", ";
+            }
+            if (NDIM == 2)
+                out << "0.0, "; // add z
+            out << patch_n << ", " << rank << '\n';
+        }
+        ++patch_n;
+    }
+#endif
+}
+
 /////////////////////////////// PROTECTED ////////////////////////////////////
 
 FEDataManager::FEDataManager(std::shared_ptr<FEData> fe_data,

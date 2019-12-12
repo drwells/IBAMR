@@ -414,6 +414,10 @@ main(int argc, char* argv[])
         // Deallocate initialization objects.
         app_initializer.setNull();
 
+        plog << "Number of active elements: "
+             << mesh.n_active_elem()
+             << '\n';
+
         // Print the input database contents to the log file.
         plog << "Input database:\n";
         input_db->printClassData(plog);
@@ -429,7 +433,6 @@ main(int argc, char* argv[])
                 const System& position_system = equation_systems->get_system(IBFEMethod::COORDS_SYSTEM_NAME);
                 time_integrator->setupPlotData();
                 visit_data_writer->writePlotData(patch_hierarchy, iteration_num, loop_time);
-                if (NDIM < 3)
                 {
                     IBTK::BoxPartitioner partitioner(*patch_hierarchy, position_system);
                     partitioner.writePartitioning("patch-part-" + std::to_string(iteration_num) + ".txt");
@@ -489,12 +492,20 @@ main(int argc, char* argv[])
                     const System& position_system = equation_systems->get_system(IBFEMethod::COORDS_SYSTEM_NAME);
                     time_integrator->setupPlotData();
                     visit_data_writer->writePlotData(patch_hierarchy, iteration_num, loop_time);
-                    if (NDIM < 3)
                     {
                         IBTK::BoxPartitioner partitioner(*patch_hierarchy, position_system);
                         partitioner.writePartitioning("patch-part-" + std::to_string(iteration_num) + ".txt");
                         IBTK::write_node_partitioning("node-part-" + std::to_string(iteration_num) + ".txt",
                                                       position_system);
+
+                        if (ib_method_ops->getScratchHierarchy())
+                        {
+                                auto scratch_hierarchy = ib_method_ops->getScratchHierarchy();
+                                IBTK::BoxPartitioner partitioner
+                                (dynamic_cast<PatchHierarchy<NDIM> &>(*scratch_hierarchy), position_system);
+                                partitioner.writePartitioning("scratch-patch-part-" + std::to_string(iteration_num)
+                                                        + ".txt");
+                        }
                     }
                 }
                 if (uses_exodus)

@@ -31,6 +31,8 @@
 #include <libmesh/mesh_generation.h>
 #include <libmesh/mesh_triangle_interface.h>
 
+#include <libmesh/gmv_io.h>
+
 #include <petscsys.h>
 #include <petscvec.h>
 
@@ -53,11 +55,12 @@
 void
 coordinate_mapping_function(libMesh::Point& X, const libMesh::Point& s, void* /*ctx*/)
 {
-    X(0) = s(0) + 0.6;
-    X(1) = s(1) + 0.5;
-#if (NDIM == 3)
-    X(2) = s(2) + 0.5;
-#endif
+//     X(0) = s(0) + 0.6;
+//     X(1) = s(1) + 0.5;
+// #if (NDIM == 3)
+//     X(2) = s(2) + 0.5;
+// #endif
+    X = s;
     return;
 } // coordinate_mapping_function
 
@@ -117,12 +120,24 @@ main(int argc, char** argv)
                 mesh, R, n_refinements, Utility::string_to_enum<ElemType>(elem_type), 10);
         }
         mesh.prepare_for_use();
+        for (auto node = mesh.nodes_begin(); node != mesh.nodes_end(); ++node)
+        {
+            (**node)(0) += 0.6;
+            (**node)(1) += 0.5;
+#if NDIM == 3
+            (**node)(2) += 0.5;
+#endif
+        }
+
         // metis does a good job partitioning, but the partitioning relies on
         // random numbers: the seed changed in libMesh commit
         // 98cede90ca8837688ee13aac5e299a3765f083da (between 1.3.1 and
         // 1.4.0). Hence, to achieve consistent partitioning, use a simpler partitioning scheme:
         IBTK::StableCentroidPartitioner partitioner;
         partitioner.partition(mesh);
+
+        GMVIO gmv_out(mesh);
+        gmv_out.write("mesh.gmv");
 
         plog << "Number of elements: " << mesh.n_active_elem() << std::endl;
 
@@ -203,6 +218,16 @@ main(int argc, char** argv)
 
         const int rank = SAMRAI_MPI::getRank();
         const int n_nodes = SAMRAI_MPI::getNodes();
+
+
+        {
+            std::ofstream out("ib-nodes-" + std::to_string(rank) + ".txt");
+            fe_data_manager->printIBNodes(out);
+            const System& position_system = fe_data_manager->getEquationSystems()->get_system(IBFEMethod::COORDS_SYSTEM_NAME);
+            IBTK::BoxPartitioner partitioner(*patch_hierarchy, position_system);
+            partitioner.writePartitioning("primary-patch-part.txt");
+        }
+
         if (rank == 0)
         {
             for (int r = 0; r < n_nodes; ++r)

@@ -5,8 +5,8 @@ L   = 1.0
 
 // grid spacing parameters
 MAX_LEVELS = 2                                      // maximum number of levels in locally refined grid
-REF_RATIO  = 2                                      // refinement ratio between levels
-N = 16                                              // actual    number of grid cells on coarsest grid level
+REF_RATIO  = 4                                      // refinement ratio between levels
+N = 32                                              // actual    number of grid cells on coarsest grid level
 NFINEST = (REF_RATIO^(MAX_LEVELS - 1))*N            // effective number of grid cells on finest   grid level
 DX0 = L/N                                           // mesh width on coarsest grid level
 DX  = L/NFINEST                                     // mesh width on finest   grid level
@@ -139,6 +139,40 @@ IBFEMethod {
    use_jump_conditions        = USE_JUMP_CONDITIONS
    use_consistent_mass_matrix = USE_CONSISTENT_MASS_MATRIX
    IB_point_density           = IB_POINT_DENSITY
+
+   enable_logging = TRUE
+
+   use_scratch_hierarchy = TRUE
+   workload_quad_point_weight = 1.0
+
+   GriddingAlgorithm {
+      max_levels = MAX_LEVELS
+      ratio_to_coarser {
+         level_1 = REF_RATIO,REF_RATIO,REF_RATIO
+         level_2 = REF_RATIO,REF_RATIO,REF_RATIO
+         level_3 = REF_RATIO,REF_RATIO,REF_RATIO
+         level_4 = REF_RATIO,REF_RATIO,REF_RATIO
+         level_5 = REF_RATIO,REF_RATIO,REF_RATIO
+      }
+      largest_patch_size {
+         level_0 = 128,128,128  // all finer levels will use same values as level_0
+         level_1 =   4096,  4096,  4096  // all finer levels will use same values as level_0
+      }
+      smallest_patch_size {
+         level_0 =   16,  16,  16  // all finer levels will use same values as level_0
+      }
+      efficiency_tolerance = 0.85e0  // min % of tag cells in new patch level
+      combine_efficiency   = 0.85e0  // chop box if sum of volumes of smaller boxes < efficiency * vol of large box
+}
+
+   // Smaller workload factors improve load balancing but increase the total
+   // amount of work since more elements will end up on multiple patches.
+   // This value is a good compromise.
+   LoadBalancer
+   {
+      bin_pack_method     = "SPATIAL"
+      max_workload_factor = 1.0 / 16.0
+   }
 }
 
 INSCollocatedHierarchyIntegrator {
@@ -198,7 +232,7 @@ Main {
 
 // visualization dump parameters
    viz_writer                  = "VisIt","ExodusII"
-   viz_dump_interval           = int(0.125/DT)
+   viz_dump_interval           = 1
    viz_dump_dirname            = "viz_IB3d"
    visit_number_procs_per_file = 1
 
@@ -231,10 +265,11 @@ GriddingAlgorithm {
       level_5 = REF_RATIO,REF_RATIO,REF_RATIO
    }
    largest_patch_size {
-      level_0 = 512,512,512  // all finer levels will use same values as level_0
+      level_0 = 128,128,128  // all finer levels will use same values as level_0
+      level_1 =   4096,  4096,  4096  // all finer levels will use same values as level_0
    }
    smallest_patch_size {
-      level_0 =   8,  8,  8  // all finer levels will use same values as level_0
+      level_0 =   16,  16,  16  // all finer levels will use same values as level_0
    }
    efficiency_tolerance = 0.85e0  // min % of tag cells in new patch level
    combine_efficiency   = 0.85e0  // chop box if sum of volumes of smaller boxes < efficiency * vol of large box
@@ -246,7 +281,7 @@ StandardTagAndInitialize {
 
 LoadBalancer {
    bin_pack_method     = "SPATIAL"
-   max_workload_factor = 1
+   max_workload_factor = 0.75
 }
 
 TimerManager{

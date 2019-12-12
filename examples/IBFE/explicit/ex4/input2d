@@ -4,9 +4,9 @@ RHO = 1.0
 L   = 1.0
 
 // grid spacing parameters
-MAX_LEVELS = 1                                      // maximum number of levels in locally refined grid
-REF_RATIO  = 2                                      // refinement ratio between levels
-N = 64                                              // actual    number of grid cells on coarsest grid level
+MAX_LEVELS = 2                                      // maximum number of levels in locally refined grid
+REF_RATIO  = 4                                      // refinement ratio between levels
+N = 128                                              // actual    number of grid cells on coarsest grid level
 NFINEST = (REF_RATIO^(MAX_LEVELS - 1))*N            // effective number of grid cells on finest   grid level
 DX0 = L/N                                           // mesh width on coarsest grid level
 DX  = L/NFINEST                                     // mesh width on finest   grid level
@@ -31,7 +31,7 @@ SOLVER_TYPE                = "STAGGERED"            // the fluid solver to use (
 CFL_MAX                    = 0.25                   // maximum CFL number
 DT                         = 0.25*CFL_MAX*DX/U_MAX  // maximum timestep size
 START_TIME                 = 0.0e0                  // initial simulation time
-END_TIME                   = 100*DT                   // final simulation time
+END_TIME                   = 1000*DT                   // final simulation time
 GROW_DT                    = 2.0e0                  // growth factor for timesteps
 NUM_CYCLES                 = 1                      // number of cycles of fixed-point iteration
 CONVECTIVE_TS_TYPE         = "ADAMS_BASHFORTH"      // convective time stepping type
@@ -104,6 +104,44 @@ IBFEMethod {
    use_jump_conditions        = USE_JUMP_CONDITIONS
    use_consistent_mass_matrix = USE_CONSISTENT_MASS_MATRIX
    IB_point_density           = IB_POINT_DENSITY
+
+   enable_logging = TRUE
+
+   libmesh_partitioner_type   = "LIBMESH_DEFAULT"
+   use_scratch_hierarchy = TRUE
+   workload_quad_point_weight = 1.0
+
+   // The values supplied here should usually be the same as those provided to
+   // the top-level GriddingAlgorithm.
+           GriddingAlgorithm {
+           max_levels = MAX_LEVELS
+           ratio_to_coarser {
+                   level_1 = REF_RATIO,REF_RATIO
+                   level_2 = REF_RATIO,REF_RATIO
+                   level_3 = REF_RATIO,REF_RATIO
+                   level_4 = REF_RATIO,REF_RATIO
+                   level_5 = REF_RATIO,REF_RATIO
+           }
+           largest_patch_size {
+                   level_0 = 128,128
+                   level_1 = 1024,1024  // all finer levels will use same values as level_1
+           }
+           smallest_patch_size {
+                   level_0 =  32, 32
+                   level_1 =  24, 24  // all finer levels will use same values as level_1
+           }
+           efficiency_tolerance = 0.85e0  // min % of tag cells in new patch level
+           combine_efficiency   = 0.85e0  // chop box if sum of volumes of smaller boxes < efficiency * vol of large box
+   }
+
+   // Smaller workload factors improve load balancing but increase the total
+   // amount of work since more elements will end up on multiple patches.
+   // This value is a good compromise.
+   LoadBalancer
+   {
+      bin_pack_method     = "SPATIAL"
+      max_workload_factor = 0.25
+   }
 }
 
 INSCollocatedHierarchyIntegrator {
@@ -163,7 +201,7 @@ Main {
 
 // visualization dump parameters
    viz_writer                  = "VisIt","ExodusII"
-   viz_dump_interval           = int(0.125/DT)
+   viz_dump_interval           = 1
    viz_dump_dirname            = "viz_IB2d"
    visit_number_procs_per_file = 1
 
@@ -196,10 +234,11 @@ GriddingAlgorithm {
       level_5 = REF_RATIO,REF_RATIO
    }
    largest_patch_size {
-      level_0 = 512,512  // all finer levels will use same values as level_0
+      level_0 = 128,128  // all finer levels will use same values as level_0
    }
    smallest_patch_size {
-      level_0 =   8,  8  // all finer levels will use same values as level_0
+      level_0 =   24, 24  // all finer levels will use same values as level_0
+      level_1 = 24,24  // all finer levels will use same values as level_0
    }
    efficiency_tolerance = 0.85e0  // min % of tag cells in new patch level
    combine_efficiency   = 0.85e0  // chop box if sum of volumes of smaller boxes < efficiency * vol of large box
