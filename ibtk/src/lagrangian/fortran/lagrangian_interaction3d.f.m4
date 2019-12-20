@@ -2840,19 +2840,10 @@ c
 c
 c     Spread V onto u.
 c
-         do d = 0,depth-1
-            do ic2 = ic_lower(2),ic_upper(2)
-               do ic1 = ic_lower(1),ic_upper(1)
-                  do ic0 = ic_lower(0),ic_upper(0)
-                     u(ic0,ic1,ic2,d) = u(ic0,ic1,ic2,d)+(
-     &                    w(0,ic0-ic_lower(0))*
-     &                    w(1,ic1-ic_lower(1))*
-     &                    w(2,ic2-ic_lower(2))*
-     &                    V(d,s)/(dx(0)*dx(1)*dx(2)))
-                  enddo
-               enddo
-            enddo
-         enddo
+         SPREAD_3D_SPECIALIZE_FIXED_WIDTH(ic_lower(2), ic_upper(2),
+                                          ic_lower(1), ic_upper(1),
+                                          ic_lower(0), ic_upper(0),
+                                          3)
 c
 c     End loop over points.
 c
