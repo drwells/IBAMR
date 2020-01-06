@@ -269,8 +269,8 @@ c     Local variables.
 c
       INTEGER ilower(0:NDIM-1),iupper(0:NDIM-1)
       INTEGER ic0,ic1,ic2
-      INTEGER ic_center(0:NDIM-1),ic_lower(0:NDIM-1),ic_upper(0:NDIM-1)
       INTEGER ic_trimmed_lower(0:NDIM-1),ic_trimmed_upper(0:NDIM-1)
+      INTEGER ic_center(0:NDIM-1),ic_lower(0:NDIM-1),ic_upper(0:NDIM-1)
       INTEGER d,l,s,nugc(0:NDIM-1)
 
       REAL X_cell(0:NDIM-1),X_shifted(0:NDIM-1),w(0:NDIM-1,0:1)
@@ -652,7 +652,6 @@ c
       INTEGER ilower(0:NDIM-1),iupper(0:NDIM-1)
       INTEGER ic0,ic1,ic2
       INTEGER ic_center(0:NDIM-1),ic_lower(0:NDIM-1),ic_upper(0:NDIM-1)
-      INTEGER ic_trimmed_lower(0:NDIM-1),ic_trimmed_upper(0:NDIM-1)
       INTEGER d,l,s,nugc(0:NDIM-1)
 
       REAL X_cell(0:NDIM-1),X_shifted(0:NDIM-1),w(0:NDIM-1,0:1)
@@ -706,25 +705,17 @@ c
                w(d,1) = 1.d0 - w(d,0)
             endif
 
-            ic_trimmed_lower(d) = max(ic_lower(d),ilower(d)-nugc(d))
-            ic_trimmed_upper(d) = min(ic_upper(d),iupper(d)+nugc(d))
+            ic_lower(d) = max(ic_lower(d),ilower(d)-nugc(d))
+            ic_upper(d) = min(ic_upper(d),iupper(d)+nugc(d))
          enddo
 c
 c     Spread V onto u.
 c
-         do d = 0,depth-1
-            do ic2 = ic_trimmed_lower(2),ic_trimmed_upper(2)
-               do ic1 = ic_trimmed_lower(1),ic_trimmed_upper(1)
-                  do ic0 = ic_trimmed_lower(0),ic_trimmed_upper(0)
-                     u(ic0,ic1,ic2,d) = u(ic0,ic1,ic2,d)+(
-     &                    w(0,ic0-ic_lower(0))*
-     &                    w(1,ic1-ic_lower(1))*
-     &                    w(2,ic2-ic_lower(2))*
-     &                    V(d,s)/(dx(0)*dx(1)*dx(2)))
-                  enddo
-               enddo
-            enddo
-         enddo
+         SPREAD_3D_SPECIALIZE_FIXED_WIDTH(
+             ic_lower(2), ic_upper(2),
+             ic_lower(1), ic_upper(1),
+             ic_lower(0), ic_upper(0),
+             2)
 c
 c     End loop over points.
 c
@@ -986,19 +977,11 @@ c
 c
 c     Spread V onto u.
 c
-         do d = 0,depth-1
-            do ic2 = ic_lower(2),ic_upper(2)
-               do ic1 = ic_lower(1),ic_upper(1)
-                  do ic0 = ic_lower(0),ic_upper(0)
-                     u(ic0,ic1,ic2,d) = u(ic0,ic1,ic2,d)+(
-     &                    w(0,ic0-ic_lower(0))*
-     &                    w(1,ic1-ic_lower(1))*
-     &                    w(2,ic2-ic_lower(2))*
-     &                    V(d,s)/(dx(0)*dx(1)*dx(2)))
-                  enddo
-               enddo
-            enddo
-         enddo
+         SPREAD_3D_SPECIALIZE_FIXED_WIDTH(
+             ic_lower(2), ic_upper(2),
+             ic_lower(1), ic_upper(1),
+             ic_lower(0), ic_upper(0),
+             4)
 c
 c     End loop over points.
 c
@@ -1250,19 +1233,11 @@ c
 c
 c     Spread V onto u.
 c
-         do d = 0,depth-1
-            do ic2 = ic_lower(2),ic_upper(2)
-               do ic1 = ic_lower(1),ic_upper(1)
-                  do ic0 = ic_lower(0),ic_upper(0)
-                     u(ic0,ic1,ic2,d) = u(ic0,ic1,ic2,d)+(
-     &                    w(0,ic0-ic_lower(0))*
-     &                    w(1,ic1-ic_lower(1))*
-     &                    w(2,ic2-ic_lower(2))*
-     &                    V(d,s)/(dx(0)*dx(1)*dx(2)))
-                  enddo
-               enddo
-            enddo
-         enddo
+         SPREAD_3D_SPECIALIZE_FIXED_WIDTH(
+             ic_lower(2), ic_upper(2),
+             ic_lower(1), ic_upper(1),
+             ic_lower(0), ic_upper(0),
+             3)
 c
 c     End loop over points.
 c
@@ -2163,19 +2138,12 @@ c
 c
 c     Spread V onto u.
 c
-         do d = 0,depth-1
-            do ic2 = ic_lower(2),ic_upper(2)
-               do ic1 = ic_lower(1),ic_upper(1)
-                  do ic0 = ic_lower(0),ic_upper(0)
-                     u(ic0,ic1,ic2,d) = u(ic0,ic1,ic2,d)+(
-     &                    w(0,ic0-ic_lower(0))*
-     &                    w(1,ic1-ic_lower(1))*
-     &                    w(2,ic2-ic_lower(2))*
-     &                    V(d,s)/(dx(0)*dx(1)*dx(2)))
-                  enddo
-               enddo
-            enddo
-         enddo
+         SPREAD_3D_SPECIALIZE_FIXED_WIDTH(
+             ic_lower(2), ic_upper(2),
+             ic_lower(1), ic_upper(1),
+             ic_lower(0), ic_upper(0),
+             5)
+
 c
 c     End loop over points.
 c
@@ -2222,7 +2190,7 @@ c
 c
 c     Local variables.
 c
-      INTEGER i0,i1,i2,ic0,ic1,ic2
+      INTEGER ic0,ic1,ic2
       INTEGER ig_lower(0:NDIM-1),ig_upper(0:NDIM-1)
       INTEGER ic_lower(0:NDIM-1),ic_upper(0:NDIM-1)
       INTEGER istart0,istop0,istart1,istop1,istart2,istop2
@@ -2230,8 +2198,7 @@ c
 
       REAL X_o_dx,r,alpha,beta,gamma,discr,K
       REAL pm3,pm2,pm1,p,pp1,pp2
-      REAL w0(0:5),w1(0:5),w2(0:5)
-      REAL w(0:5,0:5,0:5),wyz,wz
+      REAL w(0:2,0:5)
 
       PARAMETER (K = (59.d0/60.d0)*(1.d0-sqrt(1.d0-(3220.d0/3481.d0))))
 c
@@ -2280,12 +2247,12 @@ c
          pp2 =        pm3 - (1.d0/16.d0) + (1.d0/8.d0)*(K+r**2) - (1.d0
      $        /12.d0)*(3.d0*K-1.d0)*r - (1.d0/12.d0)*r**3
 
-         w0(0) = pm3
-         w0(1) = pm2
-         w0(2) = pm1
-         w0(3) = p
-         w0(4) = pp1
-         w0(5) = pp2
+         w(0, 0) = pm3
+         w(0, 1) = pm2
+         w(0, 2) = pm1
+         w(0, 3) = p
+         w(0, 4) = pp1
+         w(0, 5) = pp2
 
          X_o_dx = (X(1,s)+Xshift(1,l)-x_lower(1))/dx(1)
          ic_lower(1) = NINT(X_o_dx)+ilower1-3
@@ -2311,12 +2278,12 @@ c
          pp2 =        pm3 - (1.d0/16.d0) + (1.d0/8.d0)*(K+r**2) - (1.d0
      $        /12.d0)*(3.d0*K-1.d0)*r - (1.d0/12.d0)*r**3
 
-         w1(0) = pm3
-         w1(1) = pm2
-         w1(2) = pm1
-         w1(3) = p
-         w1(4) = pp1
-         w1(5) = pp2
+         w(1, 0) = pm3
+         w(1, 1) = pm2
+         w(1, 2) = pm1
+         w(1, 3) = p
+         w(1, 4) = pp1
+         w(1, 5) = pp2
 
          X_o_dx = (X(2,s)+Xshift(2,l)-x_lower(2))/dx(2)
          ic_lower(2) = NINT(X_o_dx)+ilower2-3
@@ -2342,24 +2309,12 @@ c
          pp2 =        pm3 - (1.d0/16.d0) + (1.d0/8.d0)*(K+r**2) - (1.d0
      $        /12.d0)*(3.d0*K-1.d0)*r - (1.d0/12.d0)*r**3
 
-         w2(0) = pm3
-         w2(1) = pm2
-         w2(2) = pm1
-         w2(3) = p
-         w2(4) = pp1
-         w2(5) = pp2
-c
-c     Compute the tensor product of the interpolation weights.
-c
-         do i2 = 0,5
-            wz = w2(i2)
-            do i1 = 0,5
-               wyz = w1(i1)*wz
-               do i0 = 0,5
-                  w(i0,i1,i2) = w0(i0)*wyz
-               enddo
-            enddo
-         enddo
+         w(2, 0) = pm3
+         w(2, 1) = pm2
+         w(2, 2) = pm1
+         w(2, 3) = p
+         w(2, 4) = pp1
+         w(2, 5) = pp2
 c
 c     Interpolate u onto V.
 c
@@ -2369,19 +2324,12 @@ c
          istop1  = 5-max(ic_upper(1)-ig_upper(1),0)
          istart2 =   max(ig_lower(2)-ic_lower(2),0)
          istop2  = 5-max(ic_upper(2)-ig_upper(2),0)
-         do d = 0,depth-1
-            V(d,s) = 0.d0
-            do i2 = istart2,istop2
-               ic2 = ic_lower(2)+i2
-               do i1 = istart1,istop1
-                  ic1 = ic_lower(1)+i1
-                  do i0 = istart0,istop0
-                     ic0 = ic_lower(0)+i0
-                     V(d,s) = V(d,s) + w(i0,i1,i2)*u(ic0,ic1,ic2,d)
-                  enddo
-               enddo
-            enddo
-         enddo
+         INTERPOLATE_3D_SPECIALIZE_FIXED_WIDTH(
+             istart2, istop2,
+             istart1, istop1,
+             istart0, istop0,
+             6)
+
 c
 c     End loop over points.
 c
@@ -2428,7 +2376,7 @@ c
 c
 c     Local variables.
 c
-      INTEGER i0,i1,i2,ic0,ic1,ic2
+      INTEGER ic0,ic1,ic2
       INTEGER ig_lower(0:NDIM-1),ig_upper(0:NDIM-1)
       INTEGER ic_lower(0:NDIM-1),ic_upper(0:NDIM-1)
       INTEGER istart0,istop0,istart1,istop1,istart2,istop2
@@ -2436,8 +2384,7 @@ c
 
       REAL X_o_dx,r,alpha,beta,gamma,discr,K
       REAL pm3,pm2,pm1,p,pp1,pp2
-      REAL w0(0:5),w1(0:5),w2(0:5)
-      REAL w(0:5,0:5,0:5),wyz,wz
+      REAL w(0:2,0:5)
 
       PARAMETER (K = (59.d0/60.d0)*(1.d0-sqrt(1.d0-(3220.d0/3481.d0))))
 c
@@ -2487,12 +2434,12 @@ c
          pp2 =        pm3 - (1.d0/16.d0) + (1.d0/8.d0)*(K+r**2) - (1.d0
      $        /12.d0)*(3.d0*K-1.d0)*r - (1.d0/12.d0)*r**3
 
-         w0(0) = pm3
-         w0(1) = pm2
-         w0(2) = pm1
-         w0(3) = p
-         w0(4) = pp1
-         w0(5) = pp2
+         w(0, 0) = pm3
+         w(0, 1) = pm2
+         w(0, 2) = pm1
+         w(0, 3) = p
+         w(0, 4) = pp1
+         w(0, 5) = pp2
 
          X_o_dx = (X(1,s)+Xshift(1,l)-x_lower(1))/dx(1)
          ic_lower(1) = NINT(X_o_dx)+ilower1-3
@@ -2518,12 +2465,12 @@ c
          pp2 =        pm3 - (1.d0/16.d0) + (1.d0/8.d0)*(K+r**2) - (1.d0
      $        /12.d0)*(3.d0*K-1.d0)*r - (1.d0/12.d0)*r**3
 
-         w1(0) = pm3
-         w1(1) = pm2
-         w1(2) = pm1
-         w1(3) = p
-         w1(4) = pp1
-         w1(5) = pp2
+         w(1, 0) = pm3
+         w(1, 1) = pm2
+         w(1, 2) = pm1
+         w(1, 3) = p
+         w(1, 4) = pp1
+         w(1, 5) = pp2
 
          X_o_dx = (X(2,s)+Xshift(2,l)-x_lower(2))/dx(2)
          ic_lower(2) = NINT(X_o_dx)+ilower2-3
@@ -2549,24 +2496,12 @@ c
          pp2 =        pm3 - (1.d0/16.d0) + (1.d0/8.d0)*(K+r**2) - (1.d0
      $        /12.d0)*(3.d0*K-1.d0)*r - (1.d0/12.d0)*r**3
 
-         w2(0) = pm3
-         w2(1) = pm2
-         w2(2) = pm1
-         w2(3) = p
-         w2(4) = pp1
-         w2(5) = pp2
-c
-c     Compute the tensor product of the scaled interpolation weights.
-c
-         do i2 = 0,5
-            wz = w2(i2)/(dx(0)*dx(1)*dx(2))
-            do i1 = 0,5
-               wyz = w1(i1)*wz
-               do i0 = 0,5
-                  w(i0,i1,i2) = w0(i0)*wyz
-               enddo
-            enddo
-         enddo
+         w(2, 0) = pm3
+         w(2, 1) = pm2
+         w(2, 2) = pm1
+         w(2, 3) = p
+         w(2, 4) = pp1
+         w(2, 5) = pp2
 c
 c     Spread V onto u.
 c
@@ -2576,19 +2511,11 @@ c
          istop1  = 5-max(ic_upper(1)-ig_upper(1),0)
          istart2 =   max(ig_lower(2)-ic_lower(2),0)
          istop2  = 5-max(ic_upper(2)-ig_upper(2),0)
-         do d = 0,depth-1
-            do i2 = istart2,istop2
-               ic2 = ic_lower(2)+i2
-               do i1 = istart1,istop1
-                  ic1 = ic_lower(1)+i1
-                  do i0 = istart0,istop0
-                     ic0 = ic_lower(0)+i0
-                     u(ic0,ic1,ic2,d) = u(ic0,ic1,ic2,d) +
-     &                    w(i0,i1,i2)*V(d,s)
-                  enddo
-               enddo
-            enddo
-         enddo
+         SPREAD_3D_SPECIALIZE_FIXED_WIDTH(
+             istart2, istop2,
+             istart1, istop1,
+             istart0, istop0,
+             6)
 c
 c     End loop over points.
 c
@@ -3105,19 +3032,12 @@ c
 c
 c     Spread V onto u.
 c
-         do d = 0,depth-1
-            do ic2 = ic_lower(2),ic_upper(2)
-               do ic1 = ic_lower(1),ic_upper(1)
-                  do ic0 = ic_lower(0),ic_upper(0)
-                     u(ic0,ic1,ic2,d) = u(ic0,ic1,ic2,d)+(
-     &                    w(0,ic0-ic_lower(0))*
-     &                    w(1,ic1-ic_lower(1))*
-     &                    w(2,ic2-ic_lower(2))*
-     &                    V(d,s)/(dx(0)*dx(1)*dx(2)))
-                  enddo
-               enddo
-            enddo
-         enddo
+         SPREAD_3D_SPECIALIZE_FIXED_WIDTH(
+             ic_lower(2), ic_upper(2),
+             ic_lower(1), ic_upper(1),
+             ic_lower(0), ic_upper(0),
+             4)
+
 c
 c     End loop over points.
 c
@@ -3369,19 +3289,12 @@ c
 c
 c     Spread V onto u.
 c
-         do d = 0,depth-1
-            do ic2 = ic_lower(2),ic_upper(2)
-               do ic1 = ic_lower(1),ic_upper(1)
-                  do ic0 = ic_lower(0),ic_upper(0)
-                     u(ic0,ic1,ic2,d) = u(ic0,ic1,ic2,d)+(
-     &                    w(0,ic0-ic_lower(0))*
-     &                    w(1,ic1-ic_lower(1))*
-     &                    w(2,ic2-ic_lower(2))*
-     &                    V(d,s)/(dx(0)*dx(1)*dx(2)))
-                  enddo
-               enddo
-            enddo
-         enddo
+         SPREAD_3D_SPECIALIZE_FIXED_WIDTH(
+             ic_lower(2), ic_upper(2),
+             ic_lower(1), ic_upper(1),
+             ic_lower(0), ic_upper(0),
+             5)
+
 c
 c     End loop over points.
 c
@@ -3643,19 +3556,12 @@ c
 c
 c     Spread V onto u.
 c
-         do d = 0,depth-1
-            do ic2 = ic_lower(2),ic_upper(2)
-               do ic1 = ic_lower(1),ic_upper(1)
-                  do ic0 = ic_lower(0),ic_upper(0)
-                     u(ic0,ic1,ic2,d) = u(ic0,ic1,ic2,d)+(
-     &                    w(0,ic0-ic_lower(0))*
-     &                    w(1,ic1-ic_lower(1))*
-     &                    w(2,ic2-ic_lower(2))*
-     &                    V(d,s)/(dx(0)*dx(1)*dx(2)))
-                  enddo
-               enddo
-            enddo
-         enddo
+         SPREAD_3D_SPECIALIZE_FIXED_WIDTH(
+             ic_lower(2), ic_upper(2),
+             ic_lower(1), ic_upper(1),
+             ic_lower(0), ic_upper(0),
+             6)
+
 c
 c     End loop over points.
 c
