@@ -269,7 +269,6 @@ c     Local variables.
 c
       INTEGER ilower(0:NDIM-1),iupper(0:NDIM-1)
       INTEGER ic0,ic1,ic2
-      INTEGER ic_trimmed_lower(0:NDIM-1),ic_trimmed_upper(0:NDIM-1)
       INTEGER ic_center(0:NDIM-1),ic_lower(0:NDIM-1),ic_upper(0:NDIM-1)
       INTEGER d,l,s,nugc(0:NDIM-1)
 
@@ -330,26 +329,16 @@ c
                ic_upper(d) = ic_center(d)
             endif
 
-            ic_trimmed_lower(d) = max(ic_lower(d),ilower(d)-nugc(d))
-            ic_trimmed_upper(d) = min(ic_upper(d),iupper(d)+nugc(d))
+            ic_lower(d) = max(ic_lower(d), ilower(d) - nugc(d))
+            ic_upper(d) = max(ic_upper(d), iupper(d) + nugc(d))
          enddo
 c
 c     Interpolate u onto V.
 c
-         do d = 0,depth-1
-            V(d,s) = 0.d0
-            do ic2 = ic_trimmed_lower(2),ic_trimmed_upper(2)
-               do ic1 = ic_trimmed_lower(1),ic_trimmed_upper(1)
-                  do ic0 = ic_trimmed_lower(0),ic_trimmed_upper(0)
-                     V(d,s) = V(d,s)
-     &                    +w(0,ic0-ic_lower(0))
-     &                    *w(1,ic1-ic_lower(1))
-     &                    *w(2,ic2-ic_lower(2))
-     &                    *u(ic0,ic1,ic2,d)
-                  enddo
-               enddo
-            enddo
-         enddo
+         INTERPOLATE_3D_SPECIALIZE_FIXED_WIDTH(ic_lower(2), ic_upper(2),
+                                               ic_lower(1), ic_upper(1),
+                                               ic_lower(0), ic_upper(0),
+                                               2)
 c
 c     End loop over points.
 c
@@ -528,7 +517,6 @@ c
       INTEGER ilower(0:NDIM-1),iupper(0:NDIM-1)
       INTEGER ic0,ic1,ic2
       INTEGER ic_center(0:NDIM-1),ic_lower(0:NDIM-1),ic_upper(0:NDIM-1)
-      INTEGER ic_trimmed_lower(0:NDIM-1),ic_trimmed_upper(0:NDIM-1)
       INTEGER d,l,s,nugc(0:NDIM-1)
 
       REAL X_cell(0:NDIM-1),X_shifted(0:NDIM-1),w(0:NDIM-1,0:1)
@@ -581,27 +569,16 @@ c
                w(d,0) = 1.d0 + (X_cell(d)-X_shifted(d))/dx(d)
                w(d,1) = 1.d0 - w(d,0)
             endif
-
-            ic_trimmed_lower(d) = max(ic_lower(d),ilower(d)-nugc(d))
-            ic_trimmed_upper(d) = min(ic_upper(d),iupper(d)+nugc(d))
+            ic_lower(d) = max(ic_lower(d),ilower(d)-nugc(d))
+            ic_upper(d) = min(ic_upper(d),iupper(d)+nugc(d))
          enddo
 c
 c     Interpolate u onto V.
 c
-         do d = 0,depth-1
-            V(d,s) = 0.d0
-            do ic2 = ic_trimmed_lower(2),ic_trimmed_upper(2)
-               do ic1 = ic_trimmed_lower(1),ic_trimmed_upper(1)
-                  do ic0 = ic_trimmed_lower(0),ic_trimmed_upper(0)
-                     V(d,s) = V(d,s)
-     &                    +w(0,ic0-ic_lower(0))
-     &                    *w(1,ic1-ic_lower(1))
-     &                    *w(2,ic2-ic_lower(2))
-     &                    *u(ic0,ic1,ic2,d)
-                  enddo
-               enddo
-            enddo
-         enddo
+         INTERPOLATE_3D_SPECIALIZE_FIXED_WIDTH(ic_lower(2), ic_upper(2),
+                                               ic_lower(1), ic_upper(1),
+                                               ic_lower(0), ic_upper(0),
+                                               2)
 c
 c     End loop over points.
 c
