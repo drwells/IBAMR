@@ -2609,8 +2609,7 @@ c
 c     
 c     Determine the Cartesian cell in which X(s) is located.
 c     
-            ic_center(d) =
-     &           floor((X(d,s)+Xshift(d,l)-x_lower(d))/dx(d))
+            ic_center(d) = floor((X(d,s)+Xshift(d,l)-x_lower(d))/dx(d))
      &           + ilower(d)
             X_cell(d) = x_lower(d) +
      &           (dble(ic_center(d)-ilower(d))+0.5d0)*dx(d)
@@ -3104,15 +3103,14 @@ c
      &              lagrangian_bspline_6_delta(
      &              (X(d,s)+Xshift(d,l)-X_cell(d))/dx(d))
             enddo
-      enddo
+         enddo
 c
 c     Spread V onto u.
 c
-         SPREAD_3D_SPECIALIZE_FIXED_WIDTH(
-             ic_lower(2), ic_upper(2),
-             ic_lower(1), ic_upper(1),
-             ic_lower(0), ic_upper(0),
-             6)
+         SPREAD_3D_SPECIALIZE_FIXED_WIDTH(ic_lower(2), ic_upper(2),
+                                          ic_lower(1), ic_upper(1),
+                                          ic_lower(0), ic_upper(0),
+                                          6)
 
 c
 c     End loop over points.
