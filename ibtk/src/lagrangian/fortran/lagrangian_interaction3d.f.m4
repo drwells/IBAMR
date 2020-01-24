@@ -2011,8 +2011,8 @@ c     of X(s) within the cell and compute the interpolation weights.
 c
          do d=0,NDIM-1
             X_o_dx = (X(d,s)+Xshift(d,l)-x_lower(d))/dx(d)
-            ic_lower(d) = NINT(X_o_dx)+ilower0-3
-            ic_upper(d) = ic_lower(0) + 5
+            ic_lower(d) = NINT(X_o_dx)+ilower(d)-3
+            ic_upper(d) = ic_lower(d) + 5
             ic_lower(d) = max(ic_lower(d), ilower(d) - nugc(d))
             ic_upper(d) = min(ic_upper(d), iupper(d) + nugc(d))
             r = 1.d0 - X_o_dx + ((ic_lower(d)+2-ilower(d))+0.5d0)
