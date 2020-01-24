@@ -1313,7 +1313,7 @@ c
       INTEGER d,l,s,nugc(0:NDIM-1)
 
       REAL X_o_dx,q,r
-      REAL w(0:2,0:3)
+      REAL w(0:NDIM-1,0:3)
 c
 c     Prevent compiler warning about unused variables.
 c
@@ -2106,7 +2106,7 @@ c
 
       REAL X_o_dx,r,alpha,beta,gamma,discr,K
       REAL pm3,pm2,pm1,p,pp1,pp2
-      REAL w(0:2,0:5)
+      REAL w(0:NDIM-1,0:5)
 
       PARAMETER (K = (59.d0/60.d0)*(1.d0-sqrt(1.d0-(3220.d0/3481.d0))))
 c
