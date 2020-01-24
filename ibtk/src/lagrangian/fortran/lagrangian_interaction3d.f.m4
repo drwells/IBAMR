@@ -1635,9 +1635,10 @@ c
       REAL r
       REAL phi
       REAL K
+      INTEGER ilower(0:NDIM-1),iupper(0:NDIM-1)
       INTEGER ic0,ic1,ic2
       INTEGER ic_center(0:NDIM-1),ic_lower(0:NDIM-1),ic_upper(0:NDIM-1)
-      INTEGER d,l,s
+      INTEGER d,l,s,nugc(0:NDIM-1)
 
       REAL X_cell(0:NDIM-1),w(0:NDIM-1,0:4)
 
@@ -1647,106 +1648,63 @@ c     Prevent compiler warning about unused variables.
 c
       x_upper(0) = x_upper(0)
 c
+c     Setup convenience arrays.
+c
+      ilower(0) = ilower0
+      ilower(1) = ilower1
+      ilower(2) = ilower2
+
+      iupper(0) = iupper0
+      iupper(1) = iupper1
+      iupper(2) = iupper2
+
+      nugc(0) = nugc0
+      nugc(1) = nugc1
+      nugc(2) = nugc2
+c
 c     Use a 5-point IB delta function to interpolate u onto V.
 c
       do l = 0,nindices-1
          s = indices(l)
-c
+         do d=0,NDIM-1
+c     
 c     Determine the Cartesian cell in which X(s) is located.
-c
-         ic_center(0) =
-     &        floor((X(0,s)+Xshift(0,l)-x_lower(0))/dx(0))
-     &        + ilower0
-         ic_center(1) =
-     &        floor((X(1,s)+Xshift(1,l)-x_lower(1))/dx(1))
-     &        + ilower1
-         ic_center(2) =
-     &        floor((X(2,s)+Xshift(2,l)-x_lower(2))/dx(2))
-     &        + ilower2
-
-         X_cell(0) = x_lower(0)+(dble(ic_center(0)-ilower0)+0.5d0)*dx(0)
-         X_cell(1) = x_lower(1)+(dble(ic_center(1)-ilower1)+0.5d0)*dx(1)
-         X_cell(2) = x_lower(2)+(dble(ic_center(2)-ilower2)+0.5d0)*dx(2)
-c
+c     
+            ic_center(d) = floor((X(d,s)+Xshift(d,l)-x_lower(d))/dx(d))
+     &           + ilower(d)
+            X_cell(d) = x_lower(d) +
+     &           (dble(ic_center(d)-ilower(d))+0.5d0)*dx(d)
+c     
 c     Determine the interpolation stencil corresponding to the position
 c     of X(s) within the cell.
-c
-         do d = 0,NDIM-1
+c     
             ic_lower(d) = ic_center(d)-2
             ic_upper(d) = ic_center(d)+2
-         enddo
-
-         ic_lower(0) = max(ic_lower(0),ilower0-nugc0)
-         ic_upper(0) = min(ic_upper(0),iupper0+nugc0)
-
-         ic_lower(1) = max(ic_lower(1),ilower1-nugc1)
-         ic_upper(1) = min(ic_upper(1),iupper1+nugc1)
-
-         ic_lower(2) = max(ic_lower(2),ilower2-nugc2)
-         ic_upper(2) = min(ic_upper(2),iupper2+nugc2)
-c
+            ic_lower(d) = max(ic_lower(d),ilower(d)-nugc(d))
+            ic_upper(d) = min(ic_upper(d),iupper(d)+nugc(d))
+c     
 c     Compute the interpolation weights.
-c
-         ic0 = ic_center(0)
-         X_cell(0) = x_lower(0)+(dble(ic0-ilower0)+0.5d0)*dx(0)
-         r = (X(0,s)+Xshift(0,l)-X_cell(0))/dx(0)
-         phi = (136.0d0 - 40.0d0*K - 40.0d0*r**2 + sqrt(2.0d0)
-     &          *sqrt(3123.0d0 - 6840.0d0*K + 3600.0d0*(K**2)
-     &          - 12440.0d0*(r**2) + 25680.0d0*K*(r**2)
-     &          - 12600.0d0*(K**2)*(r**2) + 8080.0d0*(r**4)
-     &          - 8400.0d0*K*(r**4) - 1400.0d0*(r**6)))
-     &          /280.0d0
+c     
+            ic0 = ic_center(d)
+            X_cell(d) = x_lower(d)+(dble(ic0-ilower(d))+0.5d0)*dx(d)
+            r = (X(d,s)+Xshift(d,l)-X_cell(d))/dx(d)
+            phi = (136.0d0 - 40.0d0*K - 40.0d0*r**2 + sqrt(2.0d0)
+     &           *sqrt(3123.0d0 - 6840.0d0*K + 3600.0d0*(K**2)
+     &           - 12440.0d0*(r**2) + 25680.0d0*K*(r**2)
+     &           - 12600.0d0*(K**2)*(r**2) + 8080.0d0*(r**4)
+     &           - 8400.0d0*K*(r**4) - 1400.0d0*(r**6)))
+     &           /280.0d0
 
-         w(0,0) = (1.0d0/12.0d0) * (-2.0d0 + 2.0d0*phi + 2.0d0*K +
-     &                         r - 3.0d0*K*r + 2.0d0*r**2 - r**3)
-         w(0,1) = (1.0d0/ 6.0d0) * ( 4.0d0 - 4.0d0*phi -       K -
-     &                   4.0d0*r + 3.0d0*K*r -       r**2 + r**3)
-         w(0,2) = phi
-         w(0,3) = (1.0d0/ 6.0d0) * ( 4.0d0 - 4.0d0*phi -       K +
-     &                   4.0d0*r - 3.0d0*K*r -       r**2 - r**3)
-         w(0,4) = (1.0d0/12.0d0) * (-2.0d0 + 2.0d0*phi + 2.0d0*K -
-     &                         r + 3.0d0*K*r + 2.0d0*r**2 + r**3)
-
-         ic1 = ic_center(1)
-         X_cell(1) = x_lower(1)+(dble(ic1-ilower1)+0.5d0)*dx(1)
-         r = (X(1,s)+Xshift(1,l)-X_cell(1))/dx(1)
-         phi = (136.0d0 - 40.0d0*K - 40.0d0*r**2 + sqrt(2.0d0)
-     &          *sqrt(3123.0d0 - 6840.0d0*K + 3600.0d0*(K**2)
-     &          - 12440.0d0*(r**2) + 25680.0d0*K*(r**2)
-     &          - 12600.0d0*(K**2)*(r**2) + 8080.0d0*(r**4)
-     &          - 8400.0d0*K*(r**4) - 1400.0d0*(r**6)))
-     &          /280.0d0
-
-         w(1,0) = (1.0d0/12.0d0) * (-2.0d0 + 2.0d0*phi + 2.0d0*K +
-     &                         r - 3.0d0*K*r + 2.0d0*r**2 - r**3)
-         w(1,1) = (1.0d0/ 6.0d0) * ( 4.0d0 - 4.0d0*phi -       K -
-     &                   4.0d0*r + 3.0d0*K*r -       r**2 + r**3)
-         w(1,2) = phi
-         w(1,3) = (1.0d0/ 6.0d0) * ( 4.0d0 - 4.0d0*phi -       K +
-     &                   4.0d0*r - 3.0d0*K*r -       r**2 - r**3)
-         w(1,4) = (1.0d0/12.0d0) * (-2.0d0 + 2.0d0*phi + 2.0d0*K -
-     &                         r + 3.0d0*K*r + 2.0d0*r**2 + r**3)
-
-         ic2 = ic_center(2)
-         X_cell(2) = x_lower(2)+(dble(ic2-ilower2)+0.5d0)*dx(2)
-         r = (X(2,s)+Xshift(2,l)-X_cell(2))/dx(2)
-         phi = (136.0d0 - 40.0d0*K - 40.0d0*r**2 + sqrt(2.0d0)
-     &          *sqrt(3123.0d0 - 6840.0d0*K + 3600.0d0*(K**2)
-     &          - 12440.0d0*(r**2) + 25680.0d0*K*(r**2)
-     &          - 12600.0d0*(K**2)*(r**2) + 8080.0d0*(r**4)
-     &          - 8400.0d0*K*(r**4) - 1400.0d0*(r**6)))
-     &          /280.0d0
-
-         w(2,0) = (1.0d0/12.0d0) * (-2.0d0 + 2.0d0*phi + 2.0d0*K +
-     &                         r - 3.0d0*K*r + 2.0d0*r**2 - r**3)
-         w(2,1) = (1.0d0/ 6.0d0) * ( 4.0d0 - 4.0d0*phi -       K -
-     &                   4.0d0*r + 3.0d0*K*r -       r**2 + r**3)
-         w(2,2) = phi
-         w(2,3) = (1.0d0/ 6.0d0) * ( 4.0d0 - 4.0d0*phi -       K +
-     &                   4.0d0*r - 3.0d0*K*r -       r**2 - r**3)
-         w(2,4) = (1.0d0/12.0d0) * (-2.0d0 + 2.0d0*phi + 2.0d0*K -
-     &                         r + 3.0d0*K*r + 2.0d0*r**2 + r**3)
-
+            w(d,0) = (1.0d0/12.0d0) * (-2.0d0 + 2.0d0*phi + 2.0d0*K +
+     &           r - 3.0d0*K*r + 2.0d0*r**2 - r**3)
+            w(d,1) = (1.0d0/ 6.0d0) * ( 4.0d0 - 4.0d0*phi -       K -
+     &           4.0d0*r + 3.0d0*K*r -       r**2 + r**3)
+            w(d,2) = phi
+            w(d,3) = (1.0d0/ 6.0d0) * ( 4.0d0 - 4.0d0*phi -       K +
+     &           4.0d0*r - 3.0d0*K*r -       r**2 - r**3)
+            w(d,4) = (1.0d0/12.0d0) * (-2.0d0 + 2.0d0*phi + 2.0d0*K -
+     &           r + 3.0d0*K*r + 2.0d0*r**2 + r**3)
+         enddo
 c
 c     Interpolate u onto V.
 c
@@ -1808,9 +1766,10 @@ c
       REAL r
       REAL phi
       REAL K
+      INTEGER ilower(0:NDIM-1),iupper(0:NDIM-1)
       INTEGER ic0,ic1,ic2
       INTEGER ic_center(0:NDIM-1),ic_lower(0:NDIM-1),ic_upper(0:NDIM-1)
-      INTEGER d,l,s
+      INTEGER d,l,s,nugc(0:NDIM-1)
 
       REAL X_cell(0:NDIM-1),w(0:NDIM-1,0:4)
 
@@ -1820,105 +1779,64 @@ c     Prevent compiler warning about unused variables.
 c
       x_upper(0) = x_upper(0)
 c
+c     Setup convenience arrays.
+c
+      ilower(0) = ilower0
+      ilower(1) = ilower1
+      ilower(2) = ilower2
+
+      iupper(0) = iupper0
+      iupper(1) = iupper1
+      iupper(2) = iupper2
+
+      nugc(0) = nugc0
+      nugc(1) = nugc1
+      nugc(2) = nugc2
+c
 c     Use a 5-point IB delta function to spread V onto u.
 c
       do l = 0,nindices-1
          s = indices(l)
-c
+         do d=0,NDIM-1
+c     
 c     Determine the Cartesian cell in which X(s) is located.
-c
-         ic_center(0) =
-     &        floor((X(0,s)+Xshift(0,l)-x_lower(0))/dx(0))
-     &        + ilower0
-         ic_center(1) =
-     &        floor((X(1,s)+Xshift(1,l)-x_lower(1))/dx(1))
-     &        + ilower1
-         ic_center(2) =
-     &        floor((X(2,s)+Xshift(2,l)-x_lower(2))/dx(2))
-     &        + ilower2
-
-         X_cell(0) = x_lower(0)+(dble(ic_center(0)-ilower0)+0.5d0)*dx(0)
-         X_cell(1) = x_lower(1)+(dble(ic_center(1)-ilower1)+0.5d0)*dx(1)
-         X_cell(2) = x_lower(2)+(dble(ic_center(2)-ilower2)+0.5d0)*dx(2)
-c
+c     
+            ic_center(d) = floor((X(d,s)+Xshift(d,l)-x_lower(d))/dx(d))
+     &           + ilower(d)
+            X_cell(d) = x_lower(d)+(dble(ic_center(d)-ilower(d))+0.5d0)
+     &           * dx(d)
+c     
 c     Determine the spreading stencil corresponding to the position of
 c     X(s) within the cell.
-c
-         do d = 0,NDIM-1
+c     
             ic_lower(d) = ic_center(d)-2
             ic_upper(d) = ic_center(d)+2
-         enddo
-
-         ic_lower(0) = max(ic_lower(0),ilower0-nugc0)
-         ic_upper(0) = min(ic_upper(0),iupper0+nugc0)
-
-         ic_lower(1) = max(ic_lower(1),ilower1-nugc1)
-         ic_upper(1) = min(ic_upper(1),iupper1+nugc1)
-
-         ic_lower(2) = max(ic_lower(2),ilower2-nugc2)
-         ic_upper(2) = min(ic_upper(2),iupper2+nugc2)
-c
+            ic_lower(d) = max(ic_lower(d),ilower(d)-nugc(d))
+            ic_upper(d) = min(ic_upper(d),iupper(d)+nugc(d))
+c     
 c     Compute the spreading weights.
-c
-         ic0 = ic_center(0)
-         X_cell(0) = x_lower(0)+(dble(ic0-ilower0)+0.5d0)*dx(0)
-         r = (X(0,s)+Xshift(0,l)-X_cell(0))/dx(0)
-         phi = (136.0d0 - 40.0d0*K - 40.0d0*r**2 + sqrt(2.0d0)
-     &          *sqrt(3123.0d0 - 6840.0d0*K + 3600.0d0*(K**2)
-     &          - 12440.0d0*(r**2) + 25680.0d0*K*(r**2)
-     &          - 12600.0d0*(K**2)*(r**2) + 8080.0d0*(r**4)
-     &          - 8400.0d0*K*(r**4) - 1400.0d0*(r**6)))
-     &          /280.0d0
+c     
+            ic0 = ic_center(d)
+            X_cell(d) = x_lower(d)+(dble(ic0-ilower(d))+0.5d0)*dx(d)
+            r = (X(d,s)+Xshift(d,l)-X_cell(d))/dx(d)
+            phi = (136.0d0 - 40.0d0*K - 40.0d0*r**2 + sqrt(2.0d0)
+     &           *sqrt(3123.0d0 - 6840.0d0*K + 3600.0d0*(K**2)
+     &           - 12440.0d0*(r**2) + 25680.0d0*K*(r**2)
+     &           - 12600.0d0*(K**2)*(r**2) + 8080.0d0*(r**4)
+     &           - 8400.0d0*K*(r**4) - 1400.0d0*(r**6)))
+     &           /280.0d0
 
-         w(0,0) = (1.0d0/12.0d0) * (-2.0d0 + 2.0d0*phi + 2.0d0*K +
-     &                         r - 3.0d0*K*r + 2.0d0*r**2 - r**3)
-         w(0,1) = (1.0d0/ 6.0d0) * ( 4.0d0 - 4.0d0*phi -       K -
-     &                   4.0d0*r + 3.0d0*K*r -       r**2 + r**3)
-         w(0,2) = phi
-         w(0,3) = (1.0d0/ 6.0d0) * ( 4.0d0 - 4.0d0*phi -       K +
-     &                   4.0d0*r - 3.0d0*K*r -       r**2 - r**3)
-         w(0,4) = (1.0d0/12.0d0) * (-2.0d0 + 2.0d0*phi + 2.0d0*K -
-     &                         r + 3.0d0*K*r + 2.0d0*r**2 + r**3)
+            w(d,0) = (1.0d0/12.0d0) * (-2.0d0 + 2.0d0*phi + 2.0d0*K +
+     &           r - 3.0d0*K*r + 2.0d0*r**2 - r**3)
+            w(d,1) = (1.0d0/ 6.0d0) * ( 4.0d0 - 4.0d0*phi -       K -
+     &           4.0d0*r + 3.0d0*K*r -       r**2 + r**3)
+            w(d,2) = phi
+            w(d,3) = (1.0d0/ 6.0d0) * ( 4.0d0 - 4.0d0*phi -       K +
+     &           4.0d0*r - 3.0d0*K*r -       r**2 - r**3)
+            w(d,4) = (1.0d0/12.0d0) * (-2.0d0 + 2.0d0*phi + 2.0d0*K -
+     &           r + 3.0d0*K*r + 2.0d0*r**2 + r**3)
 
-         ic1 = ic_center(1)
-         X_cell(1) = x_lower(1)+(dble(ic1-ilower1)+0.5d0)*dx(1)
-         r = (X(1,s)+Xshift(1,l)-X_cell(1))/dx(1)
-         phi = (136.0d0 - 40.0d0*K - 40.0d0*r**2 + sqrt(2.0d0)
-     &          *sqrt(3123.0d0 - 6840.0d0*K + 3600.0d0*(K**2)
-     &          - 12440.0d0*(r**2) + 25680.0d0*K*(r**2)
-     &          - 12600.0d0*(K**2)*(r**2) + 8080.0d0*(r**4)
-     &          - 8400.0d0*K*(r**4) - 1400.0d0*(r**6)))
-     &          /280.0d0
-
-         w(1,0) = (1.0d0/12.0d0) * (-2.0d0 + 2.0d0*phi + 2.0d0*K +
-     &                         r - 3.0d0*K*r + 2.0d0*r**2 - r**3)
-         w(1,1) = (1.0d0/ 6.0d0) * ( 4.0d0 - 4.0d0*phi -       K -
-     &                   4.0d0*r + 3.0d0*K*r -       r**2 + r**3)
-         w(1,2) = phi
-         w(1,3) = (1.0d0/ 6.0d0) * ( 4.0d0 - 4.0d0*phi -       K +
-     &                   4.0d0*r - 3.0d0*K*r -       r**2 - r**3)
-         w(1,4) = (1.0d0/12.0d0) * (-2.0d0 + 2.0d0*phi + 2.0d0*K -
-     &                         r + 3.0d0*K*r + 2.0d0*r**2 + r**3)
-
-         ic2 = ic_center(2)
-         X_cell(2) = x_lower(2)+(dble(ic2-ilower2)+0.5d0)*dx(2)
-         r = (X(2,s)+Xshift(2,l)-X_cell(2))/dx(2)
-         phi = (136.0d0 - 40.0d0*K - 40.0d0*r**2 + sqrt(2.0d0)
-     &          *sqrt(3123.0d0 - 6840.0d0*K + 3600.0d0*(K**2)
-     &          - 12440.0d0*(r**2) + 25680.0d0*K*(r**2)
-     &          - 12600.0d0*(K**2)*(r**2) + 8080.0d0*(r**4)
-     &          - 8400.0d0*K*(r**4) - 1400.0d0*(r**6)))
-     &          /280.0d0
-
-         w(2,0) = (1.0d0/12.0d0) * (-2.0d0 + 2.0d0*phi + 2.0d0*K +
-     &                         r - 3.0d0*K*r + 2.0d0*r**2 - r**3)
-         w(2,1) = (1.0d0/ 6.0d0) * ( 4.0d0 - 4.0d0*phi -       K -
-     &                   4.0d0*r + 3.0d0*K*r -       r**2 + r**3)
-         w(2,2) = phi
-         w(2,3) = (1.0d0/ 6.0d0) * ( 4.0d0 - 4.0d0*phi -       K +
-     &                   4.0d0*r - 3.0d0*K*r -       r**2 - r**3)
-         w(2,4) = (1.0d0/12.0d0) * (-2.0d0 + 2.0d0*phi + 2.0d0*K -
-     &                         r + 3.0d0*K*r + 2.0d0*r**2 + r**3)
+         enddo
 
 c
 c     Spread V onto u.
