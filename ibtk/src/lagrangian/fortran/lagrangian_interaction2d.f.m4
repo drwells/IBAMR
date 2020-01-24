@@ -47,6 +47,31 @@ define(INTERPOLATE_2D_SPECIALIZE_FIXED_WIDTH,
            INTERPOLATE_INNER_2D($1, $2,
                                 $3, $4)
          endif')dnl
+define(SPREAD_INNER_2D,
+          ` do d = 0,depth-1
+               do ic1 = $1,$2
+                  do ic0 = $3,$4
+                     u(ic0,ic1,d) = u(ic0,ic1,d) + (
+     &                    +w(0,ic0-$3)
+     &                    *w(1,ic1-$1)
+     &                    *V(d,s)/(dx(0)*dx(1)))
+                  enddo
+               enddo
+            enddo')
+dnl Same arguments as before, but the seventh argument is the width of the
+dnl stencil (e.g., 3 for bspline 3). The first branch is a hotter code path
+dnl since when we are not at a boundary the number of inner loop iterations
+dnl is known. Exposing this to the compiler helps generate code which speeds
+dnl up the subroutine by about 25%.
+define(SPREAD_2D_SPECIALIZE_FIXED_WIDTH,
+`   if ($2 - $1 == ($5 - 1) .and.
+     &       $4 - $3 == ($5 - 1)) then
+           SPREAD_INNER_2D($1, ($1 + $5 - 1),
+                           $3, ($3 + $5 - 1))
+         else
+           SPREAD_INNER_2D($1, $2,
+                           $3, $4)
+         endif')dnl
 include(SAMRAI_FORTDIR/pdat_m4arrdim2d.i)dnl
 
 c     this is a Fortran include, not an m4 include
@@ -893,16 +918,9 @@ c
 c
 c     Spread V onto u.
 c
-         do d = 0,depth-1
-            do ic1 = ic_lower(1),ic_upper(1)
-               do ic0 = ic_lower(0),ic_upper(0)
-                  u(ic0,ic1,d) = u(ic0,ic1,d)+(
-     &                 w(0,ic0-ic_lower(0))*
-     &                 w(1,ic1-ic_lower(1))*
-     &                 V(d,s)/(dx(0)*dx(1)))
-               enddo
-            enddo
-         enddo
+         SPREAD_2D_SPECIALIZE_FIXED_WIDTH(ic_lower(1), ic_upper(1),
+                                          ic_lower(0), ic_upper(0),
+                                          4)
 c
 c     End loop over points.
 c
@@ -1124,16 +1142,9 @@ c
 c
 c     Spread V onto u.
 c
-         do d = 0,depth-1
-            do ic1 = ic_lower(1),ic_upper(1)
-               do ic0 = ic_lower(0),ic_upper(0)
-                  u(ic0,ic1,d) = u(ic0,ic1,d)+(
-     &                 w(0,ic0-ic_lower(0))*
-     &                 w(1,ic1-ic_lower(1))*
-     &                 V(d,s)/(dx(0)*dx(1)))
-               enddo
-            enddo
-         enddo
+         SPREAD_2D_SPECIALIZE_FIXED_WIDTH(ic_lower(1), ic_upper(1),
+                                          ic_lower(0), ic_upper(0),
+                                          3)
 c
 c     End loop over points.
 c
@@ -1928,16 +1939,9 @@ c
 c
 c     Spread V onto u.
 c
-         do d = 0,depth-1
-            do ic1 = ic_lower(1),ic_upper(1)
-               do ic0 = ic_lower(0),ic_upper(0)
-                  u(ic0,ic1,d) = u(ic0,ic1,d)+(
-     &                 w(0,ic0-ic_lower(0))*
-     &                 w(1,ic1-ic_lower(1))*
-     &                 V(d,s)/(dx(0)*dx(1)))
-               enddo
-            enddo
-         enddo
+         SPREAD_2D_SPECIALIZE_FIXED_WIDTH(ic_lower(1), ic_upper(1),
+                                          ic_lower(0), ic_upper(0),
+                                          5)
 c
 c     End loop over points.
 c
@@ -2488,16 +2492,9 @@ c
 c
 c     Spread V onto u.
 c
-         do d = 0,depth-1
-            do ic1 = ic_lower(1),ic_upper(1)
-               do ic0 = ic_lower(0),ic_upper(0)
-                  u(ic0,ic1,d) = u(ic0,ic1,d)+(
-     &                 w(0,ic0-ic_lower(0))*
-     &                 w(1,ic1-ic_lower(1))*
-     &                 V(d,s)/(dx(0)*dx(1)))
-               enddo
-            enddo
-         enddo
+         SPREAD_2D_SPECIALIZE_FIXED_WIDTH(ic_lower(1), ic_upper(1),
+                                          ic_lower(0), ic_upper(0),
+                                          3)
 c
 c     End loop over points.
 c
@@ -2730,16 +2727,9 @@ c
 c
 c     Spread V onto u.
 c
-         do d = 0,depth-1
-            do ic1 = ic_lower(1),ic_upper(1)
-               do ic0 = ic_lower(0),ic_upper(0)
-                  u(ic0,ic1,d) = u(ic0,ic1,d)+(
-     &                 w(0,ic0-ic_lower(0))*
-     &                 w(1,ic1-ic_lower(1))*
-     &                 V(d,s)/(dx(0)*dx(1)))
-               enddo
-            enddo
-         enddo
+         SPREAD_2D_SPECIALIZE_FIXED_WIDTH(ic_lower(1), ic_upper(1),
+                                          ic_lower(0), ic_upper(0),
+                                          4)
 c
 c     End loop over points.
 c
@@ -2962,16 +2952,9 @@ c
 c
 c     Spread V onto u.
 c
-         do d = 0,depth-1
-            do ic1 = ic_lower(1),ic_upper(1)
-               do ic0 = ic_lower(0),ic_upper(0)
-                  u(ic0,ic1,d) = u(ic0,ic1,d)+(
-     &                 w(0,ic0-ic_lower(0))*
-     &                 w(1,ic1-ic_lower(1))*
-     &                 V(d,s)/(dx(0)*dx(1)))
-               enddo
-            enddo
-         enddo
+         SPREAD_2D_SPECIALIZE_FIXED_WIDTH(ic_lower(1), ic_upper(1),
+                                          ic_lower(0), ic_upper(0),
+                                          5)
 c
 c     End loop over points.
 c
@@ -3204,16 +3187,9 @@ c
 c
 c     Spread V onto u.
 c
-         do d = 0,depth-1
-            do ic1 = ic_lower(1),ic_upper(1)
-               do ic0 = ic_lower(0),ic_upper(0)
-                  u(ic0,ic1,d) = u(ic0,ic1,d)+(
-     &                 w(0,ic0-ic_lower(0))*
-     &                 w(1,ic1-ic_lower(1))*
-     &                 V(d,s)/(dx(0)*dx(1)))
-               enddo
-            enddo
-         enddo
+         SPREAD_2D_SPECIALIZE_FIXED_WIDTH(ic_lower(1), ic_upper(1),
+                                          ic_lower(0), ic_upper(0),
+                                          6)
 c
 c     End loop over points.
 c
