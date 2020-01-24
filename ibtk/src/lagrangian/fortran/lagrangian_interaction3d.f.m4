@@ -1242,15 +1242,15 @@ c
             X_o_dx = (X(d,s)+Xshift(d,l)-x_lower(d))/dx(d)
             ic_lower(d) = NINT(X_o_dx)+ilower(d)-2
             ic_upper(d) = ic_lower(d) + 3
+            ic_lower(d) = max(ic_lower(d), ilower(d) - nugc(d));
+            ic_upper(d) = min(ic_upper(d), iupper(d) + nugc(d));
+
             r = X_o_dx - ((ic_lower(d)+1-ilower(d))+0.5d0)
             q = sqrt(1.d0+4.d0*r*(1.d0-r))
             w(d, 0) = 0.125d0*(3.d0-2.d0*r-q)
             w(d, 1) = 0.125d0*(3.d0-2.d0*r+q)
             w(d, 2) = 0.125d0*(1.d0+2.d0*r+q)
             w(d, 3) = 0.125d0*(1.d0+2.d0*r-q)
-
-            ic_lower(d) = max(ic_lower(d), ilower(d) - nugc(d));
-            ic_upper(d) = min(ic_upper(d), iupper(d) + nugc(d));
          enddo
 
 c     
@@ -1345,19 +1345,20 @@ c
             X_o_dx = (X(d,s)+Xshift(d,l)-x_lower(d))/dx(d)
             ic_lower(d) = NINT(X_o_dx)+ilower(d)-2
             ic_upper(d) = ic_lower(d) + 3
+            ic_lower(d) = max(ic_lower(d),ilower(d)-nugc(d))
+            ic_upper(d) = min(ic_upper(d),iupper(d)+nugc(d))
+
             r = X_o_dx - ((ic_lower(d)+1-ilower(d))+0.5d0)
             q = sqrt(1.d0+4.d0*r*(1.d0-r))
             w(d, 0) = 0.125d0*(3.d0-2.d0*r-q)
             w(d, 1) = 0.125d0*(3.d0-2.d0*r+q)
             w(d, 2) = 0.125d0*(1.d0+2.d0*r+q)
             w(d, 3) = 0.125d0*(1.d0+2.d0*r-q)
+         enddo
+
 c
 c     Spread V onto u.
 c
-            ic_lower(d) = max(ic_lower(d),ilower(d)-nugc(d))
-            ic_upper(d) = min(ic_upper(d),iupper(d)+nugc(d))
-         enddo
-
          SPREAD_3D_SPECIALIZE_FIXED_WIDTH(ic_lower(2), ic_upper(2),
                                           ic_lower(1), ic_upper(1),
                                           ic_lower(0), ic_upper(0),
@@ -1451,6 +1452,7 @@ c
             ic_upper(d) = ic_lower(d) + 7
             ic_lower(d) = max(ic_lower(d), ilower(d) - nugc(d))
             ic_upper(d) = min(ic_upper(d), iupper(d) + nugc(d))
+
             r = 0.5d0*(X_o_dx - ((ic_lower(d)+3-ilower(d))+0.5d0))
             q = sqrt(1.d0+4.d0*r*(1.d0-r))
             w(d, 1) = 0.0625d0*(3.d0-2.d0*r-q)
@@ -1559,6 +1561,7 @@ c
             ic_upper(d) = ic_lower(d) + 7
             ic_lower(d) = max(ic_lower(d), ilower(d) - nugc(d))
             ic_upper(d) = min(ic_upper(d), iupper(d) + nugc(d))
+
             r = 0.5d0*(X_o_dx - ((ic_lower(d)+3-ilower(d))+0.5d0))
             q = sqrt(1.d0+4.d0*r*(1.d0-r))
             w(d, 1) = 0.0625d0*(3.d0-2.d0*r-q)
