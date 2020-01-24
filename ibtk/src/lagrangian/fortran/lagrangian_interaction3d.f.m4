@@ -2558,11 +2558,10 @@ c
 c
 c     Spread V onto u.
 c
-         SPREAD_3D_SPECIALIZE_FIXED_WIDTH(
-             ic_lower(2), ic_upper(2),
-             ic_lower(1), ic_upper(1),
-             ic_lower(0), ic_upper(0),
-             4)
+         SPREAD_3D_SPECIALIZE_FIXED_WIDTH(ic_lower(2), ic_upper(2),
+                                          ic_lower(1), ic_upper(1),
+                                          ic_lower(0), ic_upper(0),
+                                          4)
 
 c
 c     End loop over points.
@@ -2784,11 +2783,10 @@ c
 c
 c     Spread V onto u.
 c
-         SPREAD_3D_SPECIALIZE_FIXED_WIDTH(
-             ic_lower(2), ic_upper(2),
-             ic_lower(1), ic_upper(1),
-             ic_lower(0), ic_upper(0),
-             5)
+         SPREAD_3D_SPECIALIZE_FIXED_WIDTH(ic_lower(2), ic_upper(2),
+                                          ic_lower(1), ic_upper(1),
+                                          ic_lower(0), ic_upper(0),
+                                          5)
 
 c
 c     End loop over points.
