@@ -486,6 +486,10 @@ c
 c
       return
       end
+
+C     TODO: the IB 6 delta function here does *not* match the one in
+C     the source files. Something is amiss
+      
 c
 ccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
 c
