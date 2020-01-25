@@ -1191,58 +1191,80 @@ c
 c
 c     Local variables.
 c
-      INTEGER ilower(0:NDIM-1),iupper(0:NDIM-1)
-      INTEGER ic0,ic1
+      INTEGER i0,i1,ic0,ic1
+      INTEGER ig_lower(0:NDIM-1),ig_upper(0:NDIM-1)
       INTEGER ic_lower(0:NDIM-1),ic_upper(0:NDIM-1)
-      INTEGER d,l,s,nugc(0:NDIM-1)
+      INTEGER istart0,istop0,istart1,istop1
+      INTEGER d,l,s
 
-      REAL X_o_dx,q,r
-      REAL w(0:NDIM-1,0:3)
+      REAL X_o_dx,q0,q1,r0,r1
+      REAL w0(0:3),w1(0:3)
+      REAL w(0:3,0:3),wy
 c
 c     Prevent compiler warning about unused variables.
 c
       x_upper(0) = x_upper(0)
 c
-c     Setup convenience arrays.
+c     Compute the extents of the ghost box.
 c
-      ilower(0) = ilower0
-      ilower(1) = ilower1
-
-      iupper(0) = iupper0
-      iupper(1) = iupper1
-
-      nugc(0) = nugc0
-      nugc(1) = nugc1
+      ig_lower(0) = ilower0-nugc0
+      ig_lower(1) = ilower1-nugc1
+      ig_upper(0) = iupper0+nugc0
+      ig_upper(1) = iupper1+nugc1
 c
 c     Use the IB 4-point delta function to interpolate u onto V.
 c
       do l = 0,nindices-1
          s = indices(l)
-         do d = 0,NDIM-1
 c
 c     Determine the interpolation stencil corresponding to the position
 c     of X(s) within the cell and compute the interpolation weights.
 c
-            X_o_dx = (X(d,s)+Xshift(d,l)-x_lower(d))/dx(d)
-            ic_lower(d) = NINT(X_o_dx)+ilower(d)-2
-            ic_upper(d) = ic_lower(d) + 3
-            ic_lower(d) = max(ic_lower(d), ilower(d) - nugc(d));
-            ic_upper(d) = min(ic_upper(d), iupper(d) + nugc(d));
+         X_o_dx = (X(0,s)+Xshift(0,l)-x_lower(0))/dx(0)
+         ic_lower(0) = NINT(X_o_dx)+ilower0-2
+         ic_upper(0) = ic_lower(0) + 3
+         r0 = X_o_dx - ((ic_lower(0)+1-ilower0)+0.5d0)
+         q0 = sqrt(1.d0+4.d0*r0*(1.d0-r0))
+         w0(0) = 0.125d0*(3.d0-2.d0*r0-q0)
+         w0(1) = 0.125d0*(3.d0-2.d0*r0+q0)
+         w0(2) = 0.125d0*(1.d0+2.d0*r0+q0)
+         w0(3) = 0.125d0*(1.d0+2.d0*r0-q0)
 
-            r = X_o_dx - ((ic_lower(d)+1-ilower(d))+0.5d0)
-            q = sqrt(1.d0+4.d0*r*(1.d0-r))
-            w(d, 0) = 0.125d0*(3.d0-2.d0*r-q)
-            w(d, 1) = 0.125d0*(3.d0-2.d0*r+q)
-            w(d, 2) = 0.125d0*(1.d0+2.d0*r+q)
-            w(d, 3) = 0.125d0*(1.d0+2.d0*r-q)
+         X_o_dx = (X(1,s)+Xshift(1,l)-x_lower(1))/dx(1)
+         ic_lower(1) = NINT(X_o_dx)+ilower1-2
+         ic_upper(1) = ic_lower(1) + 3
+         r1 = X_o_dx - ((ic_lower(1)+1-ilower1)+0.5d0)
+         q1 = sqrt(1.d0+4.d0*r1*(1.d0-r1))
+         w1(0) = 0.125d0*(3.d0-2.d0*r1-q1)
+         w1(1) = 0.125d0*(3.d0-2.d0*r1+q1)
+         w1(2) = 0.125d0*(1.d0+2.d0*r1+q1)
+         w1(3) = 0.125d0*(1.d0+2.d0*r1-q1)
+c
+c     Compute the tensor product of the interpolation weights.
+c
+         do i1 = 0,3
+            wy = w1(i1)
+            do i0 = 0,3
+               w(i0,i1) = w0(i0)*wy
+            enddo
          enddo
-
-c     
+c
 c     Interpolate u onto V.
-c     
-         INTERPOLATE_2D_SPECIALIZE_FIXED_WIDTH(ic_lower(1), ic_upper(1),
-                                               ic_lower(0), ic_upper(0),
-                                               4)
+c
+         istart0 =   max(ig_lower(0)-ic_lower(0),0)
+         istop0  = 3-max(ic_upper(0)-ig_upper(0),0)
+         istart1 =   max(ig_lower(1)-ic_lower(1),0)
+         istop1  = 3-max(ic_upper(1)-ig_upper(1),0)
+         do d = 0,depth-1
+            V(d,s) = 0.d0
+            do i1 = istart1,istop1
+               ic1 = ic_lower(1)+i1
+               do i0 = istart0,istop0
+                  ic0 = ic_lower(0)+i0
+                  V(d,s) = V(d,s) + w(i0,i1)*u(ic0,ic1,d)
+               enddo
+            enddo
+         enddo
 c
 c     End loop over points.
 c
@@ -2131,14 +2153,16 @@ c
 c
 c     Local variables.
 c
-      INTEGER ilower(0:NDIM-1),iupper(0:NDIM-1)
-      INTEGER ic0,ic1
+      INTEGER i0,i1,ic0,ic1
+      INTEGER ig_lower(0:NDIM-1),ig_upper(0:NDIM-1)
       INTEGER ic_lower(0:NDIM-1),ic_upper(0:NDIM-1)
-      INTEGER d,l,s,nugc(0:NDIM-1)
+      INTEGER istart0,istop0,istart1,istop1
+      INTEGER d,l,s
 
       REAL X_o_dx,r,alpha,beta,gamma,discr,K
       REAL pm3,pm2,pm1,p,pp1,pp2
-      REAL w(0:NDIM-1,0:5)
+      REAL w0(0:5),w1(0:5)
+      REAL w(0:5,0:5),wy
 
       PARAMETER (K = (59.d0/60.d0)*(1.d0-sqrt(1.d0-(3220.d0/3481.d0))))
 c
@@ -2146,16 +2170,12 @@ c     Prevent compiler warning about unused variables.
 c
       x_upper(0) = x_upper(0)
 c
-c     Setup convenience arrays.
+c     Compute the extents of the ghost box.
 c
-      ilower(0) = ilower0
-      ilower(1) = ilower1
-
-      iupper(0) = iupper0
-      iupper(1) = iupper1
-
-      nugc(0) = nugc0
-      nugc(1) = nugc1
+      ig_lower(0) = ilower0-nugc0
+      ig_lower(1) = ilower1-nugc1
+      ig_upper(0) = iupper0+nugc0
+      ig_upper(1) = iupper1+nugc1
 c
 c     Use the IB 6-point delta function to spread V onto u.
 c
@@ -2165,48 +2185,92 @@ c
 c     Determine the interpolation stencil corresponding to the position
 c     of X(s) within the cell and compute the interpolation weights.
 c
-         do d=0,NDIM-1
-            X_o_dx = (X(d,s)+Xshift(d,l)-x_lower(d))/dx(d)
-            ic_lower(d) = NINT(X_o_dx)+ilower(d)-3
-            ic_upper(d) = ic_lower(d) + 5
-            ic_lower(d) = max(ic_lower(d), ilower(d) - nugc(d))
-            ic_upper(d) = min(ic_upper(d), iupper(d) + nugc(d))
-            r = 1.d0 - X_o_dx + ((ic_lower(d)+2-ilower(d))+0.5d0)
+         X_o_dx = (X(0,s)+Xshift(0,l)-x_lower(0))/dx(0)
+         ic_lower(0) = NINT(X_o_dx)+ilower0-3
+         ic_upper(0) = ic_lower(0) + 5
+         r = 1.d0 - X_o_dx + ((ic_lower(0)+2-ilower0)+0.5d0)
 
-            alpha = 28.d0
-            beta = (9.d0/4.d0)-(3.d0/2.d0)*(K+r**2)
-     $           +((22.d0/3.d0)-7.d0*K)*r-(7.d0/3.d0)*r**3
-            gamma = (1.d0/4.d0)*( ((161.d0/36.d0)-(59.d0/6.d0)*K
-     $           +5.d0*K**2)*(1.d0/2.d0)*r**2 + (-(109.d0/24.d0)+5.d0*K)
-     $           *(1.d0/3.d0)*r**4+ (5.d0/18.d0)*r**6 )
-            discr = beta**2-4.d0*alpha*gamma
+         alpha = 28.d0
+         beta = (9.d0/4.d0)-(3.d0/2.d0)*(K+r**2)+((22.d0/3.d0)-7.d0*K)*r
+     $        -(7.d0/3.d0)*r**3
+         gamma = (1.d0/4.d0)*( ((161.d0/36.d0)-(59.d0/6.d0)*K+5.d0*K**2)
+     $        *(1.d0/2.d0)*r**2 + (-(109.d0/24.d0)+5.d0*K)*(1.d0/3.d0)*r
+     $        **4+ (5.d0/18.d0)*r**6 )
+         discr = beta**2-4.d0*alpha*gamma
 
-            pm3 = (-beta+sign(1.d0,(3.d0/2.d0)-K)*sqrt(discr))
-     $           /(2.d0*alpha)
-            pm2 =  -3.d0*pm3 - (1.d0/16.d0) + (1.d0/8.d0)*(K+r**2)
-     $           + (1.d0/12.d0)*(3.d0*K-1.d0)*r + (1.d0/12.d0)*r**3
-            pm1 =   2.d0*pm3 + (1.d0/4.d0) +  (1.d0/6.d0)*(4.d0-3.d0*K)
-     $           *r -(1.d0/6.d0)*r**3
-            p   =   2.d0*pm3 + (5.d0/8.d0)  - (1.d0/4.d0)*(K+r**2)
-            pp1 =  -3.d0*pm3 + (1.d0/4.d0) -  (1.d0/6.d0)*(4.d0-3.d0*K)
-     $           *r +(1.d0/6.d0)*r**3
-            pp2 =        pm3 - (1.d0/16.d0) + (1.d0/8.d0)*(K+r**2)
-     $           - (1.d0/12.d0)*(3.d0*K-1.d0)*r - (1.d0/12.d0)*r**3
+         pm3 = (-beta+sign(1.d0,(3.d0/2.d0)-K)*sqrt(discr))/(2.d0*alpha)
+         pm2 =  -3.d0*pm3 - (1.d0/16.d0) + (1.d0/8.d0)*(K+r**2) + (1.d0
+     $        /12.d0)*(3.d0*K-1.d0)*r + (1.d0/12.d0)*r**3
+         pm1 =   2.d0*pm3 + (1.d0/4.d0) +  (1.d0/6.d0)*(4.d0-3.d0*K)*r -
+     $        (1.d0/6.d0)*r**3
+         p   =   2.d0*pm3 + (5.d0/8.d0)  - (1.d0/4.d0)*(K+r**2)
+         pp1 =  -3.d0*pm3 + (1.d0/4.d0) -  (1.d0/6.d0)*(4.d0-3.d0*K)*r +
+     $        (1.d0/6.d0)*r**3
+         pp2 =        pm3 - (1.d0/16.d0) + (1.d0/8.d0)*(K+r**2) - (1.d0
+     $        /12.d0)*(3.d0*K-1.d0)*r - (1.d0/12.d0)*r**3
 
+         w0(0) = pm3
+         w0(1) = pm2
+         w0(2) = pm1
+         w0(3) = p
+         w0(4) = pp1
+         w0(5) = pp2
 
-            w(d, 0) = pm3
-            w(d, 1) = pm2
-            w(d, 2) = pm1
-            w(d, 3) = p
-            w(d, 4) = pp1
-            w(d, 5) = pp2
+         X_o_dx = (X(1,s)+Xshift(1,l)-x_lower(1))/dx(1)
+         ic_lower(1) = NINT(X_o_dx)+ilower1-3
+         ic_upper(1) = ic_lower(1) + 5
+         r = 1.d0 - X_o_dx + ((ic_lower(1)+2-ilower1)+0.5d0)
+
+         alpha = 28.d0
+         beta = (9.d0/4.d0)-(3.d0/2.d0)*(K+r**2)+((22.d0/3.d0)-7.d0*K)*r
+     $        -(7.d0/3.d0)*r**3
+         gamma = (1.d0/4.d0)*( ((161.d0/36.d0)-(59.d0/6.d0)*K+5.d0*K**2)
+     $        *(1.d0/2.d0)*r**2 + (-(109.d0/24.d0)+5.d0*K)*(1.d0/3.d0)*r
+     $        **4+ (5.d0/18.d0)*r**6 )
+         discr = beta**2-4.d0*alpha*gamma
+
+         pm3 = (-beta+sign(1.d0,(3.d0/2.d0)-K)*sqrt(discr))/(2.d0*alpha)
+         pm2 =  -3.d0*pm3 - (1.d0/16.d0) + (1.d0/8.d0)*(K+r**2) + (1.d0
+     $        /12.d0)*(3.d0*K-1.d0)*r + (1.d0/12.d0)*r**3
+         pm1 =   2.d0*pm3 + (1.d0/4.d0) +  (1.d0/6.d0)*(4.d0-3.d0*K)*r -
+     $        (1.d0/6.d0)*r**3
+         p   =   2.d0*pm3 + (5.d0/8.d0)  - (1.d0/4.d0)*(K+r**2)
+         pp1 =  -3.d0*pm3 + (1.d0/4.d0) -  (1.d0/6.d0)*(4.d0-3.d0*K)*r +
+     $        (1.d0/6.d0)*r**3
+         pp2 =        pm3 - (1.d0/16.d0) + (1.d0/8.d0)*(K+r**2) - (1.d0
+     $        /12.d0)*(3.d0*K-1.d0)*r - (1.d0/12.d0)*r**3
+
+         w1(0) = pm3
+         w1(1) = pm2
+         w1(2) = pm1
+         w1(3) = p
+         w1(4) = pp1
+         w1(5) = pp2
+c
+c     Compute the tensor product of the scaled interpolation weights.
+c
+         do i1 = 0,5
+            wy = w1(i1)/(dx(0)*dx(1))
+            do i0 = 0,5
+               w(i0,i1) = w0(i0)*wy
+            enddo
          enddo
 c
 c     Spread V onto u.
 c
-         SPREAD_2D_SPECIALIZE_FIXED_WIDTH(ic_lower(1), ic_upper(1),
-                                          ic_lower(0), ic_upper(0),
-                                          6)
+         istart0 =   max(ig_lower(0)-ic_lower(0),0)
+         istop0  = 5-max(ic_upper(0)-ig_upper(0),0)
+         istart1 =   max(ig_lower(1)-ic_lower(1),0)
+         istop1  = 5-max(ic_upper(1)-ig_upper(1),0)
+         do d = 0,depth-1
+            do i1 = istart1,istop1
+               ic1 = ic_lower(1)+i1
+               do i0 = istart0,istop0
+                  ic0 = ic_lower(0)+i0
+                  u(ic0,ic1,d) = u(ic0,ic1,d) + w(i0,i1)*V(d,s)
+               enddo
+            enddo
+         enddo
 c
 c     End loop over points.
 c
