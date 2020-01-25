@@ -1183,12 +1183,16 @@ c
 c
       implicit none
 c
+c     Functions.
+c
+      REAL lagrangian_ib_4_delta
+c
 c     Input.
 c
       INTEGER depth
+      INTEGER nindices
       INTEGER ilower0,iupper0,ilower1,iupper1,ilower2,iupper2
       INTEGER nugc0,nugc1,nugc2
-      INTEGER nindices
 
       INTEGER indices(0:nindices-1)
 
@@ -1209,8 +1213,7 @@ c
       INTEGER ic_lower(0:NDIM-1),ic_upper(0:NDIM-1)
       INTEGER d,l,s,nugc(0:NDIM-1)
 
-      REAL X_o_dx,q,r
-      REAL w(0:NDIM-1,0:3)
+      REAL X_o_dx,X_cell(0:NDIM-1),w(0:NDIM-1,0:3)
 c
 c     Prevent compiler warning about unused variables.
 c
@@ -1230,32 +1233,34 @@ c
       nugc(1) = nugc1
       nugc(2) = nugc2
 c
-c     Use the IB 4-point delta function to interpolate u onto V.
+c     Use the IB 4-point delta function to spread V onto u.
 c
       do l = 0,nindices-1
          s = indices(l)
-c
-c     Determine the interpolation stencil corresponding to the position
-c     of X(s) within the cell and compute the interpolation weights.
-c
          do d = 0,NDIM-1
+c     
+c     Determine the spreading stencil corresponding to the position of
+c     X(s) within the cell.
+c     
             X_o_dx = (X(d,s)+Xshift(d,l)-x_lower(d))/dx(d)
             ic_lower(d) = NINT(X_o_dx)+ilower(d)-2
             ic_upper(d) = ic_lower(d) + 3
-            ic_lower(d) = max(ic_lower(d), ilower(d) - nugc(d));
-            ic_upper(d) = min(ic_upper(d), iupper(d) + nugc(d));
-
-            r = X_o_dx - ((ic_lower(d)+1-ilower(d))+0.5d0)
-            q = sqrt(1.d0+4.d0*r*(1.d0-r))
-            w(d, 0) = 0.125d0*(3.d0-2.d0*r-q)
-            w(d, 1) = 0.125d0*(3.d0-2.d0*r+q)
-            w(d, 2) = 0.125d0*(1.d0+2.d0*r+q)
-            w(d, 3) = 0.125d0*(1.d0+2.d0*r-q)
+            ic_lower(d) = max(ic_lower(d),ilower(d)-nugc(d))
+            ic_upper(d) = min(ic_upper(d),iupper(d)+nugc(d))
+c     
+c     Compute the spreading weights.
+c     
+            do ic0 = ic_lower(d),ic_upper(d)
+               X_cell(d) = x_lower(d)
+     &              +(dble(ic0-ilower(d))+0.5d0)*dx(d)
+               w(d,ic0-ic_lower(d)) =
+     &              lagrangian_ib_4_delta(
+     &              (X(d,s)+Xshift(d,l)-X_cell(d))/dx(d))
+            enddo
          enddo
-
-c     
-c     Interpolate u onto V.
-c     
+c
+c     Spread V onto u.
+c
          INTERPOLATE_3D_SPECIALIZE_FIXED_WIDTH(ic_lower(2), ic_upper(2),
                                                ic_lower(1), ic_upper(1),
                                                ic_lower(0), ic_upper(0),
@@ -1286,6 +1291,10 @@ c
 c
       implicit none
 c
+c     Functions.
+c
+      REAL lagrangian_ib_4_delta
+c
 c     Input.
 c
       INTEGER depth
@@ -1312,8 +1321,7 @@ c
       INTEGER ic_lower(0:NDIM-1),ic_upper(0:NDIM-1)
       INTEGER d,l,s,nugc(0:NDIM-1)
 
-      REAL X_o_dx,q,r
-      REAL w(0:NDIM-1,0:3)
+      REAL X_o_dx,X_cell(0:NDIM-1),w(0:NDIM-1,0:3)
 c
 c     Prevent compiler warning about unused variables.
 c
@@ -1337,25 +1345,27 @@ c     Use the IB 4-point delta function to spread V onto u.
 c
       do l = 0,nindices-1
          s = indices(l)
-c
-c     Determine the interpolation stencil corresponding to the position
-c     of X(s) within the cell and compute the interpolation weights.
-c
-         do d=0,NDIM-1
+         do d = 0,NDIM-1
+c     
+c     Determine the spreading stencil corresponding to the position of
+c     X(s) within the cell.
+c     
             X_o_dx = (X(d,s)+Xshift(d,l)-x_lower(d))/dx(d)
             ic_lower(d) = NINT(X_o_dx)+ilower(d)-2
             ic_upper(d) = ic_lower(d) + 3
             ic_lower(d) = max(ic_lower(d),ilower(d)-nugc(d))
             ic_upper(d) = min(ic_upper(d),iupper(d)+nugc(d))
-
-            r = X_o_dx - ((ic_lower(d)+1-ilower(d))+0.5d0)
-            q = sqrt(1.d0+4.d0*r*(1.d0-r))
-            w(d, 0) = 0.125d0*(3.d0-2.d0*r-q)
-            w(d, 1) = 0.125d0*(3.d0-2.d0*r+q)
-            w(d, 2) = 0.125d0*(1.d0+2.d0*r+q)
-            w(d, 3) = 0.125d0*(1.d0+2.d0*r-q)
+c     
+c     Compute the spreading weights.
+c     
+            do ic0 = ic_lower(d),ic_upper(d)
+               X_cell(d) = x_lower(d)
+     &              +(dble(ic0-ilower(d))+0.5d0)*dx(d)
+               w(d,ic0-ic_lower(d)) =
+     &              lagrangian_ib_4_delta(
+     &              (X(d,s)+Xshift(d,l)-X_cell(d))/dx(d))
+            enddo
          enddo
-
 c
 c     Spread V onto u.
 c
