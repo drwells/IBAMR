@@ -26,6 +26,7 @@
 #include "ibtk/IndexUtilities.h"
 #include "ibtk/LEInteractor.h"
 #include "ibtk/MergingLoadBalancer.h"
+#include "ibtk/PETScVecUtilities.h"
 #include "ibtk/RobinPhysBdryPatchStrategy.h"
 #include "ibtk/ibtk_macros.h"
 #include "ibtk/ibtk_utilities.h"
@@ -359,6 +360,14 @@ IBFEMethod::~IBFEMethod()
         RestartManager::getManager()->unregisterRestartItem(d_object_name);
         d_registered_for_restart = false;
     }
+
+    // nothing else has been set up if there is no patch hierarchy
+    if (d_hierarchy)
+    {
+        clearForceDOFData();
+        if (d_force_vec) VecDestroy(&d_force_vec);
+    }
+
     return;
 } // ~IBFEMethod
 
@@ -970,6 +979,64 @@ IBFEMethod::spreadForce(const int f_data_idx,
 {
     TBOX_ASSERT(MathUtilities<double>::equalEps(data_time, d_half_time));
 
+    // See if we already have DoF information available for the force
+    {
+        VariableDatabase<NDIM>* var_db = VariableDatabase<NDIM>::getDatabase();
+        Pointer<hier::Variable<NDIM> > f_var;
+        var_db->mapIndexToVariable(f_data_idx, f_var);
+        if (d_last_force_variable != f_var)
+            clearForceDOFData();
+        TBOX_ASSERT(d_last_force_variable.isNull() || d_last_force_variable == f_var);
+        if (!d_last_force_variable)
+        {
+            Pointer<VariableContext> ctx = var_db->getContext(d_object_name + "::SCRATCH");
+            // 0. Try to determine if the variable we need already exists. If
+            // not then create it.
+            Pointer<hier::Variable<NDIM> > dof_var;
+            const std::string name = f_var->getName() + "::dofs";
+            if (var_db->checkVariableExists(name))
+            {
+                dof_var = var_db->getVariable(name);
+            }
+            else
+            {
+                Pointer<CellVariable<NDIM, double> > f_cc_var = f_var;
+                Pointer<SideVariable<NDIM, double> > f_sc_var = f_var;
+                const bool cc_data = f_cc_var;
+                const bool sc_data = f_sc_var;
+                TBOX_ASSERT(cc_data || sc_data);
+
+                // TODO is the force depth always NDIM?
+                dof_var = cc_data ? Pointer<hier::Variable<NDIM> >(new CellVariable<NDIM, int>(name, NDIM))
+                    : Pointer<hier::Variable<NDIM> >(new SideVariable<NDIM, int>(name, NDIM));
+            }
+            d_force_index_idx = var_db->registerVariableAndContext(dof_var, ctx, d_ghosts);
+
+            // 1. allocate data.
+            PatchHierarchy<NDIM> &hierarchy = d_use_scratch_hierarchy ? *d_scratch_hierarchy :
+                *d_hierarchy;
+            const int ln = hierarchy.getFinestLevelNumber();
+            Pointer<PatchLevel<NDIM> > level = hierarchy.getPatchLevel(ln);
+            level->allocatePatchData(d_force_index_idx);
+
+            // 2. create the Vec that stores dof indexing information.
+            std::vector<int> n_dofs_per_proc;
+            PETScVecUtilities::constructPatchLevelDOFIndices(n_dofs_per_proc, d_force_index_idx, level);
+            const int rank = SAMRAI_MPI::getRank();
+            const int ierr = VecCreateMPI(PETSC_COMM_WORLD, n_dofs_per_proc[rank], PETSC_DETERMINE,
+                                          &d_force_vec);
+            IBTK_CHKERRQ(ierr);
+
+            d_last_force_variable = f_var;
+        }
+    }
+
+    // todos not related to this class - the only classes that call into
+    // LEInteractor are FEDataManager and LDataManager. AFAICT that class
+    // (LEInteractor) still checks to see if we just spread into a patch box
+    // and not a ghost box - we will have to modify the logic to always spread
+    // into a ghosted box but still exclude points outside the patch box.
+
     // Communicate ghost data.
     batch_vec_copy({ d_X_half_vecs, d_F_half_vecs }, { d_X_IB_ghost_vecs, d_F_IB_ghost_vecs });
     batch_vec_ghost_update({ d_X_IB_ghost_vecs, d_F_IB_ghost_vecs }, INSERT_VALUES, SCATTER_FORWARD);
@@ -1544,6 +1611,28 @@ IBFEMethod::updateCachedIBGhostedVectors()
 }
 
 void
+IBFEMethod::clearForceDOFData()
+{
+    VariableDatabase<NDIM>* var_db = VariableDatabase<NDIM>::getDatabase();
+    // clear force DoF data here on the primary and scratch hierarchies - we
+    // will just redistribute DoFs again when we next call spreadForce.
+    if (d_hierarchy)
+    {
+        PatchHierarchy<NDIM> &hierarchy = d_use_scratch_hierarchy ? *d_scratch_hierarchy :
+            *d_hierarchy;
+        // This code also assumes that the structure is on the finest level.
+        Pointer<PatchLevel<NDIM> > patch_level = hierarchy.getPatchLevel(hierarchy.getFinestLevelNumber());
+        if (d_force_index_idx != IBTK::invalid_index)
+        {
+            if (patch_level->checkAllocated(d_force_index_idx))
+                patch_level->deallocatePatchData(d_force_index_idx);
+            d_last_force_variable.setNull();
+            var_db->removePatchDataIndex(d_force_index_idx);
+        }
+    }
+}
+
+void
 IBFEMethod::registerEulerianVariables()
 {
     const IntVector<NDIM> ghosts = 1;
@@ -1725,7 +1814,7 @@ IBFEMethod::addWorkloadEstimate(Pointer<PatchHierarchy<NDIM> > hierarchy, const 
 void IBFEMethod::beginDataRedistribution(Pointer<PatchHierarchy<NDIM> > /*hierarchy*/,
                                          Pointer<GriddingAlgorithm<NDIM> > /*gridding_alg*/)
 {
-    // intentionally blank
+    clearForceDOFData();
     return;
 } // beginDataRedistribution
 

@@ -1076,7 +1076,23 @@ protected:
     std::map<std::pair<int, std::pair<int, int> >, SAMRAI::tbox::Pointer<SAMRAI::xfer::RefineSchedule<NDIM> > >
         d_scratch_transfer_backward_schedules;
 
-    /*
+    /*!
+     * Keep track of the last force variable that we spread forces into so that
+     * we know what variable corresponds to the current DoFs
+     */
+    SAMRAI::tbox::Pointer<SAMRAI::hier::Variable<NDIM> > d_last_force_variable;
+
+    /*!
+     * Index for force DoF indices on the active hierarchy.
+     */
+    int d_force_index_idx = IBTK::invalid_index;
+
+    /*!
+     * PETSc object used for accumulating force values on the active hierarchy.
+     */
+    Vec d_force_vec = nullptr;
+
+    /*!
      * The current time step interval.
      */
     double d_current_time = std::numeric_limits<double>::quiet_NaN(),
@@ -1385,6 +1401,11 @@ private:
      * Update the caches of IB-ghosted vectors.
      */
     void updateCachedIBGhostedVectors();
+
+    /*!
+     * Delete all force dof index data.
+     */
+    void clearForceDOFData();
 
     /*!
      * At the present time this class and FEDataManager assume that the finite
