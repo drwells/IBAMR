@@ -133,6 +133,17 @@ main(int argc, char** argv)
         LinearPartitioner partitioner;
         partitioner.partition(mesh);
 
+#if 0
+        {
+            std::cout.precision(16);
+            auto node_begin = mesh.active_nodes_begin();
+            auto node_end = mesh.active_nodes_end();
+            for (auto n_it = node_begin; n_it != node_end; ++n_it)
+                std::cout << static_cast<TypeVector<double> &>(**n_it)(0) << ", "
+                          << static_cast<TypeVector<double> &>(**n_it)(1) << '\n';
+        }
+#endif
+
         plog << "Number of elements: " << mesh.n_active_elem() << std::endl;
 
         // Create major algorithm and data objects that comprise the
@@ -280,6 +291,13 @@ main(int argc, char** argv)
                 patch_out << "patch number " << p() << '\n';
                 patch_out.precision(16);
                 Pointer<Patch<NDIM> > patch = level->getPatch(p());
+                patch_out << patch->getBox() << '\n';
+                Pointer<CartesianPatchGeometry<NDIM> > patch_geo = patch->getPatchGeometry();
+                patch_out << "patch x_lo: " << patch_geo->getXLower()[0] << ", "
+                          << patch_geo->getXLower()[1] << '\n';
+                patch_out << "patch x_up: " << patch_geo->getXUpper()[0] << ", "
+                          << patch_geo->getXUpper()[1] << '\n';
+
                 Pointer<SideData<NDIM, double> > f_data = patch->getPatchData(f_ghost_idx);
                 const Box<NDIM> patch_box = patch->getBox();
 
