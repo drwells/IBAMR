@@ -1000,6 +1000,9 @@ FEDataManager::spread(const int f_data_idx,
             // Setup vectors to store the values of F_JxW and X at the
             // quadrature points.
             unsigned int n_qp_patch = 0;
+
+            std::cout << "number of IB elems: " << num_active_patch_elems << '\n';
+
             for (unsigned int e_idx = 0; e_idx < num_active_patch_elems; ++e_idx)
             {
                 Elem* const elem = patch_elems[e_idx];
@@ -1052,6 +1055,14 @@ FEDataManager::spread(const int f_data_idx,
                     n_vars, F_dof_indices[0].size(), qp_offset, phi_F, JxW_F, F_node, F_JxW_qp);
                 sum_weighted_elem_solution</*weights_are_unity*/ true>(
                     NDIM, phi_X.size(), qp_offset, phi_X, {}, X_nodes[e_idx], X_qp);
+
+                std::cout.precision(16);
+                for (unsigned int qp_n = 0; qp_n < n_qp; ++qp_n)
+                    std::cout << X_qp[NDIM * (qp_offset + qp_n) + 0]
+                              << ' '
+                              << X_qp[NDIM * (qp_offset + qp_n) + 1]
+                              << '\n';
+
                 qp_offset += n_qp;
             }
 
