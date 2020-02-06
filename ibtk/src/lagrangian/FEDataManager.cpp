@@ -1057,11 +1057,18 @@ FEDataManager::spread(const int f_data_idx,
                     NDIM, phi_X.size(), qp_offset, phi_X, {}, X_nodes[e_idx], X_qp);
 
                 std::cout.precision(16);
+#if 0
                 for (unsigned int qp_n = 0; qp_n < n_qp; ++qp_n)
                     std::cout << X_qp[NDIM * (qp_offset + qp_n) + 0]
                               << ' '
                               << X_qp[NDIM * (qp_offset + qp_n) + 1]
                               << '\n';
+#else
+                for (unsigned int node_n = 0; node_n < X_nodes[e_idx].shape()[0]; ++node_n)
+                    std::cout << X_nodes[e_idx][node_n][0] << ' '
+                              << X_nodes[e_idx][node_n][1]
+                              << '\n';
+#endif
 
                 qp_offset += n_qp;
             }
