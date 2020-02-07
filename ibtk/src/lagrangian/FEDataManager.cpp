@@ -1056,7 +1056,11 @@ FEDataManager::spread(const int f_data_idx,
                 sum_weighted_elem_solution</*weights_are_unity*/ true>(
                     NDIM, phi_X.size(), qp_offset, phi_X, {}, X_nodes[e_idx], X_qp);
 
+                // TODO: check X_qp before and after
                 std::cout.precision(16);
+                for (const std::vector<double> &v : phi_X)
+                    for (const double vv : v)
+                        std::cout << e_idx << " phi_X " << vv << '\n';
                 for (unsigned int node_n = 0; node_n < X_nodes[e_idx].shape()[0]; ++node_n)
                     std::cout << e_idx
                               << " node "
