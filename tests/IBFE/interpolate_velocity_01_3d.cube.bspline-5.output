@@ -1,0 +1,9 @@
+Number of elements: 1680
+
+IBFEMethod: mesh part 0 is using FIRST order LAGRANGE finite elements.
+
+IBHierarchyIntegrator::initializePatchHierarchy(): tag_buffer = 4
+INSStaggeredHierarchyIntegrator::initializeCompositeHierarchyData():
+  projecting the interpolated velocity field
+max vertex distance: 0.148481
+max norm errors: 6.0365552705642260278   9.269591978163981949   7.1072044990591489722

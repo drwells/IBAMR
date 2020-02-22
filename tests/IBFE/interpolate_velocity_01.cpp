@@ -157,12 +157,27 @@ main(int argc, char** argv)
         // Create a simple FE mesh.
         ReplicatedMesh mesh(init.comm(), NDIM);
         const double dx = input_db->getDouble("DX");
-        string elem_type = input_db->getString("ELEM_TYPE");
+        const std::string elem_str = input_db->getString("ELEM_TYPE");
+        const auto elem_type = Utility::string_to_enum<ElemType>(elem_str);
         const double R = 0.2;
 
         // we want R/2^n_refinements = dx so that we have roughly equal spacing for both elements and cells
-        const int n_refinements = int(std::log2(R / dx));
-        MeshTools::Generation::build_sphere(mesh, R, n_refinements, Utility::string_to_enum<ElemType>(elem_type), 10);
+        const std::string geometry = input_db->getStringWithDefault("geometry", "sphere");
+        if (geometry == "sphere")
+        {
+            const int n_refinements = int(std::log2(R / dx));
+            MeshTools::Generation::build_sphere(mesh, R, n_refinements, elem_type, 10);
+        }
+        else
+        {
+            TBOX_ASSERT(geometry == "cube");
+            const double L = input_db->getDouble("L");
+            const auto n_elements = input_db->getInteger("NFINEST");
+            if (NDIM == 2)
+                MeshTools::Generation::build_square(mesh, n_elements, n_elements, 0.0, L, 0.0, L, elem_type);
+            else
+                MeshTools::Generation::build_cube(mesh, n_elements, n_elements, n_elements, 0.0, L, 0.0, L, 0.0, L, elem_type);
+        }
         mesh.prepare_for_use();
         // metis does a good job partitioning, but the partitioning relies on
         // random numbers: the seed changed in libMesh commit
@@ -231,7 +246,8 @@ main(int argc, char** argv)
                                         false);
 
         // Configure the IBFE solver.
-        ib_method_ops->registerInitialCoordinateMappingFunction(coordinate_mapping_function);
+        if (geometry == "sphere")
+            ib_method_ops->registerInitialCoordinateMappingFunction(coordinate_mapping_function);
         ib_method_ops->initializeFEEquationSystems();
         ib_method_ops->initializeFEData();
         time_integrator->initializePatchHierarchy(patch_hierarchy, gridding_algorithm);
@@ -304,8 +320,8 @@ main(int argc, char** argv)
 
             std::unique_ptr<FEBase> v_fe(FEBase::build(NDIM, fe_type));
             std::unique_ptr<FEBase> X_fe(FEBase::build(NDIM, fe_type));
-            QGauss v_qrule(NDIM, FIFTH);
-            QGauss X_qrule(NDIM, FIFTH);
+            QGauss v_qrule(NDIM, TENTH);
+            QGauss X_qrule(NDIM, TENTH);
             v_fe->attach_quadrature_rule(&v_qrule);
             X_fe->attach_quadrature_rule(&X_qrule);
             const std::vector<std::vector<Real> >& v_phi = v_fe->get_phi();
@@ -323,6 +339,10 @@ main(int argc, char** argv)
             }
             ParsedFunction exact_solution(fs);
 
+#ifdef PRINT_ERRORS
+            std::ofstream test("test.txt");
+            test << "x, y, z, u, uh, e\n";
+#endif
             std::vector<libMesh::Point> mapped_q_points;
             double max_vertex_distance = 0.0;
             for (auto elem_iter = mesh.active_local_elements_begin(); elem_iter != mesh.active_local_elements_end();
@@ -366,6 +386,16 @@ main(int argc, char** argv)
                         {
                             fe_point_value += current_velocity(v_dof_indices[var_n][i]) * v_phi[i][q_point_n];
                         }
+#ifdef PRINT_ERRORS
+                        if (var_n == 0)
+                            test << mapped_q_points[q_point_n](0) << ", "
+                                 << mapped_q_points[q_point_n](1) << ", "
+                                 << mapped_q_points[q_point_n](2) << ", "
+                                 << exact_point_value << ", "
+                                 << fe_point_value << ", "
+                                 << std::abs(fe_point_value - exact_point_value)
+                                 << '\n';
+#endif
                         max_norm_errors[var_n] =
                             std::max(max_norm_errors[var_n], std::abs(fe_point_value - exact_point_value));
                     }
