@@ -139,8 +139,9 @@ IBFEMethod {
    // This value is a good compromise.
    LoadBalancer
    {
-      bin_pack_method     = "SPATIAL"
-      max_workload_factor = 0.25
+      type = "MERGING"
+      bin_pack_method     = "GREEDY"
+      max_workload_factor = 0.0025
    }
 }
 
@@ -201,7 +202,7 @@ Main {
 
 // visualization dump parameters
    viz_writer                  = "VisIt","ExodusII"
-   viz_dump_interval           = 1
+   viz_dump_interval           = 50
    viz_dump_dirname            = "viz_IB2d"
    visit_number_procs_per_file = 1
 

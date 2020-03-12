@@ -437,8 +437,16 @@ main(int argc, char* argv[])
                     IBTK::BoxPartitioner partitioner(*patch_hierarchy, position_system);
                     partitioner.writePartitioning("patch-part-" + std::to_string(iteration_num) + ".txt");
                     // Write partitioning data from libMesh.
-                    IBTK::write_node_partitioning("node-part-" + std::to_string(iteration_num) + ".txt",
-                                                  position_system);
+                    // IBTK::write_node_partitioning("node-part-" + std::to_string(iteration_num) + ".txt",
+                    //                               position_system);
+                }
+                if (ib_method_ops->getScratchHierarchy())
+                {
+                    auto scratch_hierarchy = ib_method_ops->getScratchHierarchy();
+                    IBTK::BoxPartitioner partitioner
+                        (dynamic_cast<PatchHierarchy<NDIM> &>(*scratch_hierarchy), position_system);
+                    partitioner.writePartitioning("scratch-patch-part-" + std::to_string(iteration_num)
+                                                  + ".txt");
                 }
             }
             if (uses_exodus)
@@ -495,8 +503,8 @@ main(int argc, char* argv[])
                     {
                         IBTK::BoxPartitioner partitioner(*patch_hierarchy, position_system);
                         partitioner.writePartitioning("patch-part-" + std::to_string(iteration_num) + ".txt");
-                        IBTK::write_node_partitioning("node-part-" + std::to_string(iteration_num) + ".txt",
-                                                      position_system);
+                        // IBTK::write_node_partitioning("node-part-" + std::to_string(iteration_num) + ".txt",
+                        //                               position_system);
 
                         if (ib_method_ops->getScratchHierarchy())
                         {
