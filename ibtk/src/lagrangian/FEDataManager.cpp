@@ -103,6 +103,7 @@
 
 #include "petscksp.h"
 #include "petscsys.h"
+#include "petscsystypes.h"
 #include "petscvec.h"
 #include <petsclog.h>
 
@@ -842,20 +843,19 @@ FEDataManager::spread(const int f_data_idx,
 
     if (use_nodal_quadrature)
     {
-        // Store a copy of the F vector.
-        std::unique_ptr<NumericVector<double> > F_vec_bak = F_vec.clone();
-        *F_vec_bak = F_vec;
-
         // Multiply by the nodal volume fractions (to convert densities into
         // values).
-        NumericVector<double>& F_dX_vec = F_vec;
-        std::unique_ptr<NumericVector<double> > dX_vec = F_dX_vec.clone();
+        std::unique_ptr<NumericVector<double> > F_dX_vec = F_vec.clone();
+        std::unique_ptr<NumericVector<double> > dX_vec = F_dX_vec->clone();
         *dX_vec = *buildDiagonalL2MassMatrix(system_name);
-        F_dX_vec.pointwise_mult(F_vec, *dX_vec);
-        F_dX_vec.close();
+        F_dX_vec->pointwise_mult(F_vec, *dX_vec);
 
         // Extract local form vectors.
-        auto F_dX_petsc_vec = static_cast<PetscVector<double>*>(&F_dX_vec);
+        auto F_dX_petsc_vec = static_cast<PetscVector<double>*>(F_dX_vec.get());
+        int ierr = VecGhostUpdateBegin(F_dX_petsc_vec->vec(), INSERT_VALUES, SCATTER_FORWARD);
+        IBTK_CHKERRQ(ierr);
+        ierr = VecGhostUpdateEnd(F_dX_petsc_vec->vec(), INSERT_VALUES, SCATTER_FORWARD);
+        IBTK_CHKERRQ(ierr);
         const double* const F_dX_local_soln = F_dX_petsc_vec->get_array_read();
 
         auto X_petsc_vec = static_cast<PetscVector<double>*>(&X_vec);
@@ -924,9 +924,6 @@ FEDataManager::spread(const int f_data_idx,
         // Restore local form vectors.
         F_dX_petsc_vec->restore_array();
         X_petsc_vec->restore_array();
-
-        // Restore the value of the F vector.
-        F_vec = *F_vec_bak;
     }
     else
     {
@@ -1654,15 +1651,15 @@ FEDataManager::interpWeighted(const int f_data_idx,
                     F_node, n_vars, X_node, NDIM, f_sc_data, patch, interp_box, interp_spec.kernel_fcn);
             }
 
-            // Insesrt the values of F at the nodes.
+            // Insert the values of F at the nodes.
             F_vec.insert(F_node, F_node_idxs);
         }
+        F_vec.close();
 
         // Restore local form vectors.
         X_petsc_vec->restore_array();
 
         // Scale by the diagonal mass matrix.
-        F_vec.close();
         std::unique_ptr<NumericVector<double> > dX_vec = F_vec.clone();
         *dX_vec = *buildDiagonalL2MassMatrix(system_name);
         F_vec.pointwise_mult(F_vec, *dX_vec);
