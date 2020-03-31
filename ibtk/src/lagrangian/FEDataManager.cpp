@@ -101,14 +101,6 @@
 #include "libmesh/type_vector.h"
 #include "libmesh/variant_filter_iterator.h"
 
-#include "petscksp.h"
-#include "petscsys.h"
-#include "petscsystypes.h"
-#include "petscvec.h"
-#include <petsclog.h>
-
-#include <mpi.h>
-
 IBTK_DISABLE_EXTRA_WARNINGS
 #include "boost/multi_array.hpp"
 IBTK_ENABLE_EXTRA_WARNINGS
