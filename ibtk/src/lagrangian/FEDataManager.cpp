@@ -839,30 +839,13 @@ FEDataManager::spread(const int f_data_idx,
     {
         // Multiply by the nodal volume fractions (to convert densities into
         // values).
-        auto F_petsc_vec = static_cast<PetscVector<double>*>(&F_vec);
-        auto dX_petsc_vec = static_cast<PetscVector<double>*>(buildGhostedDiagonalL2MassMatrix(system_name));
+        NumericVector<double>* dX_vec = buildGhostedDiagonalL2MassMatrix(system_name);
         std::unique_ptr<NumericVector<double> > F_dX_vec = F_vec.clone();
-        auto F_dX_petsc_vec = static_cast<PetscVector<double>*>(F_dX_vec.get());
-        Vec F_ghost_vec, dX_ghost_vec, F_dX_ghost_vec;
-        int ierr = VecGhostGetLocalForm(F_petsc_vec->vec(), &F_ghost_vec);
-        IBTK_CHKERRQ(ierr);
-        ierr = VecGhostGetLocalForm(dX_petsc_vec->vec(), &dX_ghost_vec);
-        IBTK_CHKERRQ(ierr);
-        ierr = VecGhostGetLocalForm(F_dX_petsc_vec->vec(), &F_dX_ghost_vec);
-        IBTK_CHKERRQ(ierr);
-        ierr = VecPointwiseMult(F_dX_ghost_vec, F_ghost_vec, dX_ghost_vec);
-        IBTK_CHKERRQ(ierr);
-        ierr = VecGhostRestoreLocalForm(F_petsc_vec->vec(), &F_ghost_vec);
-        IBTK_CHKERRQ(ierr);
-        ierr = VecGhostRestoreLocalForm(dX_petsc_vec->vec(), &dX_ghost_vec);
-        IBTK_CHKERRQ(ierr);
-        ierr = VecGhostRestoreLocalForm(F_dX_petsc_vec->vec(), &F_dX_ghost_vec);
-        IBTK_CHKERRQ(ierr);
+        F_dX_vec->pointwise_mult(F_vec, *dX_vec);
 
         // Extract local form vectors.
-        F_dX_petsc_vec->local_size();
+        auto F_dX_petsc_vec = static_cast<PetscVector<double>*>(F_dX_vec.get());
         const double* const F_dX_local_soln = F_dX_petsc_vec->get_array_read();
-
         auto X_petsc_vec = static_cast<PetscVector<double>*>(&X_vec);
         const double* const X_local_soln = X_petsc_vec->get_array_read();
 
