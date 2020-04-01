@@ -794,7 +794,7 @@ IBFEMethod::interpolateVelocity(const int u_data_idx,
     // Solve for the interpolated data.
     for (unsigned int part = 0; part < d_num_parts; ++part)
     {
-        if (d_part_is_active[part])
+        if (d_part_is_active[part] && !d_interp_spec[part].use_nodal_quadrature)
         {
             // TODO: Commenting out this line changes the solution slightly.
             d_U_vecs->get("solution", part) = *U_vecs[part];

@@ -299,7 +299,6 @@ FEData::clearCached()
     d_quadrature_cache.clear();
     d_L2_proj_solver.clear();
     d_L2_proj_matrix.clear();
-    d_L2_proj_matrix_diag.clear();
 }
 
 const boundary_id_type FEDataManager::ZERO_DISPLACEMENT_X_BDRY_ID = 0x100;
@@ -519,6 +518,8 @@ FEDataManager::reinitElementMappings()
     // We reinitialize mappings after repartitioning, so clear the cache since
     // its content is no longer relevant:
     d_fe_data->clearCached();
+    d_L2_proj_matrix_diag.clear();
+    d_L2_proj_matrix_diag_ghost.clear();
 
     // Delete cached hierarchy-dependent data.
     d_active_patch_elem_map.clear();
@@ -834,13 +835,13 @@ FEDataManager::spread(const int f_data_idx,
     {
         // Multiply by the nodal volume fractions (to convert densities into
         // values).
-        NumericVector<double>* dX_vec = buildGhostedDiagonalL2MassMatrix(system_name);
-        std::unique_ptr<NumericVector<double> > F_dX_vec = F_vec.clone();
-        F_dX_vec->pointwise_mult(F_vec, *dX_vec);
+        PetscVector<double>* dX_vec = buildIBGhostedDiagonalL2MassMatrix(system_name);
+        std::unique_ptr<NumericVector<double> > F_x_dX_vec = F_vec.clone();
+        F_x_dX_vec->pointwise_mult(F_vec, *dX_vec);
 
         // Extract local form vectors.
-        auto F_dX_petsc_vec = static_cast<PetscVector<double>*>(F_dX_vec.get());
-        const double* const F_dX_local_soln = F_dX_petsc_vec->get_array_read();
+        auto F_x_dX_petsc_vec = static_cast<PetscVector<double>*>(F_x_dX_vec.get());
+        const double* const F_x_dX_local_soln = F_x_dX_petsc_vec->get_array_read();
         auto X_petsc_vec = static_cast<PetscVector<double>*>(&X_vec);
         const double* const X_local_soln = X_petsc_vec->get_array_read();
 
@@ -854,8 +855,8 @@ FEDataManager::spread(const int f_data_idx,
             if (!num_active_patch_nodes) continue;
 
             // Store the values of F_JxW and X at the nodes.
-            std::vector<double> F_dX_node, X_node;
-            F_dX_node.reserve(n_vars * num_active_patch_nodes);
+            std::vector<double> F_x_dX_node, X_node;
+            F_x_dX_node.reserve(n_vars * num_active_patch_nodes);
             X_node.reserve(NDIM * num_active_patch_nodes);
             std::vector<dof_id_type> F_idxs, X_idxs;
             for (unsigned int k = 0; k < num_active_patch_nodes; ++k)
@@ -866,7 +867,7 @@ FEDataManager::spread(const int f_data_idx,
                     IBTK::get_nodal_dof_indices(F_dof_map, n, i, F_idxs);
                     for (const auto& F_idx : F_idxs)
                     {
-                        F_dX_node.push_back(F_dX_local_soln[F_dX_petsc_vec->map_global_to_local_index(F_idx)]);
+                        F_x_dX_node.push_back(F_x_dX_local_soln[F_x_dX_petsc_vec->map_global_to_local_index(F_idx)]);
                     }
                 }
                 for (unsigned int d = 0; d < NDIM; ++d)
@@ -878,7 +879,7 @@ FEDataManager::spread(const int f_data_idx,
                     }
                 }
             }
-            TBOX_ASSERT(F_dX_node.size() == n_vars * num_active_patch_nodes);
+            TBOX_ASSERT(F_x_dX_node.size() == n_vars * num_active_patch_nodes);
             TBOX_ASSERT(X_node.size() == NDIM * num_active_patch_nodes);
 
             // Spread values from the nodes to the Cartesian grid patch.
@@ -894,18 +895,18 @@ FEDataManager::spread(const int f_data_idx,
             {
                 Pointer<CellData<NDIM, double> > f_cc_data = f_data;
                 LEInteractor::spread(
-                    f_cc_data, F_dX_node, n_vars, X_node, NDIM, patch, spread_box, spread_spec.kernel_fcn);
+                    f_cc_data, F_x_dX_node, n_vars, X_node, NDIM, patch, spread_box, spread_spec.kernel_fcn);
             }
             if (sc_data)
             {
                 Pointer<SideData<NDIM, double> > f_sc_data = f_data;
                 LEInteractor::spread(
-                    f_sc_data, F_dX_node, n_vars, X_node, NDIM, patch, spread_box, spread_spec.kernel_fcn);
+                    f_sc_data, F_x_dX_node, n_vars, X_node, NDIM, patch, spread_box, spread_spec.kernel_fcn);
             }
         }
 
         // Restore local form vectors.
-        F_dX_petsc_vec->restore_array();
+        F_x_dX_petsc_vec->restore_array();
         X_petsc_vec->restore_array();
     }
     else
@@ -1632,15 +1633,9 @@ FEDataManager::interpWeighted(const int f_data_idx,
             // Insert the values of F at the nodes.
             F_vec.insert(F_node, F_node_idxs);
         }
-        F_vec.close();
 
         // Restore local form vectors.
         X_petsc_vec->restore_array();
-
-        // Scale by the diagonal mass matrix.
-        NumericVector<double>* dX_vec = buildGhostedDiagonalL2MassMatrix(system_name);
-        F_vec.pointwise_mult(F_vec, *dX_vec);
-        if (close_F) F_vec.close();
     }
     else
     {
@@ -1878,8 +1873,15 @@ FEDataManager::interp(const int f_data_idx,
                    close_X);
 
     // Solve for the nodal values.
-    computeL2Projection(
-        F_vec, *F_rhs_vec, system_name, interp_spec.use_consistent_mass_matrix, true /*close_U*/, false /*close_F*/);
+    if (!interp_spec.use_nodal_quadrature)
+    {
+        computeL2Projection(F_vec,
+                            *F_rhs_vec,
+                            system_name,
+                            interp_spec.use_consistent_mass_matrix,
+                            true /*close_U*/,
+                            false /*close_F*/);
+    }
 
     IBTK_TIMER_STOP(t_interp);
     return;
@@ -2240,7 +2242,7 @@ FEDataManager::buildDiagonalL2MassMatrix(const std::string& system_name)
 {
     IBTK_TIMER_START(t_build_diagonal_l2_mass_matrix);
 
-    if (!d_fe_data->d_L2_proj_matrix_diag.count(system_name))
+    if (!d_L2_proj_matrix_diag.count(system_name))
     {
         if (d_enable_logging)
         {
@@ -2354,24 +2356,25 @@ FEDataManager::buildDiagonalL2MassMatrix(const std::string& system_name)
         M_vec->close();
 
         // Store the diagonal mass matrix.
-        d_fe_data->d_L2_proj_matrix_diag[system_name] = std::move(M_vec);
+        d_L2_proj_matrix_diag[system_name] = std::move(M_vec);
     }
 
     IBTK_TIMER_STOP(t_build_diagonal_l2_mass_matrix);
-    return d_fe_data->d_L2_proj_matrix_diag[system_name].get();
+    return d_L2_proj_matrix_diag[system_name].get();
 } // buildDiagonalL2MassMatrix
 
-NumericVector<double>*
-FEDataManager::buildGhostedDiagonalL2MassMatrix(const std::string& system_name)
+PetscVector<double>*
+FEDataManager::buildIBGhostedDiagonalL2MassMatrix(const std::string& system_name)
 {
-    if (!d_fe_data->d_L2_proj_matrix_diag_ghost.count(system_name))
+    if (!d_L2_proj_matrix_diag_ghost.count(system_name))
     {
-        std::unique_ptr<NumericVector<double> > M_vec = buildGhostedSolutionVector(system_name)->clone();
+        std::unique_ptr<PetscVector<double> > M_vec(
+            static_cast<PetscVector<double>*>(buildIBGhostedVector(system_name)->clone().release()));
         *M_vec = *buildDiagonalL2MassMatrix(system_name);
         M_vec->close();
-        d_fe_data->d_L2_proj_matrix_diag[system_name] = std::move(M_vec);
+        d_L2_proj_matrix_diag_ghost[system_name] = std::move(M_vec);
     }
-    return d_fe_data->d_L2_proj_matrix_diag_ghost[system_name].get();
+    return d_L2_proj_matrix_diag_ghost[system_name].get();
 }
 
 bool
