@@ -101,6 +101,8 @@
 #include "libmesh/type_vector.h"
 #include "libmesh/variant_filter_iterator.h"
 
+#include "petscvec.h"
+
 IBTK_DISABLE_EXTRA_WARNINGS
 #include "boost/multi_array.hpp"
 IBTK_ENABLE_EXTRA_WARNINGS
@@ -837,17 +839,28 @@ FEDataManager::spread(const int f_data_idx,
     {
         // Multiply by the nodal volume fractions (to convert densities into
         // values).
+        auto F_petsc_vec = static_cast<PetscVector<double>*>(&F_vec);
+        auto dX_petsc_vec = static_cast<PetscVector<double>*>(buildGhostedDiagonalL2MassMatrix(system_name));
         std::unique_ptr<NumericVector<double> > F_dX_vec = F_vec.clone();
-        std::unique_ptr<NumericVector<double> > dX_vec = F_dX_vec->clone();
-        *dX_vec = *buildDiagonalL2MassMatrix(system_name);
-        F_dX_vec->pointwise_mult(F_vec, *dX_vec);
+        auto F_dX_petsc_vec = static_cast<PetscVector<double>*>(F_dX_vec.get());
+        Vec F_ghost_vec, dX_ghost_vec, F_dX_ghost_vec;
+        int ierr = VecGhostGetLocalForm(F_petsc_vec->vec(), &F_ghost_vec);
+        IBTK_CHKERRQ(ierr);
+        ierr = VecGhostGetLocalForm(dX_petsc_vec->vec(), &dX_ghost_vec);
+        IBTK_CHKERRQ(ierr);
+        ierr = VecGhostGetLocalForm(F_dX_petsc_vec->vec(), &F_dX_ghost_vec);
+        IBTK_CHKERRQ(ierr);
+        ierr = VecPointwiseMult(F_dX_ghost_vec, F_ghost_vec, dX_ghost_vec);
+        IBTK_CHKERRQ(ierr);
+        ierr = VecGhostRestoreLocalForm(F_petsc_vec->vec(), &F_ghost_vec);
+        IBTK_CHKERRQ(ierr);
+        ierr = VecGhostRestoreLocalForm(dX_petsc_vec->vec(), &dX_ghost_vec);
+        IBTK_CHKERRQ(ierr);
+        ierr = VecGhostRestoreLocalForm(F_dX_petsc_vec->vec(), &F_dX_ghost_vec);
+        IBTK_CHKERRQ(ierr);
 
         // Extract local form vectors.
-        auto F_dX_petsc_vec = static_cast<PetscVector<double>*>(F_dX_vec.get());
-        int ierr = VecGhostUpdateBegin(F_dX_petsc_vec->vec(), INSERT_VALUES, SCATTER_FORWARD);
-        IBTK_CHKERRQ(ierr);
-        ierr = VecGhostUpdateEnd(F_dX_petsc_vec->vec(), INSERT_VALUES, SCATTER_FORWARD);
-        IBTK_CHKERRQ(ierr);
+        F_dX_petsc_vec->local_size();
         const double* const F_dX_local_soln = F_dX_petsc_vec->get_array_read();
 
         auto X_petsc_vec = static_cast<PetscVector<double>*>(&X_vec);
@@ -1652,8 +1665,7 @@ FEDataManager::interpWeighted(const int f_data_idx,
         X_petsc_vec->restore_array();
 
         // Scale by the diagonal mass matrix.
-        std::unique_ptr<NumericVector<double> > dX_vec = F_vec.clone();
-        *dX_vec = *buildDiagonalL2MassMatrix(system_name);
+        NumericVector<double>* dX_vec = *buildGhostedDiagonalL2MassMatrix(system_name);
         F_vec.pointwise_mult(F_vec, *dX_vec);
         if (close_F) F_vec.close();
     }
@@ -2375,6 +2387,19 @@ FEDataManager::buildDiagonalL2MassMatrix(const std::string& system_name)
     IBTK_TIMER_STOP(t_build_diagonal_l2_mass_matrix);
     return d_fe_data->d_L2_proj_matrix_diag[system_name].get();
 } // buildDiagonalL2MassMatrix
+
+NumericVector<double>*
+FEDataManager::buildGhostedDiagonalL2MassMatrix(const std::string& system_name)
+{
+    if (!d_fe_data->d_L2_proj_matrix_diag_ghost.count(system_name))
+    {
+        std::unique_ptr<NumericVector<double> > M_vec = buildGhostedSolutionVector(system_name)->clone();
+        *M_vec = *buildDiagonalL2MassMatrix(system_name);
+        M_vec->close();
+        d_fe_data->d_L2_proj_matrix_diag[system_name] = std::move(M_vec);
+    }
+    return d_fe_data->d_L2_proj_matrix_diag_ghost[system_name].get();
+}
 
 bool
 FEDataManager::computeL2Projection(NumericVector<double>& U_vec,

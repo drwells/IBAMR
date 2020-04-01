@@ -244,7 +244,8 @@ protected:
      */
     std::map<std::string, std::unique_ptr<libMesh::LinearSolver<double> > > d_L2_proj_solver;
     std::map<std::string, std::unique_ptr<libMesh::SparseMatrix<double> > > d_L2_proj_matrix;
-    std::map<std::string, std::unique_ptr<libMesh::NumericVector<double> > > d_L2_proj_matrix_diag;
+    std::map<std::string, std::unique_ptr<libMesh::NumericVector<double> > > d_L2_proj_matrix_diag,
+        d_L2_proj_matrix_diag_ghost;
 
     /**
      * Permit FEDataManager to directly examine the internals of this class.
@@ -833,6 +834,11 @@ public:
      * \return Pointer to vector representation of diagonal L2 mass matrix.
      */
     libMesh::NumericVector<double>* buildDiagonalL2MassMatrix(const std::string& system_name);
+
+    /*!
+     * \return Pointer to IB ghosted vector representation of diagonal L2 mass matrix.
+     */
+    libMesh::NumericVector<double>* buildGhostedDiagonalL2MassMatrix(const std::string& system_name);
 
     /*!
      * \brief Set U to be the L2 projection of F.
