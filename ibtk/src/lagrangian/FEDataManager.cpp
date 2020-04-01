@@ -821,19 +821,14 @@ FEDataManager::spread(const int f_data_idx,
     const bool use_nodal_quadrature =
         spread_spec.use_nodal_quadrature && (F_fe_type == X_fe_type && F_order == X_order);
 
-    // We only use the FECache objects if we do *not* use nodal quadrature so
-    // only perform sanity checks in that case:
-    if (!use_nodal_quadrature)
-    {
-        // This will break, at some point in the future, if we ever use
-        // nonnodal-interpolating finite elements. TODO: more finite elements
-        // will probably work.
-        std::vector<FEFamily> fe_family_whitelist{ LAGRANGE, L2_LAGRANGE };
-        TBOX_ASSERT(std::find(fe_family_whitelist.begin(), fe_family_whitelist.end(), F_fe_type.family) !=
-                    fe_family_whitelist.end());
-        TBOX_ASSERT(std::find(fe_family_whitelist.begin(), fe_family_whitelist.end(), X_fe_type.family) !=
-                    fe_family_whitelist.end());
-    }
+    // This will break, at some point in the future, if we ever use
+    // nonnodal-interpolating finite elements. TODO: more finite elements
+    // will probably work.
+    std::vector<FEFamily> fe_family_whitelist{ LAGRANGE, L2_LAGRANGE };
+    TBOX_ASSERT(std::find(fe_family_whitelist.begin(), fe_family_whitelist.end(), F_fe_type.family) !=
+                fe_family_whitelist.end());
+    TBOX_ASSERT(std::find(fe_family_whitelist.begin(), fe_family_whitelist.end(), X_fe_type.family) !=
+                fe_family_whitelist.end());
 
     if (use_nodal_quadrature)
     {
@@ -1545,19 +1540,14 @@ FEDataManager::interpWeighted(const int f_data_idx,
     const bool use_nodal_quadrature =
         interp_spec.use_nodal_quadrature && (F_fe_type == X_fe_type && F_order == X_order);
 
-    // We only use the FECache objects if we do *not* use nodal quadrature so
-    // only perform sanity checks in that case:
-    if (!use_nodal_quadrature)
-    {
-        // This will break, at some point in the future, if we ever use
-        // nonnodal-interpolating finite elements. TODO: more finite elements
-        // will probably work.
-        std::vector<FEFamily> fe_family_whitelist{ LAGRANGE, L2_LAGRANGE };
-        TBOX_ASSERT(std::find(fe_family_whitelist.begin(), fe_family_whitelist.end(), F_fe_type.family) !=
-                    fe_family_whitelist.end());
-        TBOX_ASSERT(std::find(fe_family_whitelist.begin(), fe_family_whitelist.end(), X_fe_type.family) !=
-                    fe_family_whitelist.end());
-    }
+    // This will break, at some point in the future, if we ever use
+    // nonnodal-interpolating finite elements. TODO: more finite elements
+    // will probably work.
+    std::vector<FEFamily> fe_family_whitelist{ LAGRANGE, L2_LAGRANGE };
+    TBOX_ASSERT(std::find(fe_family_whitelist.begin(), fe_family_whitelist.end(), F_fe_type.family) !=
+                fe_family_whitelist.end());
+    TBOX_ASSERT(std::find(fe_family_whitelist.begin(), fe_family_whitelist.end(), X_fe_type.family) !=
+                fe_family_whitelist.end());
 
     if (use_nodal_quadrature)
     {
