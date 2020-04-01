@@ -1648,7 +1648,7 @@ FEDataManager::interpWeighted(const int f_data_idx,
         X_petsc_vec->restore_array();
 
         // Scale by the diagonal mass matrix.
-        NumericVector<double>* dX_vec = *buildGhostedDiagonalL2MassMatrix(system_name);
+        NumericVector<double>* dX_vec = buildGhostedDiagonalL2MassMatrix(system_name);
         F_vec.pointwise_mult(F_vec, *dX_vec);
         if (close_F) F_vec.close();
     }
