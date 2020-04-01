@@ -762,6 +762,8 @@ IBFEMethod::interpolateVelocity(const int u_data_idx,
     batch_vec_ghost_update(X_IB_ghost_vecs, INSERT_VALUES, SCATTER_FORWARD);
 
     // Build the right-hand-sides to compute the interpolated data.
+    std::vector<PetscVector<double>*> U_active_nodal_quadrature_vecs, U_active_nodal_quadrature_rhs_vecs,
+        U_active_elemental_quadrature_rhs_vecs;
     for (unsigned int part = 0; part < d_num_parts; ++part)
     {
         if (d_part_is_active[part])
@@ -774,6 +776,15 @@ IBFEMethod::interpolateVelocity(const int u_data_idx,
                                                             data_time,
                                                             /*close_F*/ false,
                                                             /*close_X*/ false);
+            if (d_interp_spec[part].use_nodal_quadrature)
+            {
+                U_active_nodal_quadrature_vecs.push_back(U_vecs[part]);
+                U_active_nodal_quadrature_rhs_vecs.push_back(U_rhs_vecs[part]);
+            }
+            else
+            {
+                U_active_elemental_quadrature_rhs_vecs.push_back(U_rhs_vecs[part]);
+            }
         }
     }
 
@@ -783,15 +794,19 @@ IBFEMethod::interpolateVelocity(const int u_data_idx,
 
     if (d_use_ghosted_velocity_rhs)
     {
-        batch_vec_ghost_update(U_rhs_vecs, ADD_VALUES, SCATTER_REVERSE);
-        batch_vec_ghost_update(U_rhs_vecs, INSERT_VALUES, SCATTER_FORWARD);
+        batch_vec_ghost_update(U_active_elemental_quadrature_rhs_vecs, ADD_VALUES, SCATTER_REVERSE);
+        batch_vec_ghost_update(U_active_elemental_quadrature_rhs_vecs, INSERT_VALUES, SCATTER_FORWARD);
+        batch_vec_assembly(U_active_nodal_quadrature_rhs_vecs);
     }
     else
     {
         batch_vec_assembly(U_rhs_vecs);
     }
 
-    // Solve for the interpolated data.
+    // Just copy solution values when possible.
+    batch_vec_copy(U_active_nodal_quadrature_rhs_vecs, U_active_nodal_quadrature_vecs);
+
+    // Solve for the interpolated data when needed.
     for (unsigned int part = 0; part < d_num_parts; ++part)
     {
         if (d_part_is_active[part] && !d_interp_spec[part].use_nodal_quadrature)
@@ -806,11 +821,14 @@ IBFEMethod::interpolateVelocity(const int u_data_idx,
                                                                  /*close_F*/ false);
             *U_vecs[part] = d_U_vecs->get("solution", part);
         }
-        else
-        {
-            U_vecs[part]->zero();
-        }
     }
+
+    // Zero out the velocity in inactive parts
+    for (unsigned int part = 0; part < d_num_parts; ++part)
+    {
+        if (!d_part_is_active[part]) U_vecs[part]->zero();
+    }
+
     return;
 } // interpolateVelocity
 

@@ -819,8 +819,8 @@ FEDataManager::spread(const int f_data_idx,
     JacobianCalculatorCache jacobian_calculator_cache(mesh.spatial_dimension());
 
     // Check to see if we are using nodal quadrature.
-    const bool use_nodal_quadrature =
-        spread_spec.use_nodal_quadrature && (F_fe_type == X_fe_type && F_order == X_order);
+    const bool use_nodal_quadrature = spread_spec.use_nodal_quadrature;
+    if (use_nodal_quadrature) TBOX_ASSERT(F_fe_type == X_fe_type && F_order == X_order);
 
     // This will break, at some point in the future, if we ever use
     // nonnodal-interpolating finite elements. TODO: more finite elements
@@ -833,6 +833,10 @@ FEDataManager::spread(const int f_data_idx,
 
     if (use_nodal_quadrature)
     {
+        // Store a copy of the F vector.
+        std::unique_ptr<NumericVector<double> > F_vec_bak = F_vec.clone();
+        *F_vec_bak = F_vec;
+
         // Multiply by the nodal volume fractions (to convert densities into
         // values).
         PetscVector<double>* dX_vec = buildIBGhostedDiagonalL2MassMatrix(system_name);
@@ -908,6 +912,9 @@ FEDataManager::spread(const int f_data_idx,
         // Restore local form vectors.
         F_x_dX_petsc_vec->restore_array();
         X_petsc_vec->restore_array();
+
+        // Restore the value of the F vector.
+        F_vec = *F_vec_bak;
     }
     else
     {
@@ -1538,8 +1545,8 @@ FEDataManager::interpWeighted(const int f_data_idx,
     if (close_X) X_vec.close();
 
     // Check to see if we are using nodal quadrature.
-    const bool use_nodal_quadrature =
-        interp_spec.use_nodal_quadrature && (F_fe_type == X_fe_type && F_order == X_order);
+    const bool use_nodal_quadrature = interp_spec.use_nodal_quadrature;
+    if (use_nodal_quadrature) TBOX_ASSERT(F_fe_type == X_fe_type && F_order == X_order);
 
     // This will break, at some point in the future, if we ever use
     // nonnodal-interpolating finite elements. TODO: more finite elements
@@ -1873,7 +1880,11 @@ FEDataManager::interp(const int f_data_idx,
                    close_X);
 
     // Solve for the nodal values.
-    if (!interp_spec.use_nodal_quadrature)
+    if (interp_spec.use_nodal_quadrature)
+    {
+        F_vec = *F_rhs_vec;
+    }
+    else
     {
         computeL2Projection(F_vec,
                             *F_rhs_vec,
