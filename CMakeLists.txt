@@ -23,9 +23,13 @@ PROJECT(IBAMR
   LANGUAGES C CXX Fortran)
 SET(IBAMR_DIMENSIONS "2" "3")
 
+#
+# 0. set the stage:
+#
 MESSAGE(STATUS "This is CMake ${CMAKE_VERSION}")
 MESSAGE(STATUS "")
-
+include(GNUInstallDirs)
+INCLUDE(CMakePackageConfigHelpers)
 LIST(APPEND CMAKE_MODULE_PATH ${CMAKE_SOURCE_DIR}/cmake/modules/)
 
 #
@@ -90,5 +94,29 @@ FUNCTION(IBAMR_SETUP_TARGET_LIBRARY target_library)
   TARGET_LINK_LIBRARIES(${target_library} PUBLIC Boost::headers)
 ENDFUNCTION()
 
+#
+# IBTK and IBAMR are compiled in 2D and 3D, but the headers are only installed
+# once - hence set up the headers as separate targets
+#
+ADD_LIBRARY(IBTKHeaders INTERFACE)
+TARGET_INCLUDE_DIRECTORIES(
+  IBTKHeaders
+  INTERFACE $<BUILD_INTERFACE:${${PROJECT_NAME}_SOURCE_DIR}/ibtk/include>
+            $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}/ibtk>)
+
+ADD_LIBRARY(IBAMRHeaders INTERFACE)
+TARGET_INCLUDE_DIRECTORIES(
+  IBAMRHeaders
+  INTERFACE $<BUILD_INTERFACE:${${PROJECT_NAME}_SOURCE_DIR}/include>
+            $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}/ibamr>)
+# TODO: there is much more to do here for packaging - see
+# https://dominikberner.ch/cmake-interface-lib/
+#
+# in particular: we presently export no cmake information (no targets are
+# exported)
+INSTALL(DIRECTORY ${PROJECT_SOURCE_DIR}/include/ibamr DESTINATION include)
+INSTALL(DIRECTORY ${PROJECT_SOURCE_DIR}/ibtk/include/ibtk DESTINATION include)
+
+# proceed to compilation units:
 ADD_SUBDIRECTORY(ibtk)
 ADD_SUBDIRECTORY(src)
