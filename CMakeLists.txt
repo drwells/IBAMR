@@ -19,13 +19,31 @@ PROJECT(IBAMR
   VERSION 1.0.0
   DESCRIPTION "Software infrastructure for the IB method with adaptively-refined grids"
   HOMEPAGE_URL "https://ibamr.github.io"
-  LANGUAGES CXX Fortran)
+  # include C so that we can link against C libraries (e.g., MPI::MPI_C) easily
+  LANGUAGES C CXX Fortran)
 SET(IBAMR_DIMENSIONS "2" "3")
 
 MESSAGE(STATUS "This is CMake ${CMAKE_VERSION}")
 MESSAGE(STATUS "")
 
 LIST(APPEND CMAKE_MODULE_PATH ${CMAKE_SOURCE_DIR}/cmake/modules/)
+
+#
+# 1. manage mandatory dependencies:
+#
+FIND_PACKAGE(Boost 1.57 REQUIRED)
+FIND_PACKAGE(MPI REQUIRED)
+
+SET(HDF5_FIND_DEBUG TRUE)
+FIND_PACKAGE(HDF5 REQUIRED COMPONENTS C HL)
+
+#
+# 1.5. manage optional dependencies
+#
+
+#
+# 2. IBAMR-specific configuration:
+#
 
 # Macro to process m4 files to generate Fortran
 INCLUDE(CMakeParseArguments)
@@ -56,6 +74,21 @@ MACRO(IBAMR_PROCESS_M4)
   SET_SOURCE_FILES_PROPERTIES(${_output} PROPERTIES GENERATED true)
   SET_SOURCE_FILES_PROPERTIES(${_output} PROPERTIES LANGUAGE Fortran)
 ENDMACRO()
+
+# Macro to setup an IBAMR target library with all common features (i.e.,
+# everything but the source files)
+FUNCTION(IBAMR_SETUP_TARGET_LIBRARY target_library)
+  # we need C++11
+  SET_PROPERTY(TARGET ${target_library} PROPERTY CXX_STANDARD 11)
+  # we and our users will use these MPI functions so make the interface public:
+  TARGET_LINK_LIBRARIES(${target_library} PUBLIC MPI::MPI_C)
+  # same for HDF5:
+  # todo: no nice target support yet for HDF5
+  TARGET_LINK_LIBRARIES(${target_library} PUBLIC "${HDF5_LIBRARIES}")
+  TARGET_INCLUDE_DIRECTORIES(${target_library} PUBLIC "${HDF5_INCLUDE_DIRS}")
+  # we only need boost headers
+  TARGET_LINK_LIBRARIES(${target_library} PUBLIC Boost::headers)
+ENDFUNCTION()
 
 ADD_SUBDIRECTORY(ibtk)
 ADD_SUBDIRECTORY(src)
