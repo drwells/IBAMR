@@ -82,6 +82,7 @@ ENDMACRO()
 # Macro to setup an IBAMR target library with all common features (i.e.,
 # everything but the source files)
 FUNCTION(IBAMR_SETUP_TARGET_LIBRARY target_library)
+  MESSAGE(STATUS "setting up target ${target_library}")
   # we need C++11
   SET_PROPERTY(TARGET ${target_library} PROPERTY CXX_STANDARD 11)
   # we and our users will use these MPI functions so make the interface public:
@@ -89,9 +90,25 @@ FUNCTION(IBAMR_SETUP_TARGET_LIBRARY target_library)
   # same for HDF5:
   # todo: no nice target support yet for HDF5
   TARGET_LINK_LIBRARIES(${target_library} PUBLIC "${HDF5_LIBRARIES}")
+  TARGET_LINK_LIBRARIES(${target_library} PUBLIC "${HDF5_HL_LIBRARIES}")
   TARGET_INCLUDE_DIRECTORIES(${target_library} PUBLIC "${HDF5_INCLUDE_DIRS}")
   # we only need boost headers
   TARGET_LINK_LIBRARIES(${target_library} PUBLIC Boost::headers)
+
+  # add the right preprocessor flag:
+  SET(_2_location = -1)
+  SET(_3_location = -1)
+  STRING(FIND "${target_library}" "2" _2_location)
+  STRING(FIND "${target_library}" "3" _3_location)
+  IF(NOT ${_2_location} STREQUAL "-1")
+    MESSAGE(STATUS "Adding flag -DNDIM=2 to target ${target_library}")
+    TARGET_COMPILE_OPTIONS(${target_library} PUBLIC -DNDIM=2)
+  ELSEIF(NOT ${_3_location} STREQUAL "-1")
+    MESSAGE(STATUS "Adding flag -DNDIM=3 to target ${target_library}")
+    TARGET_COMPILE_OPTIONS(${target_library} PUBLIC -DNDIM=3)
+  ELSE()
+    MESSAGE(STATUS "no NDIM preprocessor constant added to ${target_library}")
+  ENDIF()
 ENDFUNCTION()
 
 #
@@ -111,6 +128,7 @@ TARGET_INCLUDE_DIRECTORIES(
             $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}/ibamr>)
 # TODO: there is much more to do here for packaging - see
 # https://dominikberner.ch/cmake-interface-lib/
+# http://www.mariobadr.com/creating-a-header-only-library-with-cmake.html
 #
 # in particular: we presently export no cmake information (no targets are
 # exported)
