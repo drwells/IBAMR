@@ -38,6 +38,7 @@ LIST(APPEND CMAKE_MODULE_PATH ${CMAKE_SOURCE_DIR}/cmake/modules/)
 FIND_PACKAGE(PkgConfig REQUIRED)
 FIND_PACKAGE(Boost 1.57 REQUIRED)
 FIND_PACKAGE(MPI REQUIRED)
+FIND_PACKAGE(Eigen3 3.2.5 REQUIRED)
 
 SET(HDF5_FIND_DEBUG TRUE)
 FIND_PACKAGE(HDF5 REQUIRED COMPONENTS C HL)
@@ -98,6 +99,8 @@ FUNCTION(IBAMR_SETUP_TARGET_LIBRARY target_library)
   TARGET_INCLUDE_DIRECTORIES(${target_library} PUBLIC "${HDF5_INCLUDE_DIRS}")
   # we only need boost headers
   TARGET_LINK_LIBRARIES(${target_library} PUBLIC Boost::headers)
+  # Eigen only has one target:
+  TARGET_LINK_LIBRARIES(${target_library} PUBLIC Eigen3::Eigen)
 
   # add the right preprocessor flag:
   SET(_2_location = -1)
