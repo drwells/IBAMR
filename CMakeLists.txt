@@ -35,6 +35,7 @@ LIST(APPEND CMAKE_MODULE_PATH ${CMAKE_SOURCE_DIR}/cmake/modules/)
 #
 # 1. manage mandatory dependencies:
 #
+FIND_PACKAGE(PkgConfig REQUIRED)
 FIND_PACKAGE(Boost 1.57 REQUIRED)
 FIND_PACKAGE(MPI REQUIRED)
 
@@ -44,6 +45,9 @@ FIND_PACKAGE(HDF5 REQUIRED COMPONENTS C HL)
 #
 # 1.5. manage optional dependencies
 #
+
+# libMesh is hard to find...
+PKG_CHECK_MODULES(PC_libmesh libmesh)
 
 #
 # 2. IBAMR-specific configuration:
