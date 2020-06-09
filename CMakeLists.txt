@@ -50,10 +50,26 @@ PKG_CHECK_MODULES(MUPARSER REQUIRED IMPORTED_TARGET GLOBAL muparser)
 LIST(PREPEND CMAKE_PREFIX_PATH "/home/drwells/Applications/petsc-3.13.0/x86_64-opt/")
 PKG_CHECK_MODULES(PETSC IMPORTED_TARGET GLOBAL PETSc)
 LIST(POP_FRONT CMAKE_PREFIX_PATH)
+
+#
+# 1.5: manage optional dependencies
+#
+LIST(PREPEND CMAKE_PREFIX_PATH "/home/drwells/Applications/libmesh-dev/")
+PKG_CHECK_MODULES(LIBMESH IMPORTED_TARGET GLOBAL libmesh)
+# todo - set up variables correctly
+SET(IBAMR_WITH_LIBMESH TRUE)
+LIST(POP_FRONT CMAKE_PREFIX_PATH)
+#
+# there are several issues with libmesh's pkgconfig file:
+# 1. the link order is wrong, e.g., -L/usr/lib/openmpi comes after -lmpi (this will be fixed in 1.6)
+# 2. cflags contains unnecessary flags (e.g., -felide-constructors) that should
+#    be in Cflags_other (this will be fixed in 1.6)
+# 3. it assumes -I${includedir}/contrib always exists (this will be fixed in 1.6)
+#
+# It may be better in the long run to write our own wrapper that avoids these
+# problems.
 #
 
-# libMesh is hard to find...
-PKG_CHECK_MODULES(PC_libmesh libmesh)
 
 #
 # 2: IBAMR-specific configuration:
@@ -93,8 +109,8 @@ ENDMACRO()
 # everything but the source files)
 FUNCTION(IBAMR_SETUP_TARGET_LIBRARY target_library)
   MESSAGE(STATUS "setting up target ${target_library}")
-  # we need C++11
-  SET_PROPERTY(TARGET ${target_library} PROPERTY CXX_STANDARD 11)
+  # we need C++11 (todo: libMesh assumes C++14 so this is temporarily wrong)
+  SET_PROPERTY(TARGET ${target_library} PROPERTY CXX_STANDARD 14)
   # we and our users will use these MPI functions so make the interface public:
   TARGET_LINK_LIBRARIES(${target_library} PUBLIC MPI::MPI_C)
   # same for HDF5:
@@ -110,6 +126,10 @@ FUNCTION(IBAMR_SETUP_TARGET_LIBRARY target_library)
   TARGET_LINK_LIBRARIES(${target_library} PUBLIC PkgConfig::MUPARSER)
   # PETSc:
   TARGET_LINK_LIBRARIES(${target_library} PUBLIC PkgConfig::PETSC)
+  # libMesh:
+  IF(IBAMR_WITH_LIBMESH)
+    TARGET_LINK_LIBRARIES(${target_library} PUBLIC PkgConfig::LIBMESH)
+  ENDIF()
 
   # add the right preprocessor flag:
   SET(_2_location = -1)
