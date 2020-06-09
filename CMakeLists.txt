@@ -33,9 +33,8 @@ INCLUDE(CMakePackageConfigHelpers)
 LIST(APPEND CMAKE_MODULE_PATH ${CMAKE_SOURCE_DIR}/cmake/modules/)
 
 #
-# 1. manage mandatory dependencies:
+# 1: manage mandatory dependencies:
 #
-FIND_PACKAGE(PkgConfig REQUIRED)
 FIND_PACKAGE(Boost 1.57 REQUIRED)
 FIND_PACKAGE(MPI REQUIRED)
 FIND_PACKAGE(Eigen3 3.2.5 REQUIRED)
@@ -44,14 +43,20 @@ SET(HDF5_FIND_DEBUG TRUE)
 FIND_PACKAGE(HDF5 REQUIRED COMPONENTS C HL)
 
 #
-# 1.5. manage optional dependencies
+# 1.25: manage mandatory dependencies that have pkgconfig information:
+#
+FIND_PACKAGE(PkgConfig REQUIRED)
+PKG_CHECK_MODULES(MUPARSER REQUIRED IMPORTED_TARGET GLOBAL muparser)
+LIST(PREPEND CMAKE_PREFIX_PATH "/home/drwells/Applications/petsc-3.13.0/x86_64-opt/")
+PKG_CHECK_MODULES(PETSC IMPORTED_TARGET GLOBAL PETSc)
+LIST(POP_FRONT CMAKE_PREFIX_PATH)
 #
 
 # libMesh is hard to find...
 PKG_CHECK_MODULES(PC_libmesh libmesh)
 
 #
-# 2. IBAMR-specific configuration:
+# 2: IBAMR-specific configuration:
 #
 
 # Macro to process m4 files to generate Fortran
@@ -101,6 +106,10 @@ FUNCTION(IBAMR_SETUP_TARGET_LIBRARY target_library)
   TARGET_LINK_LIBRARIES(${target_library} PUBLIC Boost::headers)
   # Eigen only has one target:
   TARGET_LINK_LIBRARIES(${target_library} PUBLIC Eigen3::Eigen)
+  # muparser:
+  TARGET_LINK_LIBRARIES(${target_library} PUBLIC PkgConfig::MUPARSER)
+  # PETSc:
+  TARGET_LINK_LIBRARIES(${target_library} PUBLIC PkgConfig::PETSC)
 
   # add the right preprocessor flag:
   SET(_2_location = -1)
