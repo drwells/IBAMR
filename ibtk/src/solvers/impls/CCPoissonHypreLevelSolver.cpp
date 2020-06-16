@@ -74,6 +74,16 @@ static Timer* t_solve_system_hypre;
 static Timer* t_initialize_solver_state;
 static Timer* t_deallocate_solver_state;
 
+// HYPRE can use 64bit indices, but SAMRAI IntVectors are always 32 - add 
+// a helper conversion function
+std::array<HYPRE_Int, NDIM>
+hypre_array(const Index<NDIM> &index)
+{
+    std::array<HYPRE_Int, NDIM> result;
+    for (unsigned int d = 0; d < NDIM; ++d) result[d] = index[d];
+    return result;
+}
+
 // hypre solver options.
 enum HypreStructRAPType
 {
@@ -366,12 +376,12 @@ CCPoissonHypreLevelSolver::allocateHypreData()
     for (PatchLevel<NDIM>::Iterator p(d_level); p; p++)
     {
         const Box<NDIM>& patch_box = d_level->getPatch(p())->getBox();
-        hier::Index<NDIM> lower = patch_box.lower();
-        hier::Index<NDIM> upper = patch_box.upper();
-        HYPRE_StructGridSetExtents(d_grid, lower, upper);
+        std::array<HYPRE_Int, NDIM> lower = hypre_array(patch_box.lower());
+        std::array<HYPRE_Int, NDIM> upper = hypre_array(patch_box.upper());
+        HYPRE_StructGridSetExtents(d_grid, lower.data(), upper.data());
     }
 
-    int hypre_periodic_shift[3];
+    std::array<HYPRE_Int, 3> hypre_periodic_shift;
     for (unsigned int d = 0; d < NDIM; ++d)
     {
         hypre_periodic_shift[d] = periodic_shift(d);
@@ -380,7 +390,7 @@ CCPoissonHypreLevelSolver::allocateHypreData()
     {
         hypre_periodic_shift[d] = 0;
     }
-    HYPRE_StructGridSetPeriodic(d_grid, hypre_periodic_shift);
+    HYPRE_StructGridSetPeriodic(d_grid, hypre_periodic_shift.data());
     HYPRE_StructGridAssemble(d_grid);
 
     // Allocate stencil data and set stencil offsets.
@@ -399,7 +409,8 @@ CCPoissonHypreLevelSolver::allocateHypreData()
         HYPRE_StructStencilCreate(NDIM, stencil_sz, &d_stencil);
         for (int s = 0; s < stencil_sz; ++s)
         {
-            HYPRE_StructStencilSetElement(d_stencil, s, d_stencil_offsets[s]);
+            auto stencil_offset = hypre_array(d_stencil_offsets[s]);
+            HYPRE_StructStencilSetElement(d_stencil, s, stencil_offset.data());
         }
     }
     else
@@ -437,18 +448,19 @@ CCPoissonHypreLevelSolver::allocateHypreData()
         HYPRE_StructStencilCreate(NDIM, stencil_sz, &d_stencil);
         for (int s = 0; s < stencil_sz; ++s)
         {
-            HYPRE_StructStencilSetElement(d_stencil, s, d_stencil_offsets[s]);
+            auto stencil_offset = hypre_array(d_stencil_offsets[s]);
+            HYPRE_StructStencilSetElement(d_stencil, s, stencil_offset.data());
         }
     }
 
 // Allocate the hypre matrices.
 #if (NDIM == 2)
-    int full_ghosts[2 * 3] = { 1, 1, 1, 1, 0, 0 };
+    HYPRE_Int full_ghosts[2 * 3] = { 1, 1, 1, 1, 0, 0 };
 #endif
 #if (NDIM == 3)
-    int full_ghosts[2 * 3] = { 1, 1, 1, 1, 1, 1 };
+    HYPRE_Int full_ghosts[2 * 3] = { 1, 1, 1, 1, 1, 1 };
 #endif
-    int no_ghosts[2 * 3] = { 0, 0, 0, 0, 0, 0 };
+    HYPRE_Int no_ghosts[2 * 3] = { 0, 0, 0, 0, 0, 0 };
     d_matrices.resize(d_depth);
     for (unsigned int k = 0; k < d_depth; ++k)
     {
@@ -501,7 +513,9 @@ CCPoissonHypreLevelSolver::setMatrixCoefficients_aligned()
                 {
                     mat_vals[j] = matrix_coefs(i, j);
                 }
-                HYPRE_StructMatrixSetValues(d_matrices[k], i, stencil_sz, &stencil_indices[0], &mat_vals[0]);
+                auto hypre_i = hypre_array(i);
+                auto hypre_indices = hypre_array(stencil_indices[0]);
+                HYPRE_StructMatrixSetValues(d_matrices[k], hypre_i.data(), stencil_sz, hypre_indices.data(), &mat_vals[0]);
             }
         }
     }
@@ -564,7 +578,7 @@ CCPoissonHypreLevelSolver::setMatrixCoefficients_nonaligned()
 
         // Setup the finite difference stencil.
         static const int stencil_sz = (NDIM == 2 ? 9 : 19);
-        int stencil_indices[stencil_sz];
+        HYPRE_Int stencil_indices[stencil_sz];
         for (int i = 0; i < stencil_sz; ++i)
         {
             stencil_indices[i] = i;
@@ -707,7 +721,8 @@ CCPoissonHypreLevelSolver::setMatrixCoefficients_nonaligned()
 
             for (unsigned int k = 0; k < d_depth; ++k)
             {
-                HYPRE_StructMatrixSetValues(d_matrices[k], i, stencil_sz, stencil_indices, &mat_vals[0]);
+                auto hypre_i = hypre_array(i);
+                HYPRE_StructMatrixSetValues(d_matrices[k], hypre_i.data(), stencil_sz, stencil_indices, &mat_vals[0]);
             }
         }
     }
@@ -1171,11 +1186,11 @@ CCPoissonHypreLevelSolver::copyToHypre(const std::vector<HYPRE_StructVector>& ve
         copy_data ? new CellData<NDIM, double>(box, src_data.getDepth(), 0) : nullptr);
     CellData<NDIM, double>& hypre_data = copy_data ? *src_data_box : src_data;
     if (copy_data) hypre_data.copyOnBox(src_data, box);
-    hier::Index<NDIM> lower = box.lower();
-    hier::Index<NDIM> upper = box.upper();
+    auto lower = hypre_array(box.lower());
+    auto upper = hypre_array(box.upper());
     for (unsigned int k = 0; k < d_depth; ++k)
     {
-        HYPRE_StructVectorSetBoxValues(vectors[k], lower, upper, hypre_data.getPointer(k));
+        HYPRE_StructVectorSetBoxValues(vectors[k], lower.data(), upper.data(), hypre_data.getPointer(k));
     }
     return;
 } // copyToHypre
@@ -1189,11 +1204,11 @@ CCPoissonHypreLevelSolver::copyFromHypre(CellData<NDIM, double>& dst_data,
     std::unique_ptr<CellData<NDIM, double> > dst_data_box(
         copy_data ? new CellData<NDIM, double>(box, dst_data.getDepth(), 0) : nullptr);
     CellData<NDIM, double>& hypre_data = copy_data ? *dst_data_box : dst_data;
-    hier::Index<NDIM> lower = box.lower();
-    hier::Index<NDIM> upper = box.upper();
+    auto lower = hypre_array(box.lower());
+    auto upper = hypre_array(box.upper());
     for (unsigned int k = 0; k < d_depth; ++k)
     {
-        HYPRE_StructVectorGetBoxValues(vectors[k], lower, upper, hypre_data.getPointer(k));
+        HYPRE_StructVectorGetBoxValues(vectors[k], lower.data(), upper.data(), hypre_data.getPointer(k));
     }
     if (copy_data)
     {

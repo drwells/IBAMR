@@ -209,7 +209,9 @@ PETScKrylovLinearSolver::solveSystem(SAMRAIVectorReal<NDIM, double>& x, SAMRAIVe
     d_A->imposeSolBcs(x);
 
     // Get iterations count and residual norm.
-    ierr = KSPGetIterationNumber(d_petsc_ksp, &d_current_iterations);
+    PetscInt current_iter = d_current_iterations;
+    ierr = KSPGetIterationNumber(d_petsc_ksp, &current_iter);
+    d_current_iterations = current_iter;
     IBTK_CHKERRQ(ierr);
     ierr = KSPGetResidualNorm(d_petsc_ksp, &d_current_residual_norm);
     IBTK_CHKERRQ(ierr);

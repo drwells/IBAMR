@@ -66,6 +66,16 @@ static Timer* t_solve_system_hypre;
 static Timer* t_initialize_solver_state;
 static Timer* t_deallocate_solver_state;
 
+// HYPRE can use 64bit indices, but SAMRAI IntVectors are always 32 - add 
+// a helper conversion function
+std::array<HYPRE_Int, NDIM>
+hypre_array(const Index<NDIM> &index)
+{
+    std::array<HYPRE_Int, NDIM> result;
+    for (unsigned int d = 0; d < NDIM; ++d) result[d] = index[d];
+    return result;
+}
+
 // hypre solver options.
 enum HypreSStructRelaxType
 {
@@ -309,12 +319,12 @@ SCPoissonHypreLevelSolver::allocateHypreData()
     for (PatchLevel<NDIM>::Iterator p(d_level); p; p++)
     {
         const Box<NDIM>& patch_box = d_level->getPatch(p())->getBox();
-        hier::Index<NDIM> lower = patch_box.lower();
-        hier::Index<NDIM> upper = patch_box.upper();
-        HYPRE_SStructGridSetExtents(d_grid, PART, lower, upper);
+        auto lower = hypre_array(patch_box.lower());
+        auto upper = hypre_array(patch_box.upper());
+        HYPRE_SStructGridSetExtents(d_grid, PART, lower.data(), upper.data());
     }
 
-    int hypre_periodic_shift[3];
+    std::array<HYPRE_Int, 3> hypre_periodic_shift;
     for (unsigned int d = 0; d < NDIM; ++d)
     {
         hypre_periodic_shift[d] = periodic_shift(d);
@@ -323,7 +333,7 @@ SCPoissonHypreLevelSolver::allocateHypreData()
     {
         hypre_periodic_shift[d] = 0;
     }
-    HYPRE_SStructGridSetPeriodic(d_grid, PART, hypre_periodic_shift);
+    HYPRE_SStructGridSetPeriodic(d_grid, PART, hypre_periodic_shift.data());
 
 #if (NDIM == 2)
     HYPRE_SStructVariable vartypes[NVARS] = { HYPRE_SSTRUCT_VARIABLE_XFACE, HYPRE_SSTRUCT_VARIABLE_YFACE };
@@ -353,7 +363,8 @@ SCPoissonHypreLevelSolver::allocateHypreData()
         HYPRE_SStructStencilCreate(NDIM, stencil_sz, &d_stencil[var]);
         for (int s = 0; s < stencil_sz; ++s)
         {
-            HYPRE_SStructStencilSetEntry(d_stencil[var], s, d_stencil_offsets[s], var);
+            auto stencil_offset = hypre_array(d_stencil_offsets[s]);
+            HYPRE_SStructStencilSetEntry(d_stencil[var], s, stencil_offset.data(), var);
         }
     }
 
@@ -410,9 +421,13 @@ SCPoissonHypreLevelSolver::setMatrixCoefficients()
                 // NOTE: In SAMRAI, face-centered values are associated with the
                 // cell index located on the "upper" side of the face, but in
                 // hypre, face-centered values are associated with the cell
-                // index located on the "lower" side of the face.
+                // index located on the "lower" side of the face. Similarly,
+                // in SAMRAI the index stores its axis, but here hypre expects 
+                // that to be a second argument (so slicing i is okay).
                 i(axis) -= 1;
-                HYPRE_SStructMatrixSetValues(d_matrix, PART, i, axis, stencil_sz, &stencil_indices[0], &mat_vals[0]);
+                auto hypre_i = hypre_array(i);
+                auto hypre_stencil_indices = hypre_array(stencil_indices[0]);
+                HYPRE_SStructMatrixSetValues(d_matrix, PART, hypre_i.data(), axis, stencil_sz, hypre_stencil_indices.data(), &mat_vals[0]);
             }
         }
     }
@@ -817,10 +832,10 @@ SCPoissonHypreLevelSolver::copyToHypre(HYPRE_SStructVector vector,
     for (int var = 0; var < NVARS; ++var)
     {
         const unsigned int axis = var;
-        hier::Index<NDIM> lower = box.lower();
-        lower(axis) -= 1;
-        hier::Index<NDIM> upper = box.upper();
-        HYPRE_SStructVectorSetBoxValues(vector, PART, lower, upper, var, hypre_data.getPointer(axis));
+        auto lower = hypre_array(box.lower());
+        lower[axis] -= 1;
+        auto upper = hypre_array(box.upper());
+        HYPRE_SStructVectorSetBoxValues(vector, PART, lower.data(), upper.data(), var, hypre_data.getPointer(axis));
     }
     return;
 } // copyToHypre
@@ -836,10 +851,10 @@ SCPoissonHypreLevelSolver::copyFromHypre(SideData<NDIM, double>& dst_data,
     for (int var = 0; var < NVARS; ++var)
     {
         const unsigned int axis = var;
-        hier::Index<NDIM> lower = box.lower();
-        lower(axis) -= 1;
-        hier::Index<NDIM> upper = box.upper();
-        HYPRE_SStructVectorGetBoxValues(vector, PART, lower, upper, var, hypre_data.getPointer(axis));
+        auto lower = hypre_array(box.lower());
+        lower[axis] -= 1;
+        auto upper = hypre_array(box.upper());
+        HYPRE_SStructVectorGetBoxValues(vector, PART, lower.data(), upper.data(), var, hypre_data.getPointer(axis));
     }
     if (copy_data)
     {

@@ -208,7 +208,9 @@ PETScNewtonKrylovSolver::solveSystem(SAMRAIVectorReal<NDIM, double>& x, SAMRAIVe
 
     // Get iterations counts and residual norm.
     IBTK_CHKERRQ(ierr);
-    ierr = SNESGetIterationNumber(d_petsc_snes, &d_current_iterations);
+    PetscInt current_iterations = d_current_iterations;
+    ierr = SNESGetIterationNumber(d_petsc_snes, &current_iterations);
+    d_current_iterations = current_iterations;
     IBTK_CHKERRQ(ierr);
     ierr = SNESGetLinearSolveIterations(d_petsc_snes, &d_current_linear_iterations);
     IBTK_CHKERRQ(ierr);

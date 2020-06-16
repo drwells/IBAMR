@@ -21,6 +21,8 @@
 #include "tbox/DescribedClass.h"
 #include "tbox/Pointer.h"
 
+#include <HYPRE_utilities.h>
+
 #include <iosfwd>
 #include <limits>
 #include <string>
@@ -322,7 +324,7 @@ protected:
     double d_rel_residual_tol = 0.0;
     double d_abs_residual_tol = 0.0;
     int d_max_iterations = 100;
-    int d_current_iterations = 0;
+    HYPRE_Int d_current_iterations = 0;
     double d_current_residual_norm = std::numeric_limits<double>::quiet_NaN();
 
     // Mathematical operators.
