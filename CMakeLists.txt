@@ -49,6 +49,46 @@ FIND_PACKAGE(Eigen3 3.2.5 REQUIRED)
 SET(HDF5_FIND_DEBUG TRUE)
 FIND_PACKAGE(HDF5 REQUIRED COMPONENTS C HL)
 
+# samrai 2.4.4 does not yet have a CMake module
+SET(_samrai_library_suffixes "algs" "appu" "geom" "hier"
+  "math_std" "mesh" "pdat_std" "solv" "xfer")
+
+# SAMRAI consists of about a dozen libraries (see the above list) as well as
+# header files for both 2D and 3D. Rather than setting up each as a target, set
+# up our own 'header-only' target libraries that depend on SAMRAI libraries to
+# encapsulate them neatly:
+ADD_LIBRARY(IBAMR_SAMRAI2D INTERFACE)
+TARGET_INCLUDE_DIRECTORIES(IBAMR_SAMRAI2D INTERFACE "${SAMRAI_PREFIX}/include")
+ADD_LIBRARY(IBAMR_SAMRAI3D INTERFACE)
+TARGET_INCLUDE_DIRECTORIES(IBAMR_SAMRAI3D INTERFACE "${SAMRAI_PREFIX}/include")
+
+FOREACH(_d ${IBAMR_DIMENSIONS})
+  FOREACH(_suffix ${_samrai_library_suffixes})
+    SET(_lib_name "SAMRAI${_d}d_${_suffix}")
+    ADD_LIBRARY(
+      ${_lib_name}
+      UNKNOWN # library type (though its currently always static)
+      IMPORTED)
+
+    FIND_LIBRARY("${_lib_name}_path"
+      ${_lib_name}
+      HINTS
+      "${SAMRAI_PREFIX}/lib"
+      )
+    MESSAGE(STATUS "found samrai library ${${_lib_name}_path}")
+
+    SET_TARGET_PROPERTIES(
+      ${_lib_name}
+      PROPERTIES
+      IMPORTED_LOCATION
+      "${${_lib_name}_path}"
+      )
+
+    # add the library we just set up to the interface target:
+    TARGET_LINK_LIBRARIES("IBAMR_SAMRAI${_d}D" INTERFACE ${_lib_name})
+  ENDFOREACH()
+ENDFOREACH()
+
 #
 # 1.25: manage mandatory dependencies that have pkgconfig information:
 #
@@ -137,11 +177,20 @@ FUNCTION(IBAMR_SETUP_TARGET_LIBRARY target_library)
     TARGET_LINK_LIBRARIES(${target_library} PUBLIC PkgConfig::LIBMESH)
   ENDIF()
 
-  # add the right preprocessor flag:
+  # Figure out if we are a 2D or a 3D library:
   SET(_2_location = -1)
   SET(_3_location = -1)
   STRING(FIND "${target_library}" "2" _2_location)
   STRING(FIND "${target_library}" "3" _3_location)
+
+  # add the correct version of SAMRAI:
+  IF(NOT ${_2_location} STREQUAL "-1")
+    TARGET_LINK_LIBRARIES(${target_library} PUBLIC IBAMR_SAMRAI2D)
+  ELSEIF(NOT ${_3_location} STREQUAL "-1")
+    TARGET_LINK_LIBRARIES(${target_library} PUBLIC IBAMR_SAMRAI3D)
+  ENDIF()
+
+  # add the right preprocessor flag:
   IF(NOT ${_2_location} STREQUAL "-1")
     MESSAGE(STATUS "Adding flag -DNDIM=2 to target ${target_library}")
     TARGET_COMPILE_OPTIONS(${target_library} PUBLIC -DNDIM=2)
