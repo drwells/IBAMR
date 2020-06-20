@@ -24,6 +24,13 @@ PROJECT(IBAMR
 SET(IBAMR_DIMENSIONS "2" "3")
 
 #
+# -1. Hardcode some things that will ultimately be configuration options:
+#
+SET(SAMRAI_PREFIX "/home/drwells/Applications/samrai-2.4.4")
+SET(PETSC_PREFIX "/home/drwells/Applications/petsc-3.13.0/x86_64-opt")
+SET(LIBMESH_PREFIX "/home/drwells/Applications/libmesh-dev")
+
+#
 # 0. set the stage:
 #
 MESSAGE(STATUS "This is CMake ${CMAKE_VERSION}")
@@ -47,14 +54,14 @@ FIND_PACKAGE(HDF5 REQUIRED COMPONENTS C HL)
 #
 FIND_PACKAGE(PkgConfig REQUIRED)
 PKG_CHECK_MODULES(MUPARSER REQUIRED IMPORTED_TARGET GLOBAL muparser)
-LIST(PREPEND CMAKE_PREFIX_PATH "/home/drwells/Applications/petsc-3.13.0/x86_64-opt/")
+LIST(PREPEND CMAKE_PREFIX_PATH "${PETSC_PREFIX}")
 PKG_CHECK_MODULES(PETSC IMPORTED_TARGET GLOBAL PETSc)
 LIST(POP_FRONT CMAKE_PREFIX_PATH)
 
 #
 # 1.5: manage optional dependencies
 #
-LIST(PREPEND CMAKE_PREFIX_PATH "/home/drwells/Applications/libmesh-dev/")
+LIST(PREPEND CMAKE_PREFIX_PATH "${LIBMESH_PREFIX}")
 PKG_CHECK_MODULES(LIBMESH IMPORTED_TARGET GLOBAL libmesh)
 # todo - set up variables correctly
 SET(IBAMR_WITH_LIBMESH TRUE)
@@ -87,8 +94,7 @@ MACRO(IBAMR_PROCESS_M4)
   GET_FILENAME_COMPONENT(_out_directory "${CMAKE_CURRENT_BINARY_DIR}/${arg_NAME}.f" DIRECTORY)
   FILE(MAKE_DIRECTORY ${_out_directory})
 
-  # todo - un-hardcode this when we properly support SAMRAI
-  SET(_args "-DSAMRAI_FORTDIR=/home/drwells/Applications/samrai-2.4.4/include;-DCURRENT_SRCDIR=${_in_directory};-DTOP_SRCDIR=${CMAKE_SOURCE_DIR}")
+  SET(_args "-DSAMRAI_FORTDIR=${SAMRAI_PREFIX}/include;-DCURRENT_SRCDIR=${_in_directory};-DTOP_SRCDIR=${CMAKE_SOURCE_DIR}")
   SET(_input "${CMAKE_CURRENT_SOURCE_DIR}/${arg_NAME}.m4")
   SET(_output "${CMAKE_CURRENT_BINARY_DIR}/${arg_NAME}")
 
