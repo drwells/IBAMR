@@ -65,8 +65,8 @@ MACRO(SETUP_2D _dir _src)
     ${_out_name}
     )
   TARGET_COMPILE_OPTIONS(${_target} PUBLIC -DSOURCE_DIR="${CMAKE_SOURCE_DIR}/tests/${_dir}/")
-  TARGET_LINK_LIBRARIES(${_target} PRIVATE IBAMR_EXECUTABLE2d)
-  ADD_DEPENDENCIES("tests-${_dir}" ${_target})
+  TARGET_LINK_LIBRARIES(${_target} PRIVATE EXECUTABLE2d)
+  ADD_DEPENDENCIES(tests-${_dir} ${_target})
 ENDMACRO()
 
 # Like the last one, but for 3d targets. For example, if the inputs are Foo and
@@ -85,7 +85,7 @@ MACRO(SETUP_3D _dir _src)
     ${_out_name}
     )
   TARGET_COMPILE_OPTIONS(${_target} PUBLIC -DSOURCE_DIR="${CMAKE_SOURCE_DIR}/tests/${_dir}/")
-  TARGET_LINK_LIBRARIES(${_target} PRIVATE IBAMR_EXECUTABLE3d)
+  TARGET_LINK_LIBRARIES(${_target} PRIVATE EXECUTABLE3d)
   ADD_DEPENDENCIES(tests-${_dir} ${_target})
 ENDMACRO()
 
@@ -158,7 +158,7 @@ SETUP(IB explicit_ex1 EXECUTABLE2d)
 
 # IBFE:
 IF(IBAMR_WITH_LIBMESH)
-  SETUP(IBFE interpolate_velocity_02.cpp IBAMR_EXECUTABLE2d)
+  SETUP(IBFE interpolate_velocity_02.cpp EXECUTABLE2d)
 
   SETUP_2D(IBFE explicit_ex0.cpp)
   SETUP_2D(IBFE explicit_ex1.cpp)
@@ -181,19 +181,19 @@ IF(IBAMR_WITH_LIBMESH)
 ENDIF()
 
 # IBTK:
-SETUP(IBTK hierarchy_callbacks IBAMR_EXECUTABLE2d)
-SETUP(IBTK ibtk_init.cpp IBAMR_EXECUTABLE2d)
-SETUP(IBTK ibtk_mpi.cpp IBAMR_EXECUTABLE2d)
-SETUP(IBTK ldata_01.cpp IBAMR_EXECUTABLE2d)
-SETUP(IBTK mpi_type_wrappers.cpp IBAMR_EXECUTABLE2d)
+SETUP(IBTK hierarchy_callbacks EXECUTABLE2d)
+SETUP(IBTK ibtk_init.cpp EXECUTABLE2d)
+SETUP(IBTK ibtk_mpi.cpp EXECUTABLE2d)
+SETUP(IBTK ldata_01.cpp EXECUTABLE2d)
+SETUP(IBTK mpi_type_wrappers.cpp EXECUTABLE2d)
 
 IF(IBAMR_WITH_LIBMESH)
-  SETUP(IBTK elem_hmax_01.cpp IBAMR_EXECUTABLE2d)
-  SETUP(IBTK elem_hmax_02.cpp IBAMR_EXECUTABLE3d)
-  SETUP(IBTK fe_values_01.cpp IBAMR_EXECUTABLE2d)
-  SETUP(IBTK fe_values_02.cpp IBAMR_EXECUTABLE2d)
-  SETUP(IBTK jacobian_calc_01.cpp IBAMR_EXECUTABLE2d)
-  SETUP(IBTK mapping_01.cpp IBAMR_EXECUTABLE2d)
+  SETUP(IBTK elem_hmax_01.cpp EXECUTABLE2d)
+  SETUP(IBTK elem_hmax_02.cpp EXECUTABLE3d)
+  SETUP(IBTK fe_values_01.cpp EXECUTABLE2d)
+  SETUP(IBTK fe_values_02.cpp EXECUTABLE2d)
+  SETUP(IBTK jacobian_calc_01.cpp EXECUTABLE2d)
+  SETUP(IBTK mapping_01.cpp EXECUTABLE2d)
 
   SETUP_2D(IBTK bounding_boxes_01.cpp)
 ENDIF()
