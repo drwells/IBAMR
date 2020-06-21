@@ -45,9 +45,39 @@ SET(CMAKE_POSITION_INDEPENDENT_CODE ON)
 #
 # 1: manage mandatory dependencies:
 #
-FIND_PACKAGE(Boost 1.57 REQUIRED)
 FIND_PACKAGE(MPI REQUIRED)
-FIND_PACKAGE(Eigen3 3.2.5 REQUIRED)
+
+# a couple of dependencies are also bundled
+FIND_PACKAGE(Boost 1.57 QUIET)
+IF(Boost_FOUND)
+  SET(IBAMR_USE_BUNDLED_Boost FALSE)
+  MESSAGE(STATUS "Found external boost ${Boost_VERSION} at ${Boost_DIR}")
+ELSE()
+  SET(IBAMR_USE_BUNDLED_Boost TRUE)
+  MESSAGE(STATUS "Setting up boost as a bundled dependency")
+  ADD_LIBRARY(BUNDLED_Boost INTERFACE)
+  TARGET_INCLUDE_DIRECTORIES(
+    BAMR_BUNDLED_Boost
+    INTERFACE $<BUILD_INTERFACE:${${PROJECT_NAME}_SOURCE_DIR}/ibtk/contrib/boost>
+    $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}/contrib/boost>)
+  INSTALL(DIRECTORY ${PROJECT_SOURCE_DIR}/ibtk/contrib/boost DESTINATION include/contrib)
+ENDIF()
+
+FIND_PACKAGE(Eigen3 3.2.5 QUIET)
+IF(Eigen3_FOUND)
+  SET(IBAMR_USE_BUNDLED_Eigen FALSE)
+  MESSAGE(STATUS "Found external Eigen ${Eigen_VERSION} at ${Eigen_DIR}")
+ELSE()
+  SET(IBAMR_USE_BUNDLED_Eigen TRUE)
+  MESSAGE(STATUS "Setting up Eigen as a bundled dependency")
+  ADD_LIBRARY(BUNDLED_Eigen INTERFACE)
+  TARGET_INCLUDE_DIRECTORIES(
+    BUNDLED_Eigen
+    INTERFACE $<BUILD_INTERFACE:${${PROJECT_NAME}_SOURCE_DIR}/ibtk/contrib/eigen>
+    $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}/contrib/eigen>)
+  INSTALL(DIRECTORY ${PROJECT_SOURCE_DIR}/ibtk/contrib/eigen/Eigen DESTINATION include/contrib)
+  INSTALL(DIRECTORY ${PROJECT_SOURCE_DIR}/ibtk/contrib/eigen/unsupported DESTINATION include/contrib)
+ENDIF()
 
 SET(HDF5_FIND_DEBUG TRUE)
 FIND_PACKAGE(HDF5 REQUIRED COMPONENTS C HL)
@@ -178,9 +208,17 @@ FUNCTION(IBAMR_SETUP_TARGET_LIBRARY target_library)
   TARGET_LINK_LIBRARIES(${target_library} PUBLIC "${HDF5_HL_LIBRARIES}")
   TARGET_INCLUDE_DIRECTORIES(${target_library} PUBLIC "${HDF5_INCLUDE_DIRS}")
   # we only need boost headers
-  TARGET_LINK_LIBRARIES(${target_library} PUBLIC Boost::headers)
+  IF(IBAMR_USE_BUNDLED_Boost)
+    TARGET_LINK_LIBRARIES(${target_library} PUBLIC BUNDLED_Boost)
+  ELSE()
+    TARGET_LINK_LIBRARIES(${target_library} PUBLIC Boost::headers)
+  ENDIF()
   # Eigen only has one target:
-  TARGET_LINK_LIBRARIES(${target_library} PUBLIC Eigen3::Eigen)
+  IF(IBAMR_USE_BUNDLED_Eigen)
+    TARGET_LINK_LIBRARIES(${target_library} PUBLIC BUNDLED_Eigen)
+  ELSE()
+    TARGET_LINK_LIBRARIES(${target_library} PUBLIC Eigen3::Eigen)
+  ENDIF()
   # muparser:
   TARGET_LINK_LIBRARIES(${target_library} PUBLIC PkgConfig::MUPARSER)
   # PETSc:
