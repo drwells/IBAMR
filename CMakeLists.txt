@@ -39,6 +39,9 @@ include(GNUInstallDirs)
 INCLUDE(CMakePackageConfigHelpers)
 LIST(APPEND CMAKE_MODULE_PATH ${CMAKE_SOURCE_DIR}/cmake/modules/)
 
+# we need this since SAMRAI is usually statically linked
+SET(CMAKE_POSITION_INDEPENDENT_CODE ON)
+
 #
 # 1: manage mandatory dependencies:
 #
@@ -57,10 +60,17 @@ SET(_samrai_library_suffixes "algs" "appu" "geom" "hier"
 # header files for both 2D and 3D. Rather than setting up each as a target, set
 # up our own 'header-only' target libraries that depend on SAMRAI libraries to
 # encapsulate them neatly:
-ADD_LIBRARY(IBAMR_SAMRAI2D INTERFACE)
-TARGET_INCLUDE_DIRECTORIES(IBAMR_SAMRAI2D INTERFACE "${SAMRAI_PREFIX}/include")
-ADD_LIBRARY(IBAMR_SAMRAI3D INTERFACE)
-TARGET_INCLUDE_DIRECTORIES(IBAMR_SAMRAI3D INTERFACE "${SAMRAI_PREFIX}/include")
+ADD_LIBRARY(IBAMR_SAMRAI2d INTERFACE IMPORTED)
+ADD_LIBRARY(IBAMR_SAMRAI3d INTERFACE IMPORTED)
+
+# there is also just libSAMRAI.a
+ADD_LIBRARY(SAMRAI UNKNOWN IMPORTED)
+FIND_LIBRARY(SAMRAI_path SAMRAI HINTS "${SAMRAI_PREFIX}/lib")
+MESSAGE(STATUS "found samrai library ${SAMRAI_path}")
+SET_TARGET_PROPERTIES(SAMRAI PROPERTIES IMPORTED_LOCATION ${SAMRAI_path})
+
+TARGET_LINK_LIBRARIES(IBAMR_SAMRAI2d INTERFACE SAMRAI)
+TARGET_LINK_LIBRARIES(IBAMR_SAMRAI3d INTERFACE SAMRAI)
 
 FOREACH(_d ${IBAMR_DIMENSIONS})
   FOREACH(_suffix ${_samrai_library_suffixes})
@@ -85,7 +95,7 @@ FOREACH(_d ${IBAMR_DIMENSIONS})
       )
 
     # add the library we just set up to the interface target:
-    TARGET_LINK_LIBRARIES("IBAMR_SAMRAI${_d}D" INTERFACE ${_lib_name})
+    TARGET_LINK_LIBRARIES("IBAMR_SAMRAI${_d}d" INTERFACE ${_lib_name})
   ENDFOREACH()
 ENDFOREACH()
 
@@ -159,6 +169,9 @@ FUNCTION(IBAMR_SETUP_TARGET_LIBRARY target_library)
   SET_PROPERTY(TARGET ${target_library} PROPERTY CXX_STANDARD 14)
   # we and our users will use these MPI functions so make the interface public:
   TARGET_LINK_LIBRARIES(${target_library} PUBLIC MPI::MPI_C)
+  IF(${IBAMR_WITH_LIBMESH})
+    TARGET_LINK_LIBRARIES(${target_library} PUBLIC MPI::MPI_CXX)
+  ENDIF()
   # same for HDF5:
   # todo: no nice target support yet for HDF5
   TARGET_LINK_LIBRARIES(${target_library} PUBLIC "${HDF5_LIBRARIES}")
@@ -183,12 +196,10 @@ FUNCTION(IBAMR_SETUP_TARGET_LIBRARY target_library)
   STRING(FIND "${target_library}" "2" _2_location)
   STRING(FIND "${target_library}" "3" _3_location)
 
-  # add the correct version of SAMRAI:
-  IF(NOT ${_2_location} STREQUAL "-1")
-    TARGET_LINK_LIBRARIES(${target_library} PUBLIC IBAMR_SAMRAI2D)
-  ELSEIF(NOT ${_3_location} STREQUAL "-1")
-    TARGET_LINK_LIBRARIES(${target_library} PUBLIC IBAMR_SAMRAI3D)
-  ENDIF()
+  # We cannot add SAMRAI to the link interface for our own libraries since
+  # SAMRAI doesn't necessarily compile with -fPIC: we will instead put it in a
+  # link interface for executables.
+  TARGET_INCLUDE_DIRECTORIES(${target_library} PUBLIC "${SAMRAI_PREFIX}/include")
 
   # add the right preprocessor flag:
   IF(NOT ${_2_location} STREQUAL "-1")
@@ -226,6 +237,26 @@ TARGET_INCLUDE_DIRECTORIES(
 INSTALL(DIRECTORY ${PROJECT_SOURCE_DIR}/include/ibamr DESTINATION include)
 INSTALL(DIRECTORY ${PROJECT_SOURCE_DIR}/ibtk/include/ibtk DESTINATION include)
 
+#
+# 3. Set up specific targets for executables and libraries that want to link to
+# IBAMR. As noted above, we have to do this since SAMRAI might not be compiled
+# with -fPIC: i.e., if we added SAMRAI as a link dependency to libIBTK and
+# libIBTK as a link dependency to libFoo, then the linker would encounter errors
+# as a result. With executables we can use the full link interface.
+#
+ADD_LIBRARY(IBAMR_EXECUTABLE2d INTERFACE)
+ADD_LIBRARY(IBAMR_EXECUTABLE3d INTERFACE)
+TARGET_LINK_LIBRARIES(IBAMR_EXECUTABLE2d INTERFACE IBAMR2d IBTK2d IBAMR_SAMRAI2d)
+TARGET_LINK_LIBRARIES(IBAMR_EXECUTABLE3d INTERFACE IBAMR3d IBTK3d IBAMR_SAMRAI3d)
+
+ADD_LIBRARY(IBAMR_LIBRARY2d INTERFACE)
+ADD_LIBRARY(IBAMR_LIBRARY3d INTERFACE)
+# no SAMRAI link instructions:
+TARGET_LINK_LIBRARIES(IBAMR_LIBRARY2d INTERFACE IBAMR2d IBTK2d)
+TARGET_LINK_LIBRARIES(IBAMR_LIBRARY3d INTERFACE IBAMR3d IBTK3d)
+
 # proceed to compilation units:
 ADD_SUBDIRECTORY(ibtk)
 ADD_SUBDIRECTORY(src)
+
+ADD_SUBDIRECTORY(tests)
