@@ -278,6 +278,9 @@ get_local_element_bounding_boxes(const libMesh::MeshBase& mesh,
             upper_bound(d) = -std::numeric_limits<double>::max();
         }
 
+        // TODO: fix this with nonactive elements
+        if (!(*el_it)->active()) continue;
+
         // 1. extract node locations
         const libMesh::Elem* const elem = *el_it;
         const unsigned int n_nodes = elem->n_nodes();
