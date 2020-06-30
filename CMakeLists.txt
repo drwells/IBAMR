@@ -23,14 +23,6 @@ PROJECT(IBAMR
   LANGUAGES C CXX Fortran)
 SET(IBAMR_DIMENSIONS "2" "3")
 
-
-#
-# -1. Hardcode some things that will ultimately be configuration options:
-#
-# set SAMRAI_DIR to the directory containing SAMRAI
-SET(PETSC_PREFIX "/home/drwells/Applications/petsc-3.13.0/x86_64-opt")
-SET(LIBMESH_PREFIX "/home/drwells/Applications/libmesh-dev")
-
 #
 # 0. set the stage:
 #
@@ -43,9 +35,20 @@ LIST(APPEND CMAKE_MODULE_PATH ${CMAKE_SOURCE_DIR}/cmake/modules/)
 # we need this since SAMRAI is usually statically linked
 SET(CMAKE_POSITION_INDEPENDENT_CODE ON)
 
+# print out the relevant command line arguments to make debugging easier
+SET(_dirs "SAMRAI_DIR" "PETSC_DIR" "LIBMESH_DIR")
+FOREACH(_dir ${_dirs})
+  IF("${${_dir}}" STREQUAL "")
+    MESSAGE(STATUS "${_dir} was not provided to CMake: default search paths will be used.")
+  ELSE()
+    MESSAGE(STATUS "${_dir}=${${_dir}}")
+  ENDIF()
+ENDFOREACH()
+
 #
 # 1: manage mandatory dependencies:
 #
+MESSAGE(STATUS "")
 MESSAGE(STATUS "Setting up MPI")
 FIND_PACKAGE(MPI REQUIRED)
 MESSAGE(STATUS "MPI_C_INCLUDE_DIRS: ${MPI_C_INCLUDE_DIRS}")
@@ -202,7 +205,7 @@ PKG_CHECK_MODULES(MUPARSER REQUIRED IMPORTED_TARGET GLOBAL muparser)
 
 MESSAGE(STATUS "")
 MESSAGE(STATUS "Setting up PETSc")
-LIST(PREPEND CMAKE_PREFIX_PATH "${PETSC_PREFIX}")
+LIST(PREPEND CMAKE_PREFIX_PATH "${PETSC_DIR}")
 PKG_CHECK_MODULES(PETSC IMPORTED_TARGET GLOBAL PETSc)
 LIST(POP_FRONT CMAKE_PREFIX_PATH)
 
@@ -211,7 +214,7 @@ LIST(POP_FRONT CMAKE_PREFIX_PATH)
 #
 MESSAGE(STATUS "")
 MESSAGE(STATUS "Setting up libMesh")
-LIST(PREPEND CMAKE_PREFIX_PATH "${LIBMESH_PREFIX}")
+LIST(PREPEND CMAKE_PREFIX_PATH "${LIBMESH_DIR}")
 PKG_CHECK_MODULES(LIBMESH IMPORTED_TARGET GLOBAL libmesh)
 # todo - set up variables correctly
 SET(IBAMR_WITH_LIBMESH TRUE)
