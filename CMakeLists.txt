@@ -82,6 +82,15 @@ ENDIF()
 SET(HDF5_FIND_DEBUG TRUE)
 FIND_PACKAGE(HDF5 REQUIRED COMPONENTS C HL)
 
+#
+# hypre:
+#
+MESSAGE(STATUS "")
+MESSAGE(STATUS "Setting up HYPRE")
+FIND_PATH(HYPRE_INCLUDE_DIRS NAMES HYPRE.h HINTS ${HYPRE_DIR}/include /usr/include/hypre)
+MESSAGE(STATUS "HYPRE_INCLUDE_DIRS: ${HYPRE_INCLUDE_DIRS}")
+FIND_LIBRARY(HYPRE_LIBRARIES NAMES HYPRE HINTS ${HYPRE_DIR}/lib)
+MESSAGE(STATUS "HYPRE_LIBRARIES: ${HYPRE_LIBRARIES}")
 # samrai 2.4.4 does not yet have a CMake module
 SET(_samrai_library_suffixes "algs" "appu" "geom" "hier"
   "math_std" "mesh" "pdat_std" "solv" "xfer")
@@ -207,6 +216,10 @@ FUNCTION(IBAMR_SETUP_TARGET_LIBRARY target_library)
   TARGET_LINK_LIBRARIES(${target_library} PUBLIC "${HDF5_LIBRARIES}")
   TARGET_LINK_LIBRARIES(${target_library} PUBLIC "${HDF5_HL_LIBRARIES}")
   TARGET_INCLUDE_DIRECTORIES(${target_library} PUBLIC "${HDF5_INCLUDE_DIRS}")
+  # similar for hypre
+  # todo: no nice target support yet for hypre
+  TARGET_LINK_LIBRARIES(${target_library} PUBLIC "${HYPRE_LIBRARIES}")
+  TARGET_INCLUDE_DIRECTORIES(${target_library} PUBLIC "${HYPRE_INCLUDE_DIRS}")
   # we only need boost headers
   IF(IBAMR_USE_BUNDLED_Boost)
     TARGET_LINK_LIBRARIES(${target_library} PUBLIC BUNDLED_Boost)
