@@ -23,6 +23,7 @@ PROJECT(IBAMR
   LANGUAGES C CXX Fortran)
 SET(IBAMR_DIMENSIONS "2" "3")
 
+
 #
 # -1. Hardcode some things that will ultimately be configuration options:
 #
@@ -45,13 +46,20 @@ SET(CMAKE_POSITION_INDEPENDENT_CODE ON)
 #
 # 1: manage mandatory dependencies:
 #
+MESSAGE(STATUS "Setting up MPI")
 FIND_PACKAGE(MPI REQUIRED)
+MESSAGE(STATUS "MPI_C_INCLUDE_DIRS: ${MPI_C_INCLUDE_DIRS}")
+MESSAGE(STATUS "MPI_C_LIBRARIES: ${MPI_C_LIBRARIES}")
 
-# a couple of dependencies are also bundled
-FIND_PACKAGE(Boost 1.57 QUIET)
+#
+# Boost, which may be bundled:
+#
+MESSAGE(STATUS "")
+MESSAGE(STATUS "Setting up Boost")
+FIND_PACKAGE(Boost 1.57)
 IF(Boost_FOUND)
   SET(IBAMR_USE_BUNDLED_Boost FALSE)
-  MESSAGE(STATUS "Found external boost ${Boost_VERSION} at ${Boost_DIR}")
+  MESSAGE(STATUS "Found external boost ${Boost_VERSION} at ${Boost_INCLUDE_DIRS}")
 ELSE()
   SET(IBAMR_USE_BUNDLED_Boost TRUE)
   MESSAGE(STATUS "Setting up boost as a bundled dependency")
@@ -63,10 +71,15 @@ ELSE()
   INSTALL(DIRECTORY ${PROJECT_SOURCE_DIR}/ibtk/contrib/boost DESTINATION include/contrib)
 ENDIF()
 
+#
+# Eigen, which may be bundled:
+#
+MESSAGE(STATUS "")
+MESSAGE(STATUS "Setting up Eigen")
 FIND_PACKAGE(Eigen3 3.2.5 QUIET)
 IF(Eigen3_FOUND)
   SET(IBAMR_USE_BUNDLED_Eigen FALSE)
-  MESSAGE(STATUS "Found external Eigen ${Eigen_VERSION} at ${Eigen_DIR}")
+  MESSAGE(STATUS "Found external Eigen ${Eigen3_VERSION} at ${EIGEN3_INCLUDE_DIRS}")
 ELSE()
   SET(IBAMR_USE_BUNDLED_Eigen TRUE)
   MESSAGE(STATUS "Setting up Eigen as a bundled dependency")
@@ -79,6 +92,11 @@ ELSE()
   INSTALL(DIRECTORY ${PROJECT_SOURCE_DIR}/ibtk/contrib/eigen/unsupported DESTINATION include/contrib)
 ENDIF()
 
+#
+# HDF5:
+#
+MESSAGE(STATUS "")
+MESSAGE(STATUS "Setting up HDF5")
 SET(HDF5_FIND_DEBUG TRUE)
 FIND_PACKAGE(HDF5 REQUIRED COMPONENTS C HL)
 
@@ -91,7 +109,13 @@ FIND_PATH(HYPRE_INCLUDE_DIRS NAMES HYPRE.h HINTS ${HYPRE_DIR}/include /usr/inclu
 MESSAGE(STATUS "HYPRE_INCLUDE_DIRS: ${HYPRE_INCLUDE_DIRS}")
 FIND_LIBRARY(HYPRE_LIBRARIES NAMES HYPRE HINTS ${HYPRE_DIR}/lib)
 MESSAGE(STATUS "HYPRE_LIBRARIES: ${HYPRE_LIBRARIES}")
+
+#
+# SAMRAI:
+#
 # samrai 2.4.4 does not yet have a CMake module
+MESSAGE(STATUS "")
+MESSAGE(STATUS "Setting up SAMRAI")
 SET(_samrai_library_suffixes "algs" "appu" "geom" "hier"
   "math_std" "mesh" "pdat_std" "solv" "xfer")
 
@@ -141,8 +165,15 @@ ENDFOREACH()
 #
 # 1.25: manage mandatory dependencies that have pkgconfig information:
 #
+MESSAGE(STATUS "")
 FIND_PACKAGE(PkgConfig REQUIRED)
+
+MESSAGE(STATUS "")
+MESSAGE(STATUS "Setting up muParser")
 PKG_CHECK_MODULES(MUPARSER REQUIRED IMPORTED_TARGET GLOBAL muparser)
+
+MESSAGE(STATUS "")
+MESSAGE(STATUS "Setting up PETSc")
 LIST(PREPEND CMAKE_PREFIX_PATH "${PETSC_PREFIX}")
 PKG_CHECK_MODULES(PETSC IMPORTED_TARGET GLOBAL PETSc)
 LIST(POP_FRONT CMAKE_PREFIX_PATH)
@@ -150,6 +181,8 @@ LIST(POP_FRONT CMAKE_PREFIX_PATH)
 #
 # 1.5: manage optional dependencies
 #
+MESSAGE(STATUS "")
+MESSAGE(STATUS "Setting up libMesh")
 LIST(PREPEND CMAKE_PREFIX_PATH "${LIBMESH_PREFIX}")
 PKG_CHECK_MODULES(LIBMESH IMPORTED_TARGET GLOBAL libmesh)
 # todo - set up variables correctly
@@ -263,6 +296,9 @@ FUNCTION(IBAMR_SETUP_TARGET_LIBRARY target_library)
     MESSAGE(STATUS "no NDIM preprocessor constant added to ${target_library}")
   ENDIF()
 ENDFUNCTION()
+
+MESSAGE(STATUS "")
+MESSAGE(STATUS "IBAMR dependencies have been successfully set up.")
 
 #
 # IBTK and IBAMR are compiled in 2D and 3D, but the headers are only installed
