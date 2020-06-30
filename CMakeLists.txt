@@ -27,7 +27,7 @@ SET(IBAMR_DIMENSIONS "2" "3")
 #
 # -1. Hardcode some things that will ultimately be configuration options:
 #
-SET(SAMRAI_PREFIX "/home/drwells/Applications/samrai-2.4.4")
+# set SAMRAI_DIR to the directory containing SAMRAI
 SET(PETSC_PREFIX "/home/drwells/Applications/petsc-3.13.0/x86_64-opt")
 SET(LIBMESH_PREFIX "/home/drwells/Applications/libmesh-dev")
 
@@ -126,12 +126,37 @@ SET(_samrai_library_suffixes "algs" "appu" "geom" "hier"
 ADD_LIBRARY(SAMRAI2d INTERFACE IMPORTED)
 ADD_LIBRARY(SAMRAI3d INTERFACE IMPORTED)
 
-# there is also just libSAMRAI.a
 ADD_LIBRARY(SAMRAI UNKNOWN IMPORTED)
-FIND_LIBRARY(SAMRAI_path SAMRAI HINTS "${SAMRAI_PREFIX}/lib")
-MESSAGE(STATUS "found samrai library ${SAMRAI_path}")
+FIND_LIBRARY(SAMRAI_path SAMRAI HINTS "${SAMRAI_DIR}/lib")
+IF("${SAMRAI_path}" STREQUAL "SAMRAI_path-NOTFOUND")
+  MESSAGE(FATAL_ERROR "\
+Unable to find a valid copy of SAMRAI: libSAMRAI does not appear to be a\
+ library in ${SAMRAI_DIR}/lib. Please verify that the value given to SAMRAI_DIR\
+ contains a valid installation of SAMRAI.")
+ENDIF()
+
+# samrai version info:
+FILE(STRINGS "${SAMRAI_DIR}/include/SAMRAI_config.h" SAMRAI_VERSION_MAJOR_LINE
+  REGEX "#define.*SAMRAI_VERSION_MAJOR")
+STRING(REGEX REPLACE "^.*SAMRAI_VERSION_MAJOR.* ([0-9]+).*" "\\1"
+  SAMRAI_VERSION_MAJOR "${SAMRAI_VERSION_MAJOR_LINE}"
+  )
+FILE(STRINGS "${SAMRAI_DIR}/include/SAMRAI_config.h" SAMRAI_VERSION_MINOR_LINE
+  REGEX "#define.*SAMRAI_VERSION_MINOR")
+STRING(REGEX REPLACE "^.*SAMRAI_VERSION_MINOR.* ([0-9]+).*" "\\1"
+  SAMRAI_VERSION_MINOR "${SAMRAI_VERSION_MINOR_LINE}"
+  )
+FILE(STRINGS "${SAMRAI_DIR}/include/SAMRAI_config.h" SAMRAI_VERSION_PATCHLEVEL_LINE
+  REGEX "#define.*SAMRAI_VERSION_PATCHLEVEL")
+STRING(REGEX REPLACE "^.*SAMRAI_VERSION_PATCHLEVEL.* ([0-9]+).*" "\\1"
+  SAMRAI_VERSION_PATCHLEVEL "${SAMRAI_VERSION_PATCHLEVEL_LINE}"
+  )
+SET(SAMRAI_VERSION_STRING "${SAMRAI_VERSION_MAJOR}.${SAMRAI_VERSION_MINOR}\
+.${SAMRAI_VERSION_PATCHLEVEL}")
+MESSAGE(STATUS "Found SAMRAI ${SAMRAI_VERSION_STRING} at ${SAMRAI_DIR}")
 SET_TARGET_PROPERTIES(SAMRAI PROPERTIES IMPORTED_LOCATION ${SAMRAI_path})
 
+# samrai libs:
 TARGET_LINK_LIBRARIES(SAMRAI2d INTERFACE SAMRAI)
 TARGET_LINK_LIBRARIES(SAMRAI3d INTERFACE SAMRAI)
 
@@ -146,9 +171,12 @@ FOREACH(_d ${IBAMR_DIMENSIONS})
     FIND_LIBRARY("${_lib_name}_path"
       ${_lib_name}
       HINTS
-      "${SAMRAI_PREFIX}/lib"
+      "${SAMRAI_DIR}/lib"
       )
-    MESSAGE(STATUS "found samrai library ${${_lib_name}_path}")
+    IF("${${_lib_name}_path}" STREQUAL "${_lib_name}-NOTFOUND")
+      MESSAGE(FATAL_ERROR("\
+Unable to find required library ${_lib_name} in directory ${SAMRAI_DIR}/lib"))
+    ENDIF()
 
     SET_TARGET_PROPERTIES(
       ${_lib_name}
@@ -216,7 +244,7 @@ MACRO(IBAMR_PROCESS_M4)
   GET_FILENAME_COMPONENT(_out_directory "${CMAKE_CURRENT_BINARY_DIR}/${arg_NAME}.f" DIRECTORY)
   FILE(MAKE_DIRECTORY ${_out_directory})
 
-  SET(_args "-DSAMRAI_FORTDIR=${SAMRAI_PREFIX}/include;-DCURRENT_SRCDIR=${_in_directory};-DTOP_SRCDIR=${CMAKE_SOURCE_DIR}")
+  SET(_args "-DSAMRAI_FORTDIR=${SAMRAI_DIR}/include;-DCURRENT_SRCDIR=${_in_directory};-DTOP_SRCDIR=${CMAKE_SOURCE_DIR}")
   SET(_input "${CMAKE_CURRENT_SOURCE_DIR}/${arg_NAME}.m4")
   SET(_output "${CMAKE_CURRENT_BINARY_DIR}/${arg_NAME}")
 
@@ -283,7 +311,7 @@ FUNCTION(IBAMR_SETUP_TARGET_LIBRARY target_library)
   # We cannot add SAMRAI to the link interface for our own libraries since
   # SAMRAI doesn't necessarily compile with -fPIC: we will instead put it in a
   # link interface for executables.
-  TARGET_INCLUDE_DIRECTORIES(${target_library} PUBLIC "${SAMRAI_PREFIX}/include")
+  TARGET_INCLUDE_DIRECTORIES(${target_library} PUBLIC "${SAMRAI_DIR}/include")
 
   # add the right preprocessor flag:
   IF(NOT ${_2_location} STREQUAL "-1")
