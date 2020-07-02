@@ -100,6 +100,58 @@ ELSE()
 ENDIF()
 
 #
+# muParser, which may be bundled:
+#
+MESSAGE(STATUS "")
+MESSAGE(STATUS "Setting up muParser")
+FIND_PATH(MUPARSER_INCLUDE_DIRS NAMES muParser.h HINTS ${MUPARSER_ROOT}/include /usr/include/)
+FIND_LIBRARY(MUPARSER_LIBRARIES NAMES muparser HINTS ${MUPARSER_ROOT}/lib /usr/lib)
+IF("${MUPARSER_INCLUDE_DIRS}" STREQUAL "MUPARSER_INCLUDE_DIRS-NOTFOUND" OR
+   "${MUPARSER_LIBRARIES}" STREQUAL "MUPARSER_LIBRARIES-NOTFOUND")
+  SET(IBAMR_USE_BUNDLED_muParser TRUE)
+  MESSAGE(STATUS "Setting up muParser as a bundled dependency")
+  ADD_LIBRARY(BUNDLED_muParser SHARED)
+  TARGET_INCLUDE_DIRECTORIES(
+    BUNDLED_muParser
+    PUBLIC $<BUILD_INTERFACE:${${PROJECT_NAME}_SOURCE_DIR}/ibtk/contrib/muparser/include>
+    $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}/contrib/muparser>)
+
+  TARGET_SOURCES(BUNDLED_muParser
+    PRIVATE
+    ${CMAKE_SOURCE_DIR}/ibtk/contrib/muparser/src/muParser.cpp
+    ${CMAKE_SOURCE_DIR}/ibtk/contrib/muparser/src/muParserBase.cpp
+    ${CMAKE_SOURCE_DIR}/ibtk/contrib/muparser/src/muParserBytecode.cpp
+    ${CMAKE_SOURCE_DIR}/ibtk/contrib/muparser/src/muParserCallback.cpp
+    ${CMAKE_SOURCE_DIR}/ibtk/contrib/muparser/src/muParserDLL.cpp
+    ${CMAKE_SOURCE_DIR}/ibtk/contrib/muparser/src/muParserError.cpp
+    ${CMAKE_SOURCE_DIR}/ibtk/contrib/muparser/src/muParserInt.cpp
+    ${CMAKE_SOURCE_DIR}/ibtk/contrib/muparser/src/muParserTest.cpp
+    ${CMAKE_SOURCE_DIR}/ibtk/contrib/muparser/src/muParserTokenReader.cpp)
+
+  INSTALL(FILES
+    ${CMAKE_SOURCE_DIR}/ibtk/contrib/muparser/include/muParser.h
+    ${CMAKE_SOURCE_DIR}/ibtk/contrib/muparser/include/muParserBase.h
+    ${CMAKE_SOURCE_DIR}/ibtk/contrib/muparser/include/muParserBytecode.h
+    ${CMAKE_SOURCE_DIR}/ibtk/contrib/muparser/include/muParserCallback.h
+    ${CMAKE_SOURCE_DIR}/ibtk/contrib/muparser/include/muParserDLL.h
+    ${CMAKE_SOURCE_DIR}/ibtk/contrib/muparser/include/muParserDef.h
+    ${CMAKE_SOURCE_DIR}/ibtk/contrib/muparser/include/muParserError.h
+    ${CMAKE_SOURCE_DIR}/ibtk/contrib/muparser/include/muParserFixes.h
+    ${CMAKE_SOURCE_DIR}/ibtk/contrib/muparser/include/muParserInt.h
+    ${CMAKE_SOURCE_DIR}/ibtk/contrib/muparser/include/muParserStack.h
+    ${CMAKE_SOURCE_DIR}/ibtk/contrib/muparser/include/muParserTemplateMagic.h
+    ${CMAKE_SOURCE_DIR}/ibtk/contrib/muparser/include/muParserTest.h
+    ${CMAKE_SOURCE_DIR}/ibtk/contrib/muparser/include/muParserToken.h
+    ${CMAKE_SOURCE_DIR}/ibtk/contrib/muparser/include/muParserTokenReader.h
+    DESTINATION include/contrib/muparser)
+  INSTALL(TARGETS BUNDLED_muParser)
+ELSE()
+  SET(IBAMR_USE_BUNDLED_muParser FALSE)
+  MESSAGE(STATUS "MUPARSER_INCLUDE_DIRS: ${MUPARSER_INCLUDE_DIRS}")
+  MESSAGE(STATUS "MUPARSER_LIBRARIES: ${MUPARSER_LIBRARIES}")
+ENDIF()
+
+#
 # HDF5:
 #
 MESSAGE(STATUS "")
@@ -193,12 +245,6 @@ ENDFOREACH()
 #
 MESSAGE(STATUS "")
 FIND_PACKAGE(PkgConfig REQUIRED)
-
-MESSAGE(STATUS "")
-MESSAGE(STATUS "Setting up muParser")
-LIST(PREPEND CMAKE_PREFIX_PATH "${MUPARSER_ROOT}")
-PKG_CHECK_MODULES(MUPARSER REQUIRED IMPORTED_TARGET GLOBAL muparser)
-LIST(POP_FRONT CMAKE_PREFIX_PATH)
 
 MESSAGE(STATUS "")
 MESSAGE(STATUS "Setting up PETSc")
@@ -309,7 +355,13 @@ FUNCTION(IBAMR_SETUP_TARGET_LIBRARY target_library)
     TARGET_LINK_LIBRARIES(${target_library} PUBLIC Eigen3::Eigen)
   ENDIF()
   # muparser:
-  TARGET_LINK_LIBRARIES(${target_library} PUBLIC PkgConfig::MUPARSER)
+  IF(IBAMR_USE_BUNDLED_muParser)
+    TARGET_LINK_LIBRARIES(${target_library} PUBLIC BUNDLED_muParser)
+  ELSE()
+    # todo: no nice target support yet for muParser
+    TARGET_LINK_LIBRARIES(${target_library} PUBLIC "${MUPARSER_LIBRARIES}")
+    TARGET_INCLUDE_DIRECTORIES(${target_library} PUBLIC "${MUPARSER_INCLUDE_DIRS}")
+  ENDIF()
   # PETSc:
   TARGET_LINK_LIBRARIES(${target_library} PUBLIC PkgConfig::PETSC)
   # libMesh:
