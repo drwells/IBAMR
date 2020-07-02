@@ -216,10 +216,7 @@ TARGET_LINK_LIBRARIES(SAMRAI3d INTERFACE SAMRAI)
 FOREACH(_d ${IBAMR_DIMENSIONS})
   FOREACH(_suffix ${_samrai_library_suffixes})
     SET(_lib_name "SAMRAI${_d}d_${_suffix}")
-    ADD_LIBRARY(
-      ${_lib_name}
-      UNKNOWN # library type (though its currently always static)
-      IMPORTED)
+    ADD_LIBRARY( ${_lib_name} UNKNOWN IMPORTED)
 
     FIND_LIBRARY("${_lib_name}_path" ${_lib_name} REQUIRED
       HINTS "${SAMRAI_ROOT}/lib")
@@ -390,9 +387,11 @@ FUNCTION(IBAMR_SETUP_TARGET_LIBRARY target_library)
   IF(NOT ${_2_location} STREQUAL "-1")
     MESSAGE(STATUS "Adding flag -DNDIM=2 to target ${target_library}")
     TARGET_COMPILE_OPTIONS(${target_library} PUBLIC -DNDIM=2)
+  TARGET_LINK_LIBRARIES(${target_library} PUBLIC SAMRAI2d)
   ELSEIF(NOT ${_3_location} STREQUAL "-1")
     MESSAGE(STATUS "Adding flag -DNDIM=3 to target ${target_library}")
     TARGET_COMPILE_OPTIONS(${target_library} PUBLIC -DNDIM=3)
+  TARGET_LINK_LIBRARIES(${target_library} PUBLIC SAMRAI3d)
   ELSE()
     MESSAGE(STATUS "no NDIM preprocessor constant added to ${target_library}")
   ENDIF()
