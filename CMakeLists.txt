@@ -325,6 +325,7 @@ FUNCTION(IBAMR_SETUP_TARGET_LIBRARY target_library)
   MESSAGE(STATUS "setting up target ${target_library}")
   # we need C++11 (todo: libMesh assumes C++14 so this is temporarily wrong)
   SET_PROPERTY(TARGET ${target_library} PROPERTY CXX_STANDARD 14)
+  TARGET_COMPILE_FEATURES(${target_library} PUBLIC cxx_std_14)
   # we and our users will use these MPI functions so make the interface public:
   TARGET_LINK_LIBRARIES(${target_library} PUBLIC MPI::MPI_C)
   IF(${IBAMR_WITH_LIBMESH})
