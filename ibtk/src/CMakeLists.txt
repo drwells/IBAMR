@@ -200,7 +200,7 @@ SET(CXX_SRC
   utilities/PartitioningBox.cpp
   )
 
-IF(IBAMR_WITH_LIBMESH)
+IF(IBAMR_HAVE_LIBMESH)
   LIST(APPEND CXX_SRC
     # lagrangian
     lagrangian/BoxPartitioner.cpp
