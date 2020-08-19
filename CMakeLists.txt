@@ -15,9 +15,17 @@
 # config info
 #
 CMAKE_MINIMUM_REQUIRED(VERSION 3.15.0)
+FILE(STRINGS "${CMAKE_SOURCE_DIR}/VERSION" _version LIMIT_COUNT 1)
+STRING(REGEX REPLACE "^([0-9]+)\\..*" "\\1" IBTK_VERSION_MAJOR "${_version}")
+
+STRING(REGEX REPLACE "^[0-9]+\\.([0-9]+).*" "\\1" IBTK_VERSION_MINOR "${_version}")
+STRING(REGEX REPLACE "^[0-9]+\\.[0-9]+\\.([0-9]+).*" "\\1" IBTK_VERSION_SUBMINOR "${_version}")
+SET(IBTK_VERSION ${IBTK_VERSION_MAJOR}.${IBTK_VERSION_MINOR}.${IBTK_VERSION_SUBMINOR})
+SET(IBAMR_VERSION ${IBTK_VERSION})
+
 PROJECT(IBAMR
-  VERSION 1.0.0
   DESCRIPTION "Software infrastructure for the IB method with adaptively-refined grids"
+  VERSION ${IBAMR_VERSION}
   HOMEPAGE_URL "https://ibamr.github.io"
   # include C so that we can link against C libraries (e.g., MPI::MPI_C) easily
   LANGUAGES C CXX Fortran)
@@ -31,6 +39,37 @@ MESSAGE(STATUS "")
 include(GNUInstallDirs)
 INCLUDE(CMakePackageConfigHelpers)
 LIST(APPEND CMAKE_MODULE_PATH ${CMAKE_SOURCE_DIR}/cmake/modules/)
+
+# determine some details about the current Fortran compiler:
+INCLUDE(FortranCInterface)
+IF("${FortranCInterface_GLOBAL_CASE}" STREQUAL "LOWER")
+  SET(_name "name")
+ELSE()
+  SET(_name "NAME")
+ENDIF()
+STRING(JOIN " ## " IBTK_FC_FUNC ${FortranCInterface_GLOBAL_PREFIX} ${_name}
+  ${FortranCInterface_GLOBAL_SUFFIX})
+
+IF("${FortranCInterface_GLOBAL__CASE}" STREQUAL "LOWER")
+  SET(_name "name")
+ELSE()
+  SET(_name "NAME")
+ENDIF()
+STRING(JOIN " ## " IBTK_FC_FUNC_ ${FortranCInterface_GLOBAL__PREFIX} ${_name}
+  ${FortranCInterface_GLOBAL__SUFFIX})
+
+# also look for a compatible _Pragma implementation:
+INCLUDE(CheckCXXSourceCompiles)
+CHECK_CXX_SOURCE_COMPILES(
+  "
+  _Pragma(\"GCC diagnostic push\")
+  _Pragma(\"GCC diagnostic ignored \\\\\\\"-Wunknown-pragmas\\\\\\\"\")
+  _Pragma(\"GCC diagnostic ignored \\\\\\\"-Wpragmas\\\\\\\"\")
+  _Pragma(\"GCC diagnostic ignored \\\\\\\"-Wextra\\\\\\\"\")
+  _Pragma(\"GCC diagnostic pop\")
+  int main() {}
+  "
+  IBTK_HAVE_PRAGMA_KEYWORD)
 
 # we need this since SAMRAI is usually statically linked
 SET(CMAKE_POSITION_INDEPENDENT_CODE ON)
@@ -296,6 +335,14 @@ ENDIF()
 #
 # 2: IBAMR-specific configuration:
 #
+
+# generate the configuration header. Define a few more things for IBTK.
+SET(IBTK_HAVE_LIBMESH ${IBAMR_HAVE_LIBMESH})
+SET(IBTK_HAVE_SILO ${IBAMR_HAVE_SILO})
+CONFIGURE_FILE(${CMAKE_SOURCE_DIR}/ibtk/include/ibtk/config.h.in
+  ${CMAKE_BINARY_DIR}/ibtk/include/ibtk/config.h)
+INSTALL(FILES ${CMAKE_BINARY_DIR}/ibtk/include/ibtk/config.h
+  DESTINATION include/ibtk/)
 
 # Macro to process m4 files to generate Fortran
 INCLUDE(CMakeParseArguments)
