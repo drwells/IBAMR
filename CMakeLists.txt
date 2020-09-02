@@ -78,8 +78,9 @@ SET(CMAKE_POSITION_INDEPENDENT_CODE ON)
 #
 # With modern CMake, each find module uses the environment variable ending in
 # _ROOT to look for an installation.
-SET(_roots "Boost_ROOT" "Eigen3_ROOT" "HDF5_ROOT" "HYPRE_ROOT" "LIBMESH_ROOT"
-  "MUPARSER_ROOT" "MPI_ROOT" "PETSC_ROOT" "SAMRAI_ROOT" "SILO_ROOT" "ZLIB_ROOT")
+SET(_roots "Boost_ROOT" "Eigen3_ROOT" "GSL_ROOT" "HDF5_ROOT" "HYPRE_ROOT"
+  "LIBMESH_ROOT" "MUPARSER_ROOT" "MPI_ROOT" "PETSC_ROOT" "SAMRAI_ROOT"
+  "SILO_ROOT" "ZLIB_ROOT")
 FOREACH(_root ${_roots})
   IF("${${_root}}" STREQUAL "")
     MESSAGE(STATUS "${_root} was not provided to CMake: default search paths will be used.")
@@ -331,6 +332,15 @@ IF(NOT "${SILO_LIBRARIES}" STREQUAL "SILO_LIBRARIES-NOTFOUND" AND
   FIND_PACKAGE(ZLIB REQUIRED)
 ENDIF()
 
+MESSAGE(STATUS "")
+MESSAGE(STATUS "Setting up GSL")
+SET(IBAMR_HAVE_GSL FALSE)
+# GSL has not yet been updated to the modern convention so help it
+SET(GSL_ROOT_DIR GSL_ROOT)
+FIND_PACKAGE(GSL)
+IF(GSL_FOUND)
+  SET(IBAMR_HAVE_GSL TRUE)
+ENDIF()
 
 #
 # 2: IBAMR-specific configuration:
@@ -502,3 +512,4 @@ ADD_SUBDIRECTORY(ibtk)
 ADD_SUBDIRECTORY(src)
 
 ADD_SUBDIRECTORY(tests)
+ADD_SUBDIRECTORY(examples)
