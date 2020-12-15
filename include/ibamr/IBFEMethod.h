@@ -162,8 +162,8 @@ class IBFEDirectForcingKinematics;
  *   the previous entry.</li>
  *   <li><code>interp_use_nodal_quadrature</code>: Whether or not nodal
  *   quadrature should be used, which is essentially interpolation instead of
- *   projection. This is an experimental feature. Defaults to
- *   <code>FALSE</code>.</li>
+ *   projection. This is an experimental feature and is not available for
+ *   serendipity elements. Defaults to <code>FALSE</code>.</li>
  *   <li><code>spread_use_nodal_quadrature</code>: Same as above, but for spreading.
  *   <li><code>IB_use_nodal_quadrature</code>: overriding alias for the two previous
  *   entries - has the same default.</li>
