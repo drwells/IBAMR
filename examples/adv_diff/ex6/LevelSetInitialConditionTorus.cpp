@@ -64,7 +64,9 @@ LevelSetInitialConditionTorus::setDataOnPatch(const int data_idx,
                 coord[d] = patch_X_lower[d] + patch_dx[d] * (static_cast<double>(ci(d) - patch_lower_idx(d)) + 0.5);
             }
             p = coord - d_origin;
-            IBTK::Vector2d p_xz(p[0], p[2]);
+            // To make this compile in 2D and 3D we need to access the last
+            // element of p
+            IBTK::Vector2d p_xz(p[0], p[NDIM - 1]);
             q << p_xz.norm() - d_t[0], p[1];
             (*D_data)(ci) = (q.norm() - d_t[1]);
         }
