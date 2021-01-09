@@ -641,8 +641,6 @@ FEProjector::computeL2Projection(PetscVector<double>& U_vec,
     {
         std::pair<PetscLinearSolver<double>*, PetscMatrix<double>*> proj_solver_components =
             consistent_mass_matrix ? buildL2ProjectionSolver(system_name) : buildLumpedL2ProjectionSolver(system_name);
-        // always use the lumped matrix as the preconditioner:
-        PetscMatrix<double>& lumped_mass = *buildLumpedL2ProjectionSolver(system_name).second;
         PetscLinearSolver<double>* solver = proj_solver_components.first;
         PetscMatrix<double>* M_mat = proj_solver_components.second;
         PetscBool rtol_set;
@@ -661,7 +659,7 @@ FEProjector::computeL2Projection(PetscVector<double>& U_vec,
 
         fischer_guess.guess(U_vec, F_vec);
         solver->solve(
-            *M_mat, lumped_mass, U_vec, F_vec, rtol_set ? runtime_rtol : tol, max_it_set ? runtime_max_it : max_its);
+            *M_mat, *M_mat, U_vec, F_vec, rtol_set ? runtime_rtol : tol, max_it_set ? runtime_max_it : max_its);
         KSPConvergedReason reason;
         ierr = KSPGetConvergedReason(solver->ksp(), &reason);
         IBTK_CHKERRQ(ierr);
