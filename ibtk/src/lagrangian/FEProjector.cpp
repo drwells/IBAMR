@@ -89,22 +89,8 @@ get_dirichlet_bdry_ids(const std::vector<boundary_id_type>& bdry_ids)
 /////////////////////////////// PUBLIC ///////////////////////////////////////
 
 FEProjector::FEProjector(EquationSystems* equation_systems, const Pointer<Database>& input_db)
-    : d_fe_data(new FEData("FEProjector", *equation_systems, /*register_for_restart*/ false)),
-      d_enable_logging(input_db->getBoolWithDefault("enable_logging", false)),
-      d_num_fischer_vectors(input_db->getIntegerWithDefault("num_fischer_vectors", 5))
+    : FEProjector(std::make_shared<FEData>("FEProjector", *equation_systems, /*register_for_restart*/ false), input_db)
 {
-    IBTK_DO_ONCE(t_build_L2_projection_solver =
-                     TimerManager::getManager()->getTimer("IBTK::FEProjector::buildL2ProjectionSolver()");
-                 t_build_lumped_L2_projection_solver =
-                     TimerManager::getManager()->getTimer("IBTK::FEProjector::buildLumpedL2ProjectionSolver()");
-                 t_build_stab_L2_projection_solver =
-                     TimerManager::getManager()->getTimer("IBTK::FEProjector::buildStabilizedL2ProjectionSolver()");
-                 t_build_diag_L2_mass_matrix =
-                     TimerManager::getManager()->getTimer("IBTK::FEProjector::buildDiagonalL2MassMatrix()");
-                 t_compute_L2_projection =
-                     TimerManager::getManager()->getTimer("IBTK::FEProjector::computeL2Projection()");
-                 t_compute_stab_L2_projection =
-                     TimerManager::getManager()->getTimer("IBTK::FEProjector::computeStabilizedL2Projection()");)
 }
 
 FEProjector::FEProjector(std::shared_ptr<FEData> fe_data, const Pointer<Database>& input_db)
