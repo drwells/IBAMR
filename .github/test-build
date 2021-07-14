@@ -1,7 +1,8 @@
 #!/bin/sh
+set -eou pipefail
 
 # Remember where we started; this is where our source checkout lives.
-src=`pwd`
+src=$(pwd)
 
 # Load the module command and use it to load MPI.
 . /etc/profile.d/modules.sh
@@ -20,13 +21,20 @@ echo "::endgroup::"
 mkdir /bld
 cd /bld
 echo "::group::Configure"
+# In some basic profiling I measured that running the test suite with 4 cores
+# takes 18 minutes with -O3 -march=native and 19 minutes with O1. Hence compile
+# C++ with lower optimization. Fortran is orders of magnitude faster to compile
+# than C++ so keep it at O3.
+#
+# Since the environment is virtual we get a lot of illegal instruction errors
+# with -march=native so that must be disabled as well.
 cmake \
   -DCMAKE_C_COMPILER_LAUNCHER:STRING=sccache \
   -DCMAKE_CXX_COMPILER_LAUNCHER:STRING=sccache \
   -DCMAKE_Fortran_COMPILER_LAUNCHER:STRING=sccache \
-  -DCMAKE_C_FLAGS="-O3 -march=native" \
-  -DCMAKE_CXX_FLAGS="-O3 -march=native" \
-  -DCMAKE_Fortran_FLAGS="-O3 -march=native" \
+  -DCMAKE_C_FLAGS="-O1" \
+  -DCMAKE_CXX_FLAGS="-O1" \
+  -DCMAKE_Fortran_FLAGS="-O3" \
   -DCMAKE_INSTALL_PREFIX=/ibamr \
   -DSAMRAI_ROOT=/samrai \
   -DLIBMESH_ROOT=/libmesh \
@@ -34,7 +42,7 @@ cmake \
   -DPETSC_ROOT=/petsc/x86_64 \
   -DHYPRE_ROOT=/petsc/x86_64 \
   -DNUMDIFF_ROOT=/numdiff \
-  ${src}
+  "${src}"
 echo "::endgroup::"
 echo "::group::Build"
 time make -j4
@@ -44,14 +52,20 @@ echo "::group::Test install"
 time make -j4 install
 echo "::endgroup::"
 echo "::group::Build tests"
-time (cd tests; make -j4 tests)
+time make -j4 tests
 sccache -s
 echo "::endgroup::"
 echo "::group::Run tests"
-echo "Tests disabled until hanging tests are fixed."
-time ${src}/attest \
-  --mpi-executable `which mpiexec` \
-  --numdiff-executable /numdiff/bin/numdiff \
-  --test-directory=/tests \
-  -j2
+export PYTHONUNBUFFERED='yes'
+# due to limited computational resources we need to disable most parallel tests.
+# Also disable ones that are somewhat slow (take more than 30s on my 4-core
+# workstation with mpirun=8)
+disabled_tests="mpirun"
+disabled_tests="${disabled_tests}|explicit_ex8_2d.scratch_hier.input"
+disabled_tests="${disabled_tests}|explicit_ex2_3d.nodal_quadrature.input"
+disabled_tests="${disabled_tests}|explicit_ex8_2d.input"
+disabled_tests="${disabled_tests}|nwt_cylinder|rotating_barge|cib_double_shell"
+disabled_tests="${disabled_tests}|free_falling_cyl_cib|cib_plate"
+disabled_tests="${disabled_tests}|restart"
+time ./attest -j4 --verbose --test-timeout=120 -E "${disabled_tests}"
 echo "::endgroup::"
