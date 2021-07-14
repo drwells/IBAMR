@@ -60,7 +60,7 @@ export PYTHONUNBUFFERED='yes'
 # due to limited computational resources we need to disable most parallel tests.
 # Also disable ones that are somewhat slow (take more than 30s on my 4-core
 # workstation with mpirun=8)
-disabled_tests="mpirun"
+disabled_tests="mpirun=[3-9]"
 disabled_tests="${disabled_tests}|explicit_ex8_2d.scratch_hier.input"
 disabled_tests="${disabled_tests}|explicit_ex2_3d.nodal_quadrature.input"
 disabled_tests="${disabled_tests}|explicit_ex8_2d.input"
