@@ -594,8 +594,10 @@ def main():
                             n_processors <= test.n_mpi_processes())):
                     test = unstarted_tests.pop(index)
                     test_n = n_tests - len(unstarted_tests)
-                    print(fraction_template.format(test_n),
-                          "starting test", test.name())
+                    with result_update_lock:
+                        # avoid mangling output
+                        print(fraction_template.format(test_n),
+                            "starting test", test.name())
                     future = executor.submit(test.run)
                     future.add_done_callback(deal_with_result)
                     processors_in_use += test.n_mpi_processes()
