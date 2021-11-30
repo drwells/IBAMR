@@ -27712,6 +27712,16 @@ if test "x$ac_cv_header_muParser_h" = xyes; then :
   HAVE_MUPARSER=yes
   LDFLAGS="$MUPARSER_LDFLAGS $LDFLAGS"
 
+  # set up rpath
+
+
+  if test "$enable_rpath" = yes; then
+    libdir=${MUPARSER_DIR}/lib
+    rpath_path=$(eval echo "$acl_cv_hardcode_libdir_flag_spec")
+    LDFLAGS=""$rpath_path" $LDFLAGS"
+
+  fi
+
 
 
 

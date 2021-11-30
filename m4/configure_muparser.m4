@@ -40,6 +40,8 @@ $as_unset ac_cv_header_muParser_h
 AC_CHECK_HEADER([muParser.h],[
   HAVE_MUPARSER=yes
   LDFLAGS_PREPEND($MUPARSER_LDFLAGS)
+  # set up rpath
+  ADD_RPATH_LDFLAG(${MUPARSER_DIR}/lib)
   AC_LIB_HAVE_LINKFLAGS([muparser])
   if test "$HAVE_LIBMUPARSER" = no ; then
     AC_LIB_HAVE_LINKFLAGS([muParser])

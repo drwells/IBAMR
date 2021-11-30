@@ -1,0 +1,4 @@
+Fixed: The autotools-based build system now works correctly if muParser is installed in an unusual directory.
+<br>
+(David Wells, 2021/11/30)
+
