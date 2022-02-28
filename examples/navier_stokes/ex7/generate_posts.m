@@ -52,6 +52,3 @@ X(2) = 0.08/2; %(x,y) coordinates which place the cilium in the center of the do
 end
 
 fclose(vertex_fid);
-
-
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
