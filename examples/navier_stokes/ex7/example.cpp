@@ -368,7 +368,7 @@ main(int argc, char* argv[])
             pout << "+++++++++++++++++++++++++++++++++++++++++++++++++++\n";
             pout << "\n";
 
-            ofstream fout("Coordinates.txt", ios::app);
+            std::ofstream fout("Coordinates.txt", std::ios::app);
 
             const int finest_ln = patch_hierarchy->getFinestLevelNumber();
             Pointer<LData> X_data = ib_method_ops->getLDataManager()->getLData("X", finest_ln);
