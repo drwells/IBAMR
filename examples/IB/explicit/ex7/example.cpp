@@ -24,7 +24,7 @@
 #include <ibamr/AdvDiffSemiImplicitHierarchyIntegrator.h>
 #include <ibamr/IBExplicitHierarchyIntegrator.h>
 #include <ibamr/IBMethod.h>
-#include <ibamr/IBStandardForceGen.h>
+#include <ibamr/IBStandardForceGen.h>U
 #include <ibamr/IBStandardInitializer.h>
 #include <ibamr/IBTargetPointForceSpec.h>
 #include <ibamr/INSCollocatedHierarchyIntegrator.h>
@@ -76,9 +76,7 @@ update_target_points(const Pointer<PatchHierarchy<NDIM> >& hierarchy,
         l_data_manager->getLagrangianStructureIndexRange(post_struct_id, finest_ln);
     Pointer<LMesh> mesh = l_data_manager->getLMesh(finest_ln);
 
-    // BEG comment: I think this might be overkill --- I think we can get away with only updating the local nodes.
-    // However, I also think there is no harm in updating the ghost nodes here as well.  So, let's just update
-    // everything for now because we just want this to work, and it shouldn't be that much more expensive.
+    //update both the local and ghost nodes. 
     const std::vector<LNode*>& local_nodes = mesh->getLocalNodes();
     const std::vector<LNode*>& ghost_nodes = mesh->getGhostNodes();
     std::vector<LNode*> all_nodes = local_nodes;
@@ -97,10 +95,7 @@ update_target_points(const Pointer<PatchHierarchy<NDIM> >& hierarchy,
             // needs to be taken into account here.
             //
             // This works because we DO NOT change the value of X[2]!
-            //
-            // Also note that if the post is not initialized in the "leaning" configuration, then these forces will act
-            // to "stretch" out the posts.  We could try to account for that here, but it is simplest to initialize the
-            // post configuration (in the .vertex file) in the leaning configuration consistent with this forcing.
+
             double h = X_target[2];
             if (h > sqrt(std::numeric_limits<double>::epsilon()))
             {
@@ -153,7 +148,6 @@ main(int argc, char* argv[])
         {
             Utilities::recursiveMkdir(postproc_data_dump_dirname);
         }
-
         const bool dump_timer_data = app_initializer->dumpTimerData();
         const int timer_dump_interval = app_initializer->getTimerDumpInterval();
 
@@ -326,7 +320,6 @@ main(int argc, char* argv[])
             pout << "\nWriting restart files...\n\n";
             RestartManager::getManager()->writeRestartFile(restart_dump_dirname, 0);
         }
-
         // Write out initial visualization data.
         int iteration_num = time_integrator->getIntegratorStep();
         double loop_time = time_integrator->getIntegratorTime();
@@ -337,7 +330,7 @@ main(int argc, char* argv[])
             visit_data_writer->writePlotData(patch_hierarchy, iteration_num, loop_time);
             silo_data_writer->writePlotData(iteration_num, loop_time);
         }
-
+        
         // Create Text File which Stores the locations of each IB point
 
         ofstream fout("Coordinates.txt", ios::out);
@@ -355,16 +348,9 @@ main(int argc, char* argv[])
             pout << "At beginning of timestep # " << iteration_num << "\n";
             pout << "Simulation time is " << loop_time << "\n";
 
-#if 0
-                        IBTK::Vector F;
-                        F(0) = post_force * cos(loop_time * rot_frequency * 2.0 * M_PI);
-                        F(1) = post_force * sin(loop_time * rot_frequency * 2.0 * M_PI);
-                        F(2) = 0.0;
-                        pout << F << "\n";
-                        ib_force_fcn->setUniformBodyForce(F, /*structure_id*/ 0, patch_hierarchy->getFinestLevelNumber());
-#else
+
             update_target_points(patch_hierarchy, ib_method_ops->getLDataManager(), loop_time, dt);
-#endif
+
 
             dt = time_integrator->getMaximumTimeStepSize();
             time_integrator->advanceHierarchy(dt);

@@ -4,10 +4,10 @@ ASPECT_RATIO_X = 1.0                           // ratio of computational domain 
 ASPECT_RATIO_Y = 1.0                           // ratio of computational domain width  and characteristic linear dimension (dimensionless)
 ASPECT_RATIO_Z = 0.25                          // ratio of computational domain height and characteristic linear dimension (dimensionless)
 MU  = 0.01                                     // fluid dynamic viscosity (P)
-RHO = 1.0                                      // fluid mass density (gm cm^{-3})
-D = 1.0e-3                                     // diffusion coefficient (cm^2 s^{-1}) [chosen arbitrarily!!!!]
-ROT_FREQUENCY = 1.0/0.006                    // rotations per second (s^{-1}) [based on email from Karelyn Kremer dated 2021.01.28]
-POST_FORCE = 0.029e-5                            // force on each point of each post (dyne) [from Email with Boyce and Katelyn]
+RHO = 1.0                                      // fluid mass density (gm cm^{-3}) (corresponds to that of water)
+D = 1.0e-3                                     // diffusion coefficient (cm^2 s^{-1}) 
+ROT_FREQUENCY = 1.0/0.006                    // rotations per second (s^{-1}) 
+
 
 // grid spacing parameters
 MAX_LEVELS = 3                                 // maximum number of levels in locally refined grid
