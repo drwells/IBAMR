@@ -11,9 +11,8 @@ MU      = RHO*U_PLATE*L_PLATE / Re    // fluid viscosity
 
 // constants
 PI         = 3.141592653589
-STOKES_ITER = 4
-STOKES_TOL = 1.0e-9          // Stokes' solver tolerance
-SOLVER_TOL = 1.0e-9          // Stokes' solver tolerance
+STOKES_ITER = 20
+STOKES_TOL = 1.0e-14          // Stokes' solver tolerance
 DELTA      = 0.0             // regularization parameter for mobility matrix
 
 // BCs
@@ -45,7 +44,7 @@ ADVECTION_TIME_STEPPING = "FORWARD_EULER"    // used in AdvDiff Solver (for expl
 CONVECTIVE_TS_TYPE      = "ADAMS_BASHFORTH"  // convective time stepping type used in INS solver
 CONVECTIVE_OP_TYPE  = "PPM"                  // convective differencing discretization type; used in both INS and Adv-Diff solver
 CONVECTIVE_FORM     = "ADVECTIVE"            // how to compute the convective terms; used in both INS and Adv-Diff solver
-CFL_MAX             = 0.2                    // maximum CFL number
+CFL_MAX             = 0.1                    // maximum CFL number
 DT                  = CFL_MAX*DX / U_PLATE   // maximum timestep size
 ERROR_ON_DT_CHANGE  = FALSE                  // whether to emit an error message if the time step size changes
 VORTICITY_TAGGING   = FALSE                  // whether to tag cells for refinement based on vorticity thresholds
@@ -105,7 +104,7 @@ CIBStaggeredStokesSolver
     // Setting for outer Krylov solver.
     options_prefix        = "SP_"
     max_iterations        = 100
-    rel_residual_tol      = 1e-11
+    rel_residual_tol      = 1e-14
     abs_residual_tol      = 1e-50
     ksp_type              = "fgmres"
     pc_type               = "shell"
@@ -148,7 +147,7 @@ CIBStaggeredStokesSolver
             prolongation_method = "CONSTANT_REFINE"
             restriction_method  = "CONSERVATIVE_COARSEN"
             coarse_solver_type  = "HYPRE_LEVEL_SOLVER"
-            coarse_solver_rel_residual_tol = 1.0e-12
+            coarse_solver_rel_residual_tol = 1.0e-14
             coarse_solver_abs_residual_tol = 1.0e-50
             coarse_solver_max_iterations = 1
             coarse_solver_db
@@ -173,7 +172,7 @@ CIBStaggeredStokesSolver
              prolongation_method = "LINEAR_REFINE"
              restriction_method  = "CONSERVATIVE_COARSEN"
              coarse_solver_type  = "HYPRE_LEVEL_SOLVER"
-             coarse_solver_rel_residual_tol = 1.0e-12
+             coarse_solver_rel_residual_tol = 1.0e-14
              coarse_solver_abs_residual_tol = 1.0e-50
              coarse_solver_max_iterations = 1
              coarse_solver_db
@@ -191,7 +190,7 @@ CIBStaggeredStokesSolver
     {
         // Settings for outer solver.
         max_iterations        = 1000
-        rel_residual_tol      = 1e-12
+        rel_residual_tol      = 1e-14
         abs_residual_tol      = 1e-50
         ksp_type              = "fgmres"
         pc_type               = "none"
@@ -206,7 +205,7 @@ CIBStaggeredStokesSolver
         {
             max_iterations   = 1000
             ksp_type         = "gmres"
-            rel_residual_tol = 1e-12
+            rel_residual_tol = 1e-14
             abs_residual_tol = 0.0
         }
 
@@ -225,7 +224,7 @@ CIBStaggeredStokesSolver
             prolongation_method = "CONSTANT_REFINE"
             restriction_method  = "CONSERVATIVE_COARSEN"
             coarse_solver_type  = "HYPRE_LEVEL_SOLVER"
-            coarse_solver_rel_residual_tol = 1.0e-12
+            coarse_solver_rel_residual_tol = 1.0e-14
             coarse_solver_abs_residual_tol = 1.0e-50
             coarse_solver_max_iterations = 1
             coarse_solver_db
@@ -250,7 +249,7 @@ CIBStaggeredStokesSolver
              prolongation_method = "LINEAR_REFINE"
              restriction_method  = "CONSERVATIVE_COARSEN"
              coarse_solver_type  = "HYPRE_LEVEL_SOLVER"
-             coarse_solver_rel_residual_tol = 1.0e-12
+             coarse_solver_rel_residual_tol = 1.0e-14
              coarse_solver_abs_residual_tol = 1.0e-50
              coarse_solver_max_iterations = 1
              coarse_solver_db
@@ -282,7 +281,7 @@ CIBStaggeredStokesSolver
         pc_type  = "shell"
         max_iterations = 1
         abs_residual_tol = 1e-50
-        rel_residual_tol = 1e-8
+        rel_residual_tol = 1e-4
         initial_guess_nonzero = FALSE
 
     } //KrylovFreeBodyMobilitySolver
