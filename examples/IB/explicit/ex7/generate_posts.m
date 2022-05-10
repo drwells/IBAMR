@@ -44,7 +44,7 @@ for p = 0:n_posts-1
 
   % vertices:
   X(1) = 0.08/2;
-X(2) = 0.08/2; %(x,y) coordinates which place the cilium in the center of the domain
+X(2) = 0.08/2; %(x,y) coordinates which place the post in the center of the domain
   for l = 0:n_ib_post-1
      fprintf(vertex_fid, '%1.16e %1.16e %1.16e\n', (post_deflection_radius/post_length)*(l*dX) + X(1), X(2), (slanted_post_height/post_length)*(l*dX));
   end

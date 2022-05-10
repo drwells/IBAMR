@@ -11,6 +11,21 @@
 ##
 ## ---------------------------------------------------------------------
 
-FOREACH(_dir ex0 ex1 ex2 ex3 ex4 ex5 ex6 ex7)
-  ADD_SUBDIRECTORY(${_dir})
-ENDFOREACH()
+IBAMR_ADD_EXAMPLE(
+  TARGET_NAME
+    "IB-ex7"
+  OUTPUT_DIRECTORY
+    "${CMAKE_BINARY_DIR}/examples/IB/explicit/ex7"
+  OUTPUT_NAME
+    main3d
+  EXAMPLE_GROUP
+    examples-IB
+  SOURCES
+    example.cpp
+  LINK_TARGETS
+    IBAMR3d
+  INPUT_FILES
+    input3d posts_128.vertex
+  EXTRA_FILES
+    generate_posts.m
+    )
