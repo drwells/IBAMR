@@ -37,7 +37,6 @@
 #include <ibtk/muParserCartGridFunction.h>
 #include <ibtk/muParserRobinBcCoefs.h>
 
-// Set up application namespace declarations
 #include <fstream>
 #include <iostream>
 
