@@ -19,7 +19,6 @@
 #include <LoadBalancer.h>
 #include <StandardTagAndInitialize.h>
 
-// Headers for application-specific algorithm/data structure objects
 #include <ibamr/AdvDiffPredictorCorrectorHierarchyIntegrator.h>
 #include <ibamr/AdvDiffSemiImplicitHierarchyIntegrator.h>
 #include <ibamr/IBExplicitHierarchyIntegrator.h>
