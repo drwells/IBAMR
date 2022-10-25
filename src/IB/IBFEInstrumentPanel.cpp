@@ -310,6 +310,8 @@ IBFEInstrumentPanel::IBFEInstrumentPanel(SAMRAI::tbox::Pointer<SAMRAI::tbox::Dat
 void
 IBFEInstrumentPanel::initializeHierarchyIndependentData(IBFEMethod* ib_method_ops)
 {
+    // Can only initialize once
+    TBOX_ASSERT(d_initialized == false);
     // get relevant things for corresponding part
     const FEDataManager* fe_data_manager = ib_method_ops->getFEDataManager(d_part);
     const EquationSystems* equation_systems = fe_data_manager->getEquationSystems();
