@@ -13,8 +13,12 @@
 
 /////////////////////////////// INCLUDES /////////////////////////////////////
 
-#include "ibtk/FECache.h"
+// suppress deprecation warnings to initialize a deprecated member variable
+#define IBTK_NDEF_IBTK_DEPRECATED
 #include "ibtk/FEDataManager.h"
+#undef IBTK_NDEF_IBTK_DEPRECATED
+
+#include "ibtk/FECache.h"
 #include "ibtk/FEMappingCache.h"
 #include "ibtk/FEProjector.h"
 #include "ibtk/IBTK_CHKERRQ.h"
@@ -300,7 +304,8 @@ FEData::getFromRestart()
 {
 } // getFromRestart
 
-void FEData::putToDatabase(SAMRAI::tbox::Pointer<SAMRAI::tbox::Database> /*db*/)
+void
+FEData::putToDatabase(SAMRAI::tbox::Pointer<SAMRAI::tbox::Database> /*db*/)
 {
 } // putToDatabase
 
@@ -2818,7 +2823,7 @@ FEDataManager::FEDataManager(std::string object_name,
                              bool register_for_restart)
     : d_fe_data(fe_data),
       d_fe_projector(new FEProjector(d_fe_data, setup_fe_projector_db(input_db))),
-      d_coordinates_system_name(d_fe_data->d_coordinates_system_name),
+      COORDINATES_SYSTEM_NAME(d_fe_data->d_coordinates_system_name),
       d_level_lookup(max_levels - 1,
                      collect_subdomain_ids(d_fe_data->getEquationSystems()->get_mesh()),
                      input_db ? (input_db->keyExists("subdomain_ids_on_levels") ?

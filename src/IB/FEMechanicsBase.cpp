@@ -13,7 +13,10 @@
 
 /////////////////////////////// INCLUDES /////////////////////////////////////
 
+#define IBTK_NDEF_IBTK_DEPRECATED
 #include "ibamr/FEMechanicsBase.h"
+#undef IBTK_NDEF_IBTK_DEPRECATED
+
 #include "ibamr/ibamr_enums.h"
 #include "ibamr/ibamr_utilities.h"
 

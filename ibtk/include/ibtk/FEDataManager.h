@@ -548,10 +548,6 @@ protected:
      */
     std::map<std::string, std::unique_ptr<libMesh::PetscVector<double> > > d_L2_proj_matrix_diag_ghost;
 
-private:
-    /// TODO: Remove this member variable whenever COORDINATES_SYSTEM_NAME is removed.
-    std::string& d_coordinates_system_name;
-
 public:
     /*!
      * \brief The name of the equation system which stores the spatial position
@@ -559,10 +555,10 @@ public:
      *
      * \note The default value for this string is "coordinates system".
      */
-    [[deprecated(
-        "use FEDataManager::getCurrentCoordinatesSystemName() and FEDataManager::setCurrentCoordinatesSystemName()\nto "
-        "access the current coordinates system name.")]] std::string& COORDINATES_SYSTEM_NAME =
-        d_coordinates_system_name;
+    IBTK_DEPRECATED(
+        "use FEDataManager::getCurrentCoordinatesSystemName() and FEDataManager::setCurrentCoordinatesSystemName() to "
+        "access the current coordinates system name.")
+    std::string& COORDINATES_SYSTEM_NAME;
 
     /*!
      * \brief The name of the equation system which stores the spatial position

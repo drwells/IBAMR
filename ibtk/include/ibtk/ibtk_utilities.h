@@ -52,6 +52,18 @@ IBTK_ENABLE_EXTRA_WARNINGS
         }                                                                                                              \
     } while (0);
 
+#ifdef IBTK_NDEF_IBTK_DEPRECATED
+#define IBTK_DEPRECATED(msg)
+#elif defined(__cplusplus) && (__cplusplus >= 201402L)
+#define IBTK_DEPRECATED(msg) [[deprecated(msg)]]
+#elif defined(__GNUC__) || defined(__clang__)
+#define IBTK_DEPRECATED(msg) __attribute__((deprecated(msg)))
+#elif defined(_MSC_VER)
+#define #define IBTK_DEPRECATED(msg) __declspec(deprecated(msg))
+#else
+#define IBTK_DEPRECATED(msg)
+#endif
+
 #define IBTK_DEPRECATED_CLASS1(deprecated_class_name)                                                                  \
     IBTK_DO_ONCE({                                                                                                     \
         SAMRAI::tbox::pout << "WARNING: class " << deprecated_class_name                                               \

@@ -13,9 +13,12 @@
 
 /////////////////////////////// INCLUDES /////////////////////////////////////
 
+#define IBTK_NDEF_IBTK_DEPRECATED
+#include "ibamr/IBFEMethod.h"
+#undef IBTK_NDEF_IBTK_DEPRECATED
+
 #include "ibamr/FEMechanicsBase.h"
 #include "ibamr/IBFEDirectForcingKinematics.h"
-#include "ibamr/IBFEMethod.h"
 #include "ibamr/IBHierarchyIntegrator.h"
 #include "ibamr/ibamr_enums.h"
 #include "ibamr/ibamr_utilities.h"

@@ -437,8 +437,8 @@ class IBFEDirectForcingKinematics;
 class IBFEMethod : public FEMechanicsBase, public IBStrategy
 {
 public:
-    [[deprecated("use IBFEMethod::getSourceSystemName() to access the source system name.")]] static const std::string
-        SOURCE_SYSTEM_NAME;
+    IBTK_DEPRECATED("use IBFEMethod::getSourceSystemName() to access the source system name.")
+    static const std::string SOURCE_SYSTEM_NAME;
 
     /*!
      * \brief Constructor for a single-part model.

@@ -59,21 +59,17 @@ namespace IBAMR
 class FEMechanicsBase : public SAMRAI::tbox::Serializable
 {
 public:
-    [[deprecated(
-        "use FEMechanicsBase::getCurrentCoordinatesSystemName() to access the current coordinates system "
-        "name.")]] static const std::string COORDS_SYSTEM_NAME;
-    [[deprecated(
-        "use FEMechanicsBase::getDisplacementSystemName() to access the current coordinates system "
-        "name.")]] static const std::string COORD_MAPPING_SYSTEM_NAME;
-    [[deprecated(
-        "use FEMechanicsBase::getForceSystemName() to access the current coordinates system name.")]] static const std::
-        string FORCE_SYSTEM_NAME;
-    [[deprecated(
-        "use FEMechanicsBase::getPressureSystemName() to access the current coordinates system "
-        "name.")]] static const std::string PRESSURE_SYSTEM_NAME;
-    [[deprecated(
-        "use FEMechanicsBase::getVelocitySystemName() to access the current coordinates system "
-        "name.")]] static const std::string VELOCITY_SYSTEM_NAME;
+    IBTK_DEPRECATED(
+        "use FEMechanicsBase::getCurrentCoordinatesSystemName() to access the current coordinates system name.")
+    static const std::string COORDS_SYSTEM_NAME;
+    IBTK_DEPRECATED("use FEMechanicsBase::getDisplacementSystemName() to access the current coordinates system name.")
+    static const std::string COORD_MAPPING_SYSTEM_NAME;
+    IBTK_DEPRECATED("use FEMechanicsBase::getForceSystemName() to access the current coordinates system name.")
+    static const std::string FORCE_SYSTEM_NAME;
+    IBTK_DEPRECATED("use FEMechanicsBase::getPressureSystemName() to access the current coordinates system name.")
+    static const std::string PRESSURE_SYSTEM_NAME;
+    IBTK_DEPRECATED("use FEMechanicsBase::getVelocitySystemName() to access the current coordinates system name.")
+    static const std::string VELOCITY_SYSTEM_NAME;
 
     /*!
      * Constructor for a single-part model.
