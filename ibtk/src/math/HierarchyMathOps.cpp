@@ -3435,6 +3435,83 @@ HierarchyMathOps::strain_rate(const int dst_idx,
     return;
 } // strain
 
+void
+HierarchyMathOps::enforceHangingNodeConstraints(const int dst_idx,
+                                                Pointer<NodeVariable<NDIM, double> > dst_var)
+{
+    TBOX_ASSERT(dst_idx != IBTK::invalid_index);
+    TBOX_ASSERT(dst_var);
+
+    // hanging nodes don't exist in 1D
+    if (NDIM == 1) return;
+
+    for (int ln = d_finest_ln; ln > d_coarsest_ln; --ln)
+    {
+        Pointer<PatchLevel<NDIM> > level = d_hierarchy->getPatchLevel(ln);
+
+        // TODO: compute finer_overlap_boxes here
+
+        for (PatchLevel<NDIM>::Iterator p(level); p; p++)
+        {
+            Pointer<Patch<NDIM> > patch = level->getPatch(p());
+            Pointer<NodeData<NDIM, double> > dst_data = patch->getPatchData(dst_idx);
+            const auto box = patch->getBox();
+
+            // TODO: current_overlap_boxes should not contain box
+
+            // Loop across patch cells on the boundary
+            // 
+            // If the cell does not abut a patch on the same or finer level
+            // (and, by construction, we are not on the coarsest level) then
+            // it must abut a patch on a coarser level and therefore has
+            // hanging nodes
+            //
+
+            // to start, chop up the box into 4 (2D) or 6 (3D) slabs
+            std::vector<Box<NDIM>> slabs;
+            const IntVector<NDIM> lower = box.lower();
+            const IntVector<NDIM> upper = box.upper();
+            for (int d = 0; d < NDIM; ++d)
+            {
+                auto new_upper_1 = upper;
+                new_upper_1(d) = lower(d);
+                slabs.emplace_back(lower, new_upper_1);
+
+                auto new_lower_2 = lower;
+                new_lower_2(d) = upper(d);
+                slabs.emplace_back(new_lower_2, upper);
+            }
+
+            // Now intersect each boundary box with the 
+            for (const Box<NDIM> &box : slabs)
+            {
+                finer_level.findOverlapBoxes(finer_overlap_boxes, box);
+                current_level.findOverlapBoxes(current_overlap_boxes, box);
+
+                current_overlap_boxes.unionBoxes(finer_overlap_boxes);
+                current_overlap_boxes.coalesceBoxes();
+                current_overlap_boxes.simplifyBoxes();
+
+                // OK: now we have the nodal boxes over which we actually have
+                // hanging nodes. Simply iterate over those boxes and fill
+                // hanging node values with multilinear interpolation
+
+                // TODO: iterate across the box list and populate the
+                // intersection mask whenever they coincide
+                for ()
+                {
+                    
+                }
+
+                // OK, now we have computed the mask for this boundary
+                // box. Whenever we have a masked cell we should apply
+                // multilinear interpolation.
+            }
+            
+        }
+    }
+}
+
 /////////////////////////////// PRIVATE //////////////////////////////////////
 
 void

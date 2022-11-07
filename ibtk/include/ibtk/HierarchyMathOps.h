@@ -1399,6 +1399,9 @@ public:
                      SAMRAI::tbox::Pointer<HierarchyGhostCellInterpolation> src_ghost_fill,
                      double src_ghost_fill_time);
 
+    void enforceHangingNodeConstraints(int dst_idx,
+                                       SAMRAI::tbox::Pointer<SAMRAI::pdat::NodeVariable<NDIM, double> > dst_var);
+
 private:
     /*!
      * \brief Default constructor.
