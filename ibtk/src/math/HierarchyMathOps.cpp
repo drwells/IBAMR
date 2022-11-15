@@ -2003,8 +2003,8 @@ HierarchyMathOps::interp(const int dst_idx,
 
 void
 HierarchyMathOps::interp(const int dst_idx,
-                         const Pointer<NodeVariable<NDIM, double> > /*dst_var*/,
-                         const bool dst_ghost_interp,
+                         const Pointer<NodeVariable<NDIM, double> > dst_var,
+                         const bool dst_cf_bdry_synch,
                          const int src_idx,
                          const Pointer<CellVariable<NDIM, double> > /*src_var*/,
                          const Pointer<HierarchyGhostCellInterpolation> src_ghost_fill,
@@ -2012,11 +2012,25 @@ HierarchyMathOps::interp(const int dst_idx,
 {
     if (src_ghost_fill) src_ghost_fill->fillData(src_ghost_fill_time);
 
-    for (int ln = d_coarsest_ln; ln <= d_finest_ln; ++ln)
+    Pointer<NodeDataFactory<NDIM, double> > data_factory = dst_var->getPatchDataFactory();
+    const int depth = data_factory->getDefaultDepth();
+    if (dst_cf_bdry_synch)
+    {
+        TBOX_ASSERT(depth == 1 || depth == NDIM);
+    }
+    const int on_idx = depth == 1 ? d_on_s_idx : d_on_v_idx;
+
+    for (int ln = d_finest_ln; ln >= d_coarsest_ln; --ln)
     {
         Pointer<PatchLevel<NDIM> > level = d_hierarchy->getPatchLevel(ln);
 
-        // Interpolate.
+        // Allocate temporary data to synchronize the coarse-fine interface.
+        if (ln > d_coarsest_ln && dst_cf_bdry_synch)
+        {
+            level->allocatePatchData(on_idx);
+        }
+
+        // Interpolate and extract data on the coarse-fine interface.
         for (PatchLevel<NDIM>::Iterator p(level); p; p++)
         {
             Pointer<Patch<NDIM> > patch = level->getPatch(p());
@@ -2024,9 +2038,29 @@ HierarchyMathOps::interp(const int dst_idx,
             Pointer<NodeData<NDIM, double> > dst_data = patch->getPatchData(dst_idx);
             Pointer<CellData<NDIM, double> > src_data = patch->getPatchData(src_idx);
 
-            d_patch_math_ops.interp(dst_data, src_data, patch, dst_ghost_interp);
+            // We don't want to fill ghosts here - that will be done in another way
+            d_patch_math_ops.interp(dst_data, src_data, patch, false);
+
+            if (ln > d_coarsest_ln && dst_cf_bdry_synch)
+            {
+                Pointer<OuternodeData<NDIM, double> > on_data = patch->getPatchData(on_idx);
+                on_data->copy(*dst_data);
+            }
+        }
+
+        // Synchronize the coarse-fine interface and deallocate temporary data.
+        if (ln + 1 <= d_finest_ln && dst_cf_bdry_synch)
+        {
+            xeqScheduleOuternodeRestriction(dst_idx, on_idx, ln);
+            d_hierarchy->getPatchLevel(ln + 1)->deallocatePatchData(on_idx);
         }
     }
+
+    if (dst_cf_bdry_synch && dst_var->fineBoundaryRepresentsVariable() == false)
+    {
+        enforceHangingNodeConstraints(dst_idx, dst_var);
+    }
+
     return;
 } // interp
 

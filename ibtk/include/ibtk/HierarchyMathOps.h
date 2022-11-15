@@ -803,16 +803,14 @@ public:
      * cell-centered vector/tensor field.
      *
      * Interpolate a vector or tensor field from one variable type to another
-     * using (second-order accurate) averaging.  When specified, the ghost cells
-     * of the node centered variable are computed as averages of the cell centered
-     * variable
+     * using (second-order accurate) averaging.
      *
      * \see setPatchHierarchy
      * \see resetLevels
      */
     void interp(int dst_idx,
                 SAMRAI::tbox::Pointer<SAMRAI::pdat::NodeVariable<NDIM, double> > dst_var,
-                bool dst_ghost_interp,
+                bool dst_cf_bdry_synch,
                 int src_idx,
                 SAMRAI::tbox::Pointer<SAMRAI::pdat::CellVariable<NDIM, double> > src_var,
                 SAMRAI::tbox::Pointer<HierarchyGhostCellInterpolation> src_ghost_fill,
