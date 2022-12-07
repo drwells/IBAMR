@@ -13,12 +13,10 @@
 
 /////////////////////////////// INCLUDES /////////////////////////////////////
 
-#define IBTK_NDEF_IBTK_DEPRECATED
-#include "ibamr/IBFEMethod.h"
-#undef IBTK_NDEF_IBTK_DEPRECATED
 
 #include "ibamr/FEMechanicsBase.h"
 #include "ibamr/IBFEDirectForcingKinematics.h"
+#include "ibamr/IBFEMethod.h"
 #include "ibamr/IBHierarchyIntegrator.h"
 #include "ibamr/ibamr_enums.h"
 #include "ibamr/ibamr_utilities.h"
@@ -356,8 +354,11 @@ build_ib_ghosted_system_data(std::vector<SystemData>& ghosted_system_data,
 }
 } // namespace
 
+// Suppress warnings so that we can cleanly define these deprecated variables
+IBTK_DISABLE_EXTRA_WARNINGS
 #define SOURCE_SYSTEM_NAME_VAL "IB source system"
 const std::string IBFEMethod::SOURCE_SYSTEM_NAME = SOURCE_SYSTEM_NAME_VAL;
+IBTK_ENABLE_EXTRA_WARNINGS
 
 /////////////////////////////// PUBLIC ///////////////////////////////////////
 

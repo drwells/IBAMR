@@ -13,12 +13,9 @@
 
 /////////////////////////////// INCLUDES /////////////////////////////////////
 
-#define IBTK_NDEF_IBTK_DEPRECATED
-#include "ibamr/FEMechanicsBase.h"
-#undef IBTK_NDEF_IBTK_DEPRECATED
-
 #include "ibamr/ibamr_enums.h"
 #include "ibamr/ibamr_utilities.h"
+#include "ibamr/FEMechanicsBase.h"
 
 #include "ibtk/FEDataInterpolation.h"
 #include "ibtk/FEDataManager.h"
@@ -201,11 +198,14 @@ get_Grad_U(libMesh::TensorValue<double>& Grad_U,
 #define PRESSURE_SYSTEM_NAME_VAL "IB pressure system"
 #define VELOCITY_SYSTEM_NAME_VAL "IB velocity system"
 
+// Suppress warnings so that we can cleanly define these deprecated variables
+IBTK_DISABLE_EXTRA_WARNINGS
 const std::string FEMechanicsBase::COORDS_SYSTEM_NAME = COORDS_SYSTEM_NAME_VAL;
 const std::string FEMechanicsBase::COORD_MAPPING_SYSTEM_NAME = COORD_MAPPING_SYSTEM_NAME_VAL;
 const std::string FEMechanicsBase::FORCE_SYSTEM_NAME = FORCE_SYSTEM_NAME_VAL;
 const std::string FEMechanicsBase::PRESSURE_SYSTEM_NAME = PRESSURE_SYSTEM_NAME_VAL;
 const std::string FEMechanicsBase::VELOCITY_SYSTEM_NAME = VELOCITY_SYSTEM_NAME_VAL;
+IBTK_ENABLE_EXTRA_WARNINGS
 
 /////////////////////////////// PUBLIC ///////////////////////////////////////
 

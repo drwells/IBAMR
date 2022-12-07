@@ -59,16 +59,16 @@ namespace IBAMR
 class FEMechanicsBase : public SAMRAI::tbox::Serializable
 {
 public:
-    IBTK_DEPRECATED(
-        "use FEMechanicsBase::getCurrentCoordinatesSystemName() to access the current coordinates system name.")
+    IBTK_DEPRECATED("Use FEMechanicsBase::getCurrentCoordinatesSystemName() to access the current coordinates system name.")
     static const std::string COORDS_SYSTEM_NAME;
-    IBTK_DEPRECATED("use FEMechanicsBase::getDisplacementSystemName() to access the current coordinates system name.")
+    IBTK_DEPRECATED(
+        "Use FEMechanicsBase::getDisplacementSystemName() to access the current coordinate mapping system name.")
     static const std::string COORD_MAPPING_SYSTEM_NAME;
-    IBTK_DEPRECATED("use FEMechanicsBase::getForceSystemName() to access the current coordinates system name.")
+    IBTK_DEPRECATED("Use FEMechanicsBase::getForceSystemName() to access the current force system name.")
     static const std::string FORCE_SYSTEM_NAME;
-    IBTK_DEPRECATED("use FEMechanicsBase::getPressureSystemName() to access the current coordinates system name.")
+    IBTK_DEPRECATED("Use FEMechanicsBase::getPressureSystemName() to access the current pressure system name.")
     static const std::string PRESSURE_SYSTEM_NAME;
-    IBTK_DEPRECATED("use FEMechanicsBase::getVelocitySystemName() to access the current coordinates system name.")
+    IBTK_DEPRECATED("Use FEMechanicsBase::getVelocitySystemName() to access the current velocity system name.")
     static const std::string VELOCITY_SYSTEM_NAME;
 
     /*!

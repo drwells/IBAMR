@@ -13,12 +13,8 @@
 
 /////////////////////////////// INCLUDES /////////////////////////////////////
 
-// suppress deprecation warnings to initialize a deprecated member variable
-#define IBTK_NDEF_IBTK_DEPRECATED
-#include "ibtk/FEDataManager.h"
-#undef IBTK_NDEF_IBTK_DEPRECATED
-
 #include "ibtk/FECache.h"
+#include "ibtk/FEDataManager.h"
 #include "ibtk/FEMappingCache.h"
 #include "ibtk/FEProjector.h"
 #include "ibtk/IBTK_CHKERRQ.h"
@@ -2811,6 +2807,10 @@ setup_fe_projector_db(const Pointer<Database>& input_db)
 }
 } // namespace
 
+// _Pragma() (used by the enable/disable macros) cannot be used in certain
+// contexts, so to suppress warnings about COORDINATES_SYSTEM_NAME we disable
+// all warnings for the ctor
+IBTK_DISABLE_EXTRA_WARNINGS
 FEDataManager::FEDataManager(std::string object_name,
                              const Pointer<Database>& input_db,
                              const int max_levels,
@@ -2839,6 +2839,7 @@ FEDataManager::FEDataManager(std::string object_name,
       d_default_spread_spec(default_spread_spec),
       d_ghost_width(std::move(ghost_width))
 {
+IBTK_ENABLE_EXTRA_WARNINGS
     TBOX_ASSERT(!d_object_name.empty());
 
     // Validate the kernel choices.
