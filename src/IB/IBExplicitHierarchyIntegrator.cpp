@@ -21,6 +21,7 @@
 
 #include "ibtk/CartGridFunction.h"
 #include "ibtk/IBTK_MPI.h"
+#include "ibtk/LEInteractor.h"
 #include "ibtk/RobinPhysBdryPatchStrategy.h"
 #include "ibtk/ibtk_enums.h"
 
@@ -89,6 +90,12 @@ IBExplicitHierarchyIntegrator::IBExplicitHierarchyIntegrator(std::string object_
     {
         if (input_db->keyExists("use_structure_predictor"))
             d_use_structure_predictor = input_db->getBool("use_structure_predictor");
+        if (input_db->keyExists("IB_delta_fcn")) d_marker_kernel = input_db->getString("IB_delta_fcn");
+        if (input_db->keyExists("viz_dump_dirname"))
+        {
+            d_viz_dump_dirname = input_db->getString("viz_dump_dirname");
+            Utilities::recursiveMkdir(d_viz_dump_dirname);
+        }
     }
 
     // Initialize object with data read from the input and restart databases.
@@ -105,7 +112,27 @@ IBExplicitHierarchyIntegrator::preprocessIntegrateHierarchy(const double current
     // preprocess our dependencies...
     IBHierarchyIntegrator::preprocessIntegrateHierarchy(current_time, new_time, num_cycles);
 
-    // this object doesn't need any preprocessing of its own.
+    if (d_marker_points && !d_marker_velocities_set)
+    {
+        VariableDatabase<NDIM>* var_db = VariableDatabase<NDIM>::getDatabase();
+        const int u_current_idx = var_db->mapVariableAndContextToIndex(d_ins_hier_integrator->getVelocityVariable(),
+                                                                       d_ins_hier_integrator->getCurrentContext());
+        d_hier_velocity_data_ops->copyData(d_u_idx, u_current_idx);
+        d_u_phys_bdry_op->setPatchDataIndex(d_u_idx);
+        d_u_phys_bdry_op->setHomogeneousBc(false);
+        const auto& sync_scheds = getCoarsenSchedules(d_object_name + "::u::CONSERVATIVE_COARSEN");
+        for (auto sched_it = sync_scheds.rbegin(); sched_it < sync_scheds.rend(); ++sched_it)
+        {
+            if (*sched_it) (*sched_it)->coarsenData();
+        }
+        for (const auto& u_ghost_fill_sched : getGhostfillRefineSchedules(d_object_name + "::u"))
+        {
+            if (u_ghost_fill_sched) u_ghost_fill_sched->fillData(current_time);
+        }
+
+        d_marker_points->setVelocities(d_u_idx, d_marker_kernel);
+        d_marker_velocities_set = true;
+    }
 
     // Compute the Lagrangian forces and spread them to the Eulerian grid.
     switch (d_time_stepping_type)
@@ -371,6 +398,49 @@ IBExplicitHierarchyIntegrator::postprocessIntegrateHierarchy(const double curren
                                                              const bool skip_synchronize_new_state_data,
                                                              const int num_cycles)
 {
+    HierarchySideDataOpsReal<NDIM, double> ops(d_hierarchy);
+    // Update the marker points, should they exist:
+    if (d_markers && !d_marker_velocities_set)
+    {
+        VariableDatabase<NDIM>* var_db = VariableDatabase<NDIM>::getDatabase();
+        const int u_current_idx = var_db->mapVariableAndContextToIndex(d_ins_hier_integrator->getVelocityVariable(),
+                                                                       d_ins_hier_integrator->getCurrentContext());
+        // Clear any ghost data outside the domain:
+        ops.setToScalar(d_u_idx, std::numeric_limits<double>::quiet_NaN(), false);
+        ops.copyData(d_u_idx, u_current_idx);
+        d_u_phys_bdry_op->setPatchDataIndex(d_u_idx);
+        d_u_phys_bdry_op->setHomogeneousBc(false);
+#if 0
+        const auto& synch_scheds = getCoarsenSchedules(d_object_name + "::u::CONSERVATIVE_COARSEN");
+        for (int ln = d_hierarchy->getFinestLevelNumber(); ln > 0; --ln)
+        {
+            if (ln < static_cast<int>(synch_scheds.size()) && synch_scheds[ln])
+            {
+                synch_scheds[ln]->coarsenData();
+            }
+        }
+        for (const auto& u_ghost_fill_sched : getGhostfillRefineSchedules(d_object_name + "::u"))
+        {
+            if (u_ghost_fill_sched) u_ghost_fill_sched->fillData(current_time);
+        }
+#endif
+        using ITC = IBTK::HierarchyGhostCellInterpolation::InterpolationTransactionComponent;
+        std::vector<ITC> ghostfills;
+        ghostfills.emplace_back(d_u_idx,
+                                "CONSERVATIVE_LINEAR_REFINE",
+                                /*use_cf_bdry_interpolation*/ true,
+                                "CONSERVATIVE_COARSEN",
+                                "LINEAR",
+                                false,
+                                d_ins_hier_integrator->getVelocityBoundaryConditions());
+        HierarchyGhostCellInterpolation ghost_fill_op;
+        ghost_fill_op.initializeOperatorState(ghostfills, d_hierarchy);
+        ghost_fill_op.fillData(current_time);
+
+        d_markers->setVelocities(d_u_idx, d_marker_kernel);
+        d_marker_velocities_set = true;
+    }
+
     // The last thing we need to do (before we really postprocess) is update the structure velocity:
     VariableDatabase<NDIM>* var_db = VariableDatabase<NDIM>::getDatabase();
     const int u_new_idx = var_db->mapVariableAndContextToIndex(d_ins_hier_integrator->getVelocityVariable(),
@@ -387,7 +457,34 @@ IBExplicitHierarchyIntegrator::postprocessIntegrateHierarchy(const double curren
                                          getGhostfillRefineSchedules(d_object_name + "::u"),
                                          new_time);
 
-    // This class is not responsible for postprocessing any other objects so proceed to the base class:
+    if (d_markers)
+    {
+        TBOX_ASSERT(d_time_stepping_type == MIDPOINT_RULE);
+
+        // Some IBStrategy objects don't update the velocity ghost values themselves so do that first:
+        auto do_sync_scheds = [](const std::vector<Pointer<CoarsenSchedule<NDIM> > >& sync_scheds)
+        {
+            for (auto sched_it = sync_scheds.rbegin(); sched_it < sync_scheds.rend(); ++sched_it)
+            {
+                if (*sched_it) (*sched_it)->coarsenData();
+            }
+        };
+        // Note that d_u_idx contains u_new_idx at this point
+        do_sync_scheds(getCoarsenSchedules(d_object_name + "::u::CONSERVATIVE_COARSEN"));
+        do_sync_scheds(getCoarsenSchedules(d_object_name + "::u_half::CONSERVATIVE_COARSEN"));
+
+        for (const auto& u_ghost_fill_sched : getGhostfillRefineSchedules(d_object_name + "::u"))
+        {
+            if (u_ghost_fill_sched) u_ghost_fill_sched->fillData(new_time);
+        }
+        for (const auto& u_ghost_fill_sched : getGhostfillRefineSchedules(d_object_name + "::u_half"))
+        {
+            if (u_ghost_fill_sched) u_ghost_fill_sched->fillData(new_time);
+        }
+
+        d_markers->midpointStep(new_time - current_time, d_u_idx, d_u_idx, d_marker_kernel);
+    }
+
     IBHierarchyIntegrator::postprocessIntegrateHierarchy(
         current_time, new_time, skip_synchronize_new_state_data, num_cycles);
 
@@ -408,10 +505,123 @@ IBExplicitHierarchyIntegrator::initializeHierarchyIntegrator(Pointer<PatchHierar
 
     // Finish initializing the hierarchy integrator.
     IBHierarchyIntegrator::initializeHierarchyIntegrator(hierarchy, gridding_alg);
+
     return;
 } // initializeHierarchyIntegrator
 
+void
+IBExplicitHierarchyIntegrator::setMarkers(const EigenAlignedVector<IBTK::Point>& markers)
+{
+    if (d_marker_kernel.size() == 0)
+    {
+        TBOX_ERROR(d_object_name << "::setMarkers():\n To use marker points the IB kernel must be specified in "
+                                    "the input database via IB_kernel_fcn.");
+    }
+    EigenAlignedVector<IBTK::Vector> velocities(markers.size());
+    // Eigen 'bug': no default initialization
+    IBTK::Vector v;
+    v.fill(0.0);
+    std::fill(velocities.begin(), velocities.end(), v);
+    d_markers = new MarkerPatchHierarchy(d_object_name + "::markers", d_hierarchy, markers, velocities);
+
+    // Ensure that whichever patch data indices we need to exist are present.
+    if (d_u_half_idx == IBTK::invalid_index)
+    {
+        const IntVector<NDIM> ib_ghosts = LEInteractor::getMinimumGhostWidth(d_marker_kernel);
+        VariableDatabase<NDIM>* var_db = VariableDatabase<NDIM>::getDatabase();
+        d_u_half_idx = var_db->registerClonedPatchDataIndex(getVelocityVariable(), d_u_idx);
+        d_ib_data.setFlag(d_u_half_idx);
+
+        // register ghost filling...
+        Pointer<RefineAlgorithm<NDIM> > u_half_ghostfill_alg = new RefineAlgorithm<NDIM>();
+        u_half_ghostfill_alg->registerRefine(d_u_half_idx, d_u_half_idx, d_u_half_idx, nullptr);
+        std::unique_ptr<RefinePatchStrategy<NDIM> > u_half_phys_bdry_op;
+        Pointer<CellVariable<NDIM, double> > u_cc_var = d_u_var;
+        Pointer<SideVariable<NDIM, double> > u_sc_var = d_u_var;
+        if (u_cc_var)
+        {
+            u_half_phys_bdry_op.reset(
+                new CartCellRobinPhysBdryOp(d_u_half_idx,
+                                            d_ins_hier_integrator->getVelocityBoundaryConditions(),
+                                            /*homogeneous_bc*/ false));
+        }
+        else if (u_sc_var)
+        {
+            u_half_phys_bdry_op.reset(
+                new CartSideRobinPhysBdryOp(d_u_half_idx,
+                                            d_ins_hier_integrator->getVelocityBoundaryConditions(),
+                                            /*homogeneous_bc*/ false));
+        }
+        registerGhostfillRefineAlgorithm(d_object_name + "::u_half", d_u_ghostfill_alg, std::move(u_half_phys_bdry_op));
+
+        // ... and register coarsening.
+        Pointer<CoarsenAlgorithm<NDIM> > u_half_coarsen_alg = new CoarsenAlgorithm<NDIM>();
+        Pointer<Geometry<NDIM> > grid_geom = d_hierarchy->getGridGeometry();
+        TBOX_ASSERT(grid_geom);
+        auto u_half_coarsen_op = grid_geom->lookupCoarsenOperator(d_u_var, "CONSERVATIVE_COARSEN");
+        u_half_coarsen_alg->registerCoarsen(d_u_half_idx, d_u_half_idx, u_half_coarsen_op);
+        registerCoarsenAlgorithm(d_object_name + "::u_half::CONSERVATIVE_COARSEN", u_half_coarsen_alg);
+    }
+} // setMarkers
+
+std::pair<EigenAlignedVector<IBTK::Point>, EigenAlignedVector<IBTK::Vector> >
+IBExplicitHierarchyIntegrator::collectAllMarkers() const
+{
+    if (d_markers)
+        return d_markers->collectAllMarkers();
+    else
+        return {};
+} // collectAllMarkers
+
+void
+IBExplicitHierarchyIntegrator::writeMarkerPlotData(const int time_step,
+                                                   const double simulation_time,
+                                                   const bool save_velocites) const
+{
+    if (d_markers)
+    {
+        if (d_viz_dump_dirname.size() == 0)
+        {
+            TBOX_ERROR(
+                d_object_name << "::writeMarkerPlotData():\n This function requires that viz_dump_dirname was set "
+                                 "in the input database.");
+        }
+        d_markers->writeH5Part(d_viz_dump_dirname + "/markerpoints-" + std::to_string(time_step) + ".h5part",
+                               save_velocites);
+    }
+}
+
 /////////////////////////////// PROTECTED ////////////////////////////////////
+
+void
+IBExplicitHierarchyIntegrator::regridHierarchyBeginSpecialized()
+{
+    IBHierarchyIntegrator::regridHierarchyBeginSpecialized();
+
+    if (d_markers)
+    {
+        d_regrid_temporary_data = new IBExplicitHierarchyIntegrator::RegridData();
+        auto pair = d_markers->collectAllMarkers();
+        d_regrid_temporary_data->d_marker_positions = std::move(pair.first);
+        d_regrid_temporary_data->d_marker_velocities = std::move(pair.second);
+        d_markers = nullptr;
+    }
+} // regridHierarchyBeginSpecialized
+
+void
+IBExplicitHierarchyIntegrator::regridHierarchyEndSpecialized()
+{
+    if (d_regrid_temporary_data)
+    {
+        d_markers = new IBTK::MarkerPatchHierarchy(d_object_name + "::markers",
+                                                   d_hierarchy,
+                                                   d_regrid_temporary_data->d_marker_positions,
+                                                   d_regrid_temporary_data->d_marker_velocities);
+        d_regrid_temporary_data = nullptr;
+    }
+
+    IBHierarchyIntegrator::regridHierarchyEndSpecialized();
+} // regridHierarchyEndSpecialized
 
 void
 IBExplicitHierarchyIntegrator::putToDatabaseSpecialized(Pointer<Database> db)
@@ -442,6 +652,15 @@ IBExplicitHierarchyIntegrator::getFromRestart()
     {
         TBOX_ERROR(d_object_name << ":  Restart file version different than class version." << std::endl);
     }
+
+    // If it exists then set up marker points: it will find itself in the
+    // restart database.
+    if (restart_db->keyExists(d_object_name + "::markers"))
+    {
+        setMarkers({});
+        d_marker_velocities_set = true;
+    }
+
     return;
 } // getFromRestart
 
