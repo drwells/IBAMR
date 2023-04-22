@@ -117,6 +117,12 @@ protected:
      */
     void putToDatabaseSpecialized(SAMRAI::tbox::Pointer<SAMRAI::tbox::Database> db) override;
 
+    /*!
+     * Velocity patch index at the halfway point with IB ghosting. Used only for
+     * advecting marker points.
+     */
+    int d_u_half_idx = IBTK::invalid_index;
+
 private:
     /*!
      * \brief Default constructor.

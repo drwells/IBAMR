@@ -269,18 +269,24 @@ IBExplicitHierarchyIntegrator::integrateHierarchy(const double current_time, con
                                              new_time);
         break;
     case MIDPOINT_RULE:
-        d_hier_velocity_data_ops->linearSum(d_u_idx, 0.5, u_current_idx, 0.5, u_new_idx);
+    {
+        // If we are using marker points then save the half velocity to a separate index.
+        const int u_idx = d_u_half_idx != invalid_index ? d_u_half_idx : d_u_idx;
+        const std::string u_str = d_u_half_idx != invalid_index ? "u_half" : "u";
+        d_hier_velocity_data_ops->linearSum(u_idx, 0.5, u_current_idx, 0.5, u_new_idx);
         if (d_enable_logging)
             plog << d_object_name
                  << "::integrateHierarchy(): interpolating Eulerian velocity to "
                     "the Lagrangian mesh\n";
-        d_u_phys_bdry_op->setPatchDataIndex(d_u_idx);
+        d_u_phys_bdry_op->setPatchDataIndex(u_idx);
         d_u_phys_bdry_op->setHomogeneousBc(false);
-        d_ib_method_ops->interpolateVelocity(d_u_idx,
-                                             getCoarsenSchedules(d_object_name + "::u::CONSERVATIVE_COARSEN"),
-                                             getGhostfillRefineSchedules(d_object_name + "::u"),
-                                             half_time);
-        break;
+        d_ib_method_ops->interpolateVelocity(
+            u_idx,
+            getCoarsenSchedules(d_object_name + "::" + u_str + "::CONSERVATIVE_COARSEN"),
+            getGhostfillRefineSchedules(d_object_name + "::" + u_str),
+            half_time);
+    }
+    break;
     case TRAPEZOIDAL_RULE:
         d_hier_velocity_data_ops->copyData(d_u_idx, u_new_idx);
         if (d_enable_logging)
