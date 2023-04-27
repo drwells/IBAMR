@@ -473,6 +473,21 @@ IBExplicitHierarchyIntegrator::postprocessIntegrateHierarchy(const double curren
         {
             if (u_ghost_fill_sched) u_ghost_fill_sched->fillData(half_time);
         }
+#else
+        ops.setToScalar(d_u_idx, std::numeric_limits<double>::quiet_NaN(), false);
+        ops.copyData(d_u_idx, u_new_idx);
+        using ITC = IBTK::HierarchyGhostCellInterpolation::InterpolationTransactionComponent;
+        std::vector<ITC> ghostfills;
+        ghostfills.emplace_back(d_u_idx,
+                                "CONSERVATIVE_LINEAR_REFINE",
+                                /*use_cf_bdry_interpolation*/ true,
+                                "CONSERVATIVE_COARSEN",
+                                "LINEAR",
+                                false,
+                                d_ins_hier_integrator->getVelocityBoundaryConditions());
+        HierarchyGhostCellInterpolation ghost_fill_op;
+        ghost_fill_op.initializeOperatorState(ghostfills, d_hierarchy);
+        ghost_fill_op.fillData(current_time);
 #endif
 
         d_markers->midpointStep(new_time - current_time, d_u_idx, d_u_idx, d_marker_kernel);
