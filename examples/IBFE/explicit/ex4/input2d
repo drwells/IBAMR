@@ -4,14 +4,14 @@ RHO = 1.0
 L   = 1.0
 
 // grid spacing parameters
-MAX_LEVELS = 1                                      // maximum number of levels in locally refined grid
+MAX_LEVELS = 2                                      // maximum number of levels in locally refined grid
 REF_RATIO  = 2                                      // refinement ratio between levels
-N = 64                                              // actual    number of grid cells on coarsest grid level
+N = 128                                             // actual    number of grid cells on coarsest grid level
 NFINEST = (REF_RATIO^(MAX_LEVELS - 1))*N            // effective number of grid cells on finest   grid level
 DX0 = L/N                                           // mesh width on coarsest grid level
 DX  = L/NFINEST                                     // mesh width on finest   grid level
-MFAC = 2.0                                          // ratio of Lagrangian mesh width to Cartesian mesh width
-ELEM_TYPE = "TRI6"                                  // type of element to use for structure discretization
+MFAC = 1.0                                          // ratio of Lagrangian mesh width to Cartesian mesh width
+ELEM_TYPE = "TRI3"                                  // type of element to use for structure discretization
 PK1_DEV_QUAD_ORDER = "FIFTH"
 PK1_DIL_QUAD_ORDER = "THIRD"
 
@@ -31,7 +31,7 @@ SOLVER_TYPE                = "STAGGERED"            // the fluid solver to use (
 CFL_MAX                    = 0.25                   // maximum CFL number
 DT                         = 0.25*CFL_MAX*DX/U_MAX  // maximum timestep size
 START_TIME                 = 0.0e0                  // initial simulation time
-END_TIME                   = 100*DT                   // final simulation time
+END_TIME                   = 10000*DT               // final simulation time
 GROW_DT                    = 2.0e0                  // growth factor for timesteps
 NUM_CYCLES                 = 1                      // number of cycles of fixed-point iteration
 CONVECTIVE_TS_TYPE         = "ADAMS_BASHFORTH"      // convective time stepping type
@@ -96,6 +96,9 @@ IBHierarchyIntegrator {
    dt_max              = DT
    error_on_dt_change  = ERROR_ON_DT_CHANGE
    enable_logging      = ENABLE_LOGGING
+
+   IB_delta_fcn        = IB_DELTA_FUNCTION
+   viz_dump_dirname    = "viz_IB2d"
 }
 
 IBFEMethod {
@@ -163,7 +166,7 @@ Main {
 
 // visualization dump parameters
    viz_writer                  = "VisIt","ExodusII"
-   viz_dump_interval           = int(0.125/DT)
+   viz_dump_interval           = 10
    viz_dump_dirname            = "viz_IB2d"
    visit_number_procs_per_file = 1
 

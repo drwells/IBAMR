@@ -266,7 +266,7 @@ main(int argc, char* argv[])
                            /*register_for_restart*/ true,
                            restart_read_dirname,
                            restart_restore_num);
-        Pointer<IBHierarchyIntegrator> time_integrator =
+        Pointer<IBExplicitHierarchyIntegrator> time_integrator =
             new IBExplicitHierarchyIntegrator("IBHierarchyIntegrator",
                                               app_initializer->getComponentDatabase("IBHierarchyIntegrator"),
                                               ib_method_ops,
@@ -416,6 +416,19 @@ main(int argc, char* argv[])
         plog << "Input database:\n";
         input_db->printClassData(plog);
 
+        // Marker points
+#if NDIM == 2
+        EigenAlignedVector<IBTK::Point> positions;
+        for (unsigned int i = 0; i < 11; ++i)
+        {
+            for (unsigned int j = 1; j < 10; ++j)
+            {
+                positions.emplace_back(double(i) / 10.0, double(j) / 10.0);
+            }
+        }
+        time_integrator->setMarkerPoints(positions);
+#endif
+
         // Write out initial visualization data.
         int iteration_num = time_integrator->getIntegratorStep();
         double loop_time = time_integrator->getIntegratorTime();
@@ -428,6 +441,8 @@ main(int argc, char* argv[])
                     equation_systems->get_system(ib_method_ops->getCurrentCoordinatesSystemName());
                 time_integrator->setupPlotData();
                 visit_data_writer->writePlotData(patch_hierarchy, iteration_num, loop_time);
+                time_integrator->writeMarkerPlotData(iteration_num, loop_time);
+#if 0
                 if (NDIM < 3)
                 {
                     IBTK::BoxPartitioner partitioner(*patch_hierarchy, position_system);
@@ -436,6 +451,7 @@ main(int argc, char* argv[])
                     IBTK::write_node_partitioning("node-part-" + std::to_string(iteration_num) + ".txt",
                                                   position_system);
                 }
+#endif
             }
             if (uses_exodus)
             {
@@ -489,6 +505,7 @@ main(int argc, char* argv[])
                         equation_systems->get_system(ib_method_ops->getCurrentCoordinatesSystemName());
                     time_integrator->setupPlotData();
                     visit_data_writer->writePlotData(patch_hierarchy, iteration_num, loop_time);
+                    time_integrator->writeMarkerPlotData(iteration_num, loop_time);
                     if (NDIM < 3)
                     {
                         IBTK::BoxPartitioner partitioner(*patch_hierarchy, position_system);

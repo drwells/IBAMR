@@ -20,6 +20,7 @@
 #include "ibtk/LEInteractor.h"
 #include "ibtk/libmesh_utilities.h"
 
+#include "HierarchyCellDataOpsReal.h"
 #include "IntVector.h"
 #include "PatchHierarchy.h"
 #include "PatchLevel.h"
@@ -258,6 +259,12 @@ IBFEPostProcessor::interpolateVariables(const double data_time)
             if (!level->checkAllocated(scratch_idx)) level->allocatePatchData(scratch_idx, data_time);
         }
     }
+
+    // Very hard-coded for IBFE/ex4: we completely fill the Patch here and I
+    // don't see any NaNs for cell data
+    HierarchyCellDataOpsReal<NDIM, double> ops(hierarchy);
+    ops.resetLevels(coarsest_ln, finest_ln);
+    ops.setToScalar(d_scalar_interp_scratch_idxs[0], std::numeric_limits<double>::quiet_NaN(), false);
 
     HierarchyGhostCellInterpolation ghost_fill_op;
     ghost_fill_op.initializeOperatorState(d_scalar_interp_fill_transactions, hierarchy);

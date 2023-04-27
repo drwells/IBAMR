@@ -112,28 +112,6 @@ IBExplicitHierarchyIntegrator::preprocessIntegrateHierarchy(const double current
     // preprocess our dependencies...
     IBHierarchyIntegrator::preprocessIntegrateHierarchy(current_time, new_time, num_cycles);
 
-    if (d_marker_points && !d_marker_velocities_set)
-    {
-        VariableDatabase<NDIM>* var_db = VariableDatabase<NDIM>::getDatabase();
-        const int u_current_idx = var_db->mapVariableAndContextToIndex(d_ins_hier_integrator->getVelocityVariable(),
-                                                                       d_ins_hier_integrator->getCurrentContext());
-        d_hier_velocity_data_ops->copyData(d_u_idx, u_current_idx);
-        d_u_phys_bdry_op->setPatchDataIndex(d_u_idx);
-        d_u_phys_bdry_op->setHomogeneousBc(false);
-        const auto& sync_scheds = getCoarsenSchedules(d_object_name + "::u::CONSERVATIVE_COARSEN");
-        for (auto sched_it = sync_scheds.rbegin(); sched_it < sync_scheds.rend(); ++sched_it)
-        {
-            if (*sched_it) (*sched_it)->coarsenData();
-        }
-        for (const auto& u_ghost_fill_sched : getGhostfillRefineSchedules(d_object_name + "::u"))
-        {
-            if (u_ghost_fill_sched) u_ghost_fill_sched->fillData(current_time);
-        }
-
-        d_marker_points->setVelocities(d_u_idx, d_marker_kernel);
-        d_marker_velocities_set = true;
-    }
-
     // Compute the Lagrangian forces and spread them to the Eulerian grid.
     switch (d_time_stepping_type)
     {
@@ -194,6 +172,8 @@ IBExplicitHierarchyIntegrator::integrateHierarchy(const double current_time, con
                                                                d_ins_hier_integrator->getNewContext());
     const int p_new_idx = var_db->mapVariableAndContextToIndex(d_ins_hier_integrator->getPressureVariable(),
                                                                d_ins_hier_integrator->getNewContext());
+    HierarchySideDataOpsReal<NDIM, double> ops(d_hierarchy);
+    ops.resetLevels(1, 1);
 
     // Compute the Lagrangian forces and spread them to the Eulerian grid.
     switch (d_time_stepping_type)
@@ -283,6 +263,7 @@ IBExplicitHierarchyIntegrator::integrateHierarchy(const double current_time, con
     {
     case FORWARD_EULER:
     case BACKWARD_EULER:
+        ops.setToScalar(d_u_idx, std::numeric_limits<double>::quiet_NaN(), false);
         d_hier_velocity_data_ops->copyData(d_u_idx, u_new_idx);
         if (d_enable_logging)
             plog << d_object_name
@@ -298,8 +279,14 @@ IBExplicitHierarchyIntegrator::integrateHierarchy(const double current_time, con
     case MIDPOINT_RULE:
     {
         // If we are using marker points then save the half velocity to a separate index.
+#if 0
         const int u_idx = d_u_half_idx != invalid_index ? d_u_half_idx : d_u_idx;
         const std::string u_str = d_u_half_idx != invalid_index ? "u_half" : "u";
+#else
+        const int u_idx = d_u_idx;
+        const std::string u_str = "u";
+#endif
+        ops.setToScalar(u_idx, std::numeric_limits<double>::quiet_NaN(), false);
         d_hier_velocity_data_ops->linearSum(u_idx, 0.5, u_current_idx, 0.5, u_new_idx);
         if (d_enable_logging)
             plog << d_object_name
@@ -316,6 +303,7 @@ IBExplicitHierarchyIntegrator::integrateHierarchy(const double current_time, con
     break;
     case TRAPEZOIDAL_RULE:
         d_hier_velocity_data_ops->copyData(d_u_idx, u_new_idx);
+        ops.setToScalar(d_u_idx, std::numeric_limits<double>::quiet_NaN(), false);
         if (d_enable_logging)
             plog << d_object_name
                  << "::integrateHierarchy(): interpolating Eulerian velocity to "
@@ -445,7 +433,8 @@ IBExplicitHierarchyIntegrator::postprocessIntegrateHierarchy(const double curren
     VariableDatabase<NDIM>* var_db = VariableDatabase<NDIM>::getDatabase();
     const int u_new_idx = var_db->mapVariableAndContextToIndex(d_ins_hier_integrator->getVelocityVariable(),
                                                                d_ins_hier_integrator->getNewContext());
-    d_hier_velocity_data_ops->copyData(d_u_idx, u_new_idx);
+    ops.setToScalar(d_u_idx, std::numeric_limits<double>::quiet_NaN(), false);
+    ops.copyData(d_u_idx, u_new_idx);
     if (d_enable_logging)
         plog << d_object_name
              << "::postprocessIntegrateHierarchy(): interpolating Eulerian "
@@ -459,28 +448,32 @@ IBExplicitHierarchyIntegrator::postprocessIntegrateHierarchy(const double curren
 
     if (d_markers)
     {
-        TBOX_ASSERT(d_time_stepping_type == MIDPOINT_RULE);
-
+#if 0
         // Some IBStrategy objects don't update the velocity ghost values themselves so do that first:
-        auto do_sync_scheds = [](const std::vector<Pointer<CoarsenSchedule<NDIM> > >& sync_scheds)
+        auto do_synch_scheds = [&](const std::vector<Pointer<CoarsenSchedule<NDIM> > >& synch_scheds)
         {
-            for (auto sched_it = sync_scheds.rbegin(); sched_it < sync_scheds.rend(); ++sched_it)
+            for (int ln = d_hierarchy->getFinestLevelNumber(); ln > 0; --ln)
             {
-                if (*sched_it) (*sched_it)->coarsenData();
+                if (ln < static_cast<int>(synch_scheds.size()) && synch_scheds[ln])
+                {
+                    synch_scheds[ln]->coarsenData();
+                }
             }
         };
         // Note that d_u_idx contains u_new_idx at this point
-        do_sync_scheds(getCoarsenSchedules(d_object_name + "::u::CONSERVATIVE_COARSEN"));
-        do_sync_scheds(getCoarsenSchedules(d_object_name + "::u_half::CONSERVATIVE_COARSEN"));
+        do_synch_scheds(getCoarsenSchedules(d_object_name + "::u::CONSERVATIVE_COARSEN"));
+        do_synch_scheds(getCoarsenSchedules(d_object_name + "::u_half::CONSERVATIVE_COARSEN"));
 
+        const double half_time = current_time + 0.5 * (new_time - current_time);
         for (const auto& u_ghost_fill_sched : getGhostfillRefineSchedules(d_object_name + "::u"))
         {
             if (u_ghost_fill_sched) u_ghost_fill_sched->fillData(new_time);
         }
         for (const auto& u_ghost_fill_sched : getGhostfillRefineSchedules(d_object_name + "::u_half"))
         {
-            if (u_ghost_fill_sched) u_ghost_fill_sched->fillData(new_time);
+            if (u_ghost_fill_sched) u_ghost_fill_sched->fillData(half_time);
         }
+#endif
 
         d_markers->midpointStep(new_time - current_time, d_u_idx, d_u_idx, d_marker_kernel);
     }
@@ -552,7 +545,8 @@ IBExplicitHierarchyIntegrator::setMarkers(const EigenAlignedVector<IBTK::Point>&
                                             d_ins_hier_integrator->getVelocityBoundaryConditions(),
                                             /*homogeneous_bc*/ false));
         }
-        registerGhostfillRefineAlgorithm(d_object_name + "::u_half", d_u_ghostfill_alg, std::move(u_half_phys_bdry_op));
+        registerGhostfillRefineAlgorithm(
+            d_object_name + "::u_half", u_half_ghostfill_alg, std::move(u_half_phys_bdry_op));
 
         // ... and register coarsening.
         Pointer<CoarsenAlgorithm<NDIM> > u_half_coarsen_alg = new CoarsenAlgorithm<NDIM>();
@@ -561,6 +555,10 @@ IBExplicitHierarchyIntegrator::setMarkers(const EigenAlignedVector<IBTK::Point>&
         auto u_half_coarsen_op = grid_geom->lookupCoarsenOperator(d_u_var, "CONSERVATIVE_COARSEN");
         u_half_coarsen_alg->registerCoarsen(d_u_half_idx, d_u_half_idx, u_half_coarsen_op);
         registerCoarsenAlgorithm(d_object_name + "::u_half::CONSERVATIVE_COARSEN", u_half_coarsen_alg);
+
+        // Create the remaining internal objects associated with the new
+        // schedule.
+        resetHierarchyConfiguration(d_hierarchy, 0, d_hierarchy->getFinestLevelNumber());
     }
 } // setMarkers
 

@@ -147,6 +147,7 @@ do_interpolation(const int data_idx,
                  const std::vector<double>& positions,
                  const Pointer<Patch<NDIM> > patch,
                  const std::string& kernel,
+                 const int ghost_width,
                  std::vector<double>& velocities)
 {
     Pointer<PatchData<NDIM> > data = patch->getPatchData(data_idx);
@@ -157,7 +158,7 @@ do_interpolation(const int data_idx,
     // Only interpolate things within 1 cell of the patch box - we aren't
     // guaranteed to have more ghost data than that
     Box<NDIM> interp_box = data->getBox();
-    interp_box.grow(1);
+    interp_box.grow(ghost_width);
 #ifndef NDEBUG
     std::fill(velocities.begin(), velocities.end(), std::numeric_limits<double>::signaling_NaN());
 #endif
@@ -729,7 +730,7 @@ MarkerPatchHierarchy::setVelocities(const int u_idx, const std::string& kernel)
             {
                 Pointer<Patch<NDIM> > patch = current_level->getPatch(p);
                 MarkerPatch& marker_patch = d_marker_patches[ln][local_patch_num];
-                do_interpolation(u_idx, marker_patch.d_positions, patch, kernel, marker_patch.d_velocities);
+                do_interpolation(u_idx, marker_patch.d_positions, patch, kernel, 0, marker_patch.d_velocities);
                 ++local_patch_num;
             }
         }
@@ -755,21 +756,53 @@ MarkerPatchHierarchy::midpointStep(const double dt, const int u_half_idx, const 
                 std::vector<double> half_positions(marker_patch.d_positions);
                 for (unsigned int i = 0; i < marker_patch.d_positions.size(); ++i)
                 {
-                    half_positions[i] = marker_patch.d_positions[i] + dt * marker_patch.d_velocities[i];
+                    half_positions[i] = marker_patch.d_positions[i] + 0.0 * marker_patch.d_velocities[i];
                 }
 
+#if 0
                 // 2. Interpolate midpoint velocity:
                 std::vector<double> half_velocities(marker_patch.d_velocities);
-                do_interpolation(u_half_idx, half_positions, patch, kernel, half_velocities);
+                do_interpolation(u_half_idx, half_positions, patch, kernel, 1, half_velocities);
+#endif
 
                 // 3. Do a midpoint step:
+#if 0
                 for (unsigned int i = 0; i < marker_patch.d_positions.size(); ++i)
                 {
                     marker_patch.d_positions[i] += dt * half_velocities[i];
                 }
+#else
+                // 3. Do a forward Euler step:
+                for (unsigned int i = 0; i < marker_patch.d_positions.size(); ++i)
+                {
+                    marker_patch.d_positions[i] += dt * marker_patch.d_velocities[i];
+                }
+#endif
+
+                ++local_patch_num;
+            }
+        }
+    }
+
+    // TODO: with a predictor-corrector method we can get the old position back
+    // by doing a reverse timestep: we just need the updated position, original
+    // velocity, and dt
+
+    pruneAndRedistribute();
+
+    for (int ln = d_hierarchy->getFinestLevelNumber(); ln >= 0; --ln)
+    {
+        unsigned int local_patch_num = 0;
+        Pointer<PatchLevel<NDIM> > current_level = d_hierarchy->getPatchLevel(ln);
+        for (int p = 0; p < current_level->getNumberOfPatches(); ++p)
+        {
+            if (rank == current_level->getMappingForPatch(p))
+            {
+                MarkerPatch& marker_patch = d_marker_patches[ln][local_patch_num];
+                Pointer<Patch<NDIM> > patch = current_level->getPatch(p);
 
                 // 4. Interpolate the velocity at the new time:
-                do_interpolation(u_new_idx, marker_patch.d_positions, patch, kernel, marker_patch.d_velocities);
+                do_interpolation(u_new_idx, marker_patch.d_positions, patch, kernel, 0, marker_patch.d_velocities);
 
                 ++local_patch_num;
             }
