@@ -51,6 +51,46 @@
 // Set up application namespace declarations
 #include <ibamr/app_namespaces.h>
 
+// No matter what we have to deal with a lot of classes (e.g.,
+// SecondaryHierarchy inside IBFEMethod) storing their own geometric information
+
+// PLAN 1
+// 1. Set up all objects twice. IBFEMethod can use the same XDR file, otherwise
+//    set things up de novo.
+//
+// 2. Use the approach from SecondaryHierarchy to move data over to the coarser
+//    PatchHierarchy.
+//
+// 3. Start execution from the coarsened hierarchy.
+//
+// One problem with this approach is that we have to create new objects which
+// won't be in the restart database. This isn't allowed in SAMRAI: i.e., when
+// you restart, every object must be present in the restart database to use it.
+//
+// We could patch SAMRAI... I'd rather not. That could do weird things to the
+// restart database.
+
+// PLAN 2
+//
+// SAMRAI doesn't support refining with non-integer refinements: i.e., there is
+// no way in SAMRAI to go from N = 64 to N = 43 on the finer grid. Hence we will
+// need some way to do this outside of SAMRAI.
+//
+// We COULD load everything in serial into a single Python script and then
+// horribly edit things that way... that's probably our best bet.
+//
+// One possible workflow:
+//
+// 1. put all patches in one file via the included SAMRAI app
+// 2. coarsen each patch. This will require some care - we need to load everything
+//    so that we can correctly coarsen boundary data by reading some ghosts or
+//    something
+// 3. save that modified data to a new restart file
+// 4. use the same samrai app to switch back to the original data partitioning
+//
+// We might be able to skip steps 1 and 4 by setting up a python script to load
+// everything and coarsen appropriately.
+
 // Elasticity model data.
 namespace ModelData
 {
@@ -101,6 +141,48 @@ PK1_dil_stress_function(TensorValue<double>& PP,
 } // PK1_dil_stress_function
 } // namespace ModelData
 using namespace ModelData;
+
+void
+load_from_other_restart()
+{
+    // Only valid for de novo simulations
+    TBOX_ASSERT(!RestartManager::getManager()->isFromRestart());
+
+    const std::string restart_directory = "restart_IB2d-64/restore.000100/nodes.00004";
+	TBOX_ASSERT(SAMRAI_MPI::getNodes() == 4);
+	const int rank = SAMRAI_MPI::getRank();
+
+	// Set up the GridGeometry by manually extracting things from the restart
+	// database:
+	tbox::Pointer<tbox::Database> geometry_db = nullptr; // TODO
+	tbox::Pointer<hier::GridGeometry<NDIM>> grid_geometry = new CartesianGridGeometry<NDIM>("copy_geometry", geometry_db, false);
+
+	// Set up the previous PatchHierarchy:
+	PatchHierarchy<NDIM> patch_hierarchy("copy_hierarchy", grid_geometry, false);
+
+	// TODO: somehow tag all cells for refinement
+
+	// now that we tagged all cells, we should have a uniform grid for
+	// @patch_hierarchy on the finest grid level. From that point we should be
+	// able to copy data over.
+	//
+	// Ideas:
+	// 1. Set all data to NaN to make sure we don't miss anything
+	// 2. Invent new coarsening / interpolation algorithms to go from, e.g., 128^3
+	//    to 43^3
+	// 3. Fundamentally, we need to do some kind of parallel request-and-send
+	//    procedure. Processor A should know which boxes it needs. It can then ask
+	//    processors B and C to populate those values and send them over. Maybe we
+	//    should do our own low-level manipulation of Schedule to sort this out.
+	//
+	//    I think we have everything we need if we have one layer of ghost
+	//    cells? We are only coarsening so every support point must be between
+	//    two support points somewhere.
+
+    // A good starting place would be to write the arbitrary coarsening
+    // operator, which takes as inputs whatever things we typically send with
+    // Schedule and then does the thing
+}
 
 // Function prototypes
 void output_data(Pointer<PatchHierarchy<NDIM> > patch_hierarchy,
