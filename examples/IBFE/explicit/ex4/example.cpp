@@ -145,43 +145,64 @@ using namespace ModelData;
 void
 load_from_other_restart()
 {
+    // We have to use this singleton, which stores a pointer to the input
+    // database, to parse the other input file. Clear it.
+    tbox::InputManager::freeManager();
+
     // Only valid for de novo simulations
     TBOX_ASSERT(!RestartManager::getManager()->isFromRestart());
 
+    const std::string other_input_file = "input2d.N=64";
+    tbox::Pointer<tbox::Database> other_input_db = tbox::InputManager::getManager()->parseInputFile(other_input_file);
+    tbox::Pointer<tbox::Database> geometry_db = other_input_db->getDatabase("CartesianGeometry");
+    tbox::Pointer<hier::GridGeometry<NDIM> > grid_geometry =
+        new CartesianGridGeometry<NDIM>("copy_geometry", geometry_db, false);
+
+    TBOX_ASSERT(SAMRAI_MPI::getNodes() == 4);
     const std::string restart_directory = "restart_IB2d-64/restore.000100/nodes.00004";
-	TBOX_ASSERT(SAMRAI_MPI::getNodes() == 4);
-	const int rank = SAMRAI_MPI::getRank();
+    const int rank = SAMRAI_MPI::getRank();
 
-	// Set up the GridGeometry by manually extracting things from the restart
-	// database:
-	tbox::Pointer<tbox::Database> geometry_db = nullptr; // TODO
-	tbox::Pointer<hier::GridGeometry<NDIM>> grid_geometry = new CartesianGridGeometry<NDIM>("copy_geometry", geometry_db, false);
+    std::ostringstream restart_file_stream;
+    restart_file_stream << restart_directory << "/"
+                        << "proc." << std::setfill('0') << std::setw(5) << rank;
+    tbox::HDFDatabase other_restart_db("other_restart_db");
+    other_restart_db.open(restart_file_stream.str());
 
-	// Set up the previous PatchHierarchy:
-	PatchHierarchy<NDIM> patch_hierarchy("copy_hierarchy", grid_geometry, false);
+    // Set up the previous PatchHierarchy:
+    auto* var_db = VariableDatabase<NDIM>::getDatabase();
+    PatchHierarchy<NDIM> other_patch_hierarchy("copy_hierarchy", grid_geometry, false);
+    patch_hierarchy.getFromDatabase(other_restart_db.getDatabase("PatchHierarchy"), var_db->getPatchDataRestartTable());
 
-	// TODO: somehow tag all cells for refinement
+	// determine which patches on the coarsest level other level we need for the
+	// current coarsest level.
 
-	// now that we tagged all cells, we should have a uniform grid for
-	// @patch_hierarchy on the finest grid level. From that point we should be
-	// able to copy data over.
-	//
-	// Ideas:
-	// 1. Set all data to NaN to make sure we don't miss anything
-	// 2. Invent new coarsening / interpolation algorithms to go from, e.g., 128^3
-	//    to 43^3
-	// 3. Fundamentally, we need to do some kind of parallel request-and-send
-	//    procedure. Processor A should know which boxes it needs. It can then ask
-	//    processors B and C to populate those values and send them over. Maybe we
-	//    should do our own low-level manipulation of Schedule to sort this out.
-	//
-	//    I think we have everything we need if we have one layer of ghost
-	//    cells? We are only coarsening so every support point must be between
-	//    two support points somewhere.
+    // now that we tagged all cells, we should have a uniform grid for
+    // @patch_hierarchy on the finest grid level. From that point we should be
+    // able to copy data over.
+    //
+    // Ideas:
+    // 1. Set all data to NaN to make sure we don't miss anything
+    // 2. Invent new coarsening / interpolation algorithms to go from, e.g., 128^3
+    //    to 43^3
+    // 3. Fundamentally, we need to do some kind of parallel request-and-send
+    //    procedure. Processor A should know which boxes it needs. It can then ask
+    //    processors B and C to populate those values and send them over. Maybe we
+    //    should do our own low-level manipulation of Schedule to sort this out.
+    //
+    //    I think we have everything we need if we have one layer of ghost
+    //    cells? We are only coarsening so every support point must be between
+    //    two support points somewhere.
 
     // A good starting place would be to write the arbitrary coarsening
     // operator, which takes as inputs whatever things we typically send with
     // Schedule and then does the thing
+
+	// I think we should set values one level at a time. That way we won't have
+	// to do uniform refinement. For example: interpolate values from the
+	// coarsest other level, then the next coarsest other level, etc.
+
+    // same thing as up front
+    tbox::InputManager::freeManager();
 }
 
 // Function prototypes
@@ -559,6 +580,8 @@ main(int argc, char* argv[])
         {
             volume_stream.open("volume.curve", ios_base::out | ios_base::trunc);
         }
+
+        load_from_other_restart();
 
         // Main time step loop.
         double loop_time_end = time_integrator->getEndTime();
