@@ -928,11 +928,17 @@ INSStaggeredHierarchyIntegrator::initializeHierarchyIntegrator(Pointer<PatchHier
     }
     registerVariable(d_Div_U_idx, d_Div_U_var, cell_ghosts, getCurrentContext(), false);
 
+    // Register level data variables.
+    auto* var_db = VariableDatabase<NDIM>::getDatabase();
+    d_level_data_context = var_db->getContext(d_object_name + "::LEVEL_DATA");
+    d_U_regrid_idx = var_db->registerVariableAndContext(d_U_regrid_var, d_level_data_context, CartSideDoubleDivPreservingRefine::REFINE_OP_STENCIL_WIDTH);
+    d_indicator_idx = var_db->registerVariableAndContext(d_indicator_var, d_level_data_context, CartSideDoubleDivPreservingRefine::REFINE_OP_STENCIL_WIDTH);
+    d_level_data_idxs.setFlag(d_U_regrid_idx);
+    d_level_data_idxs.setFlag(d_indicator_idx);
+
     // Register scratch variables that are maintained by the
     // INSStaggeredHierarchyIntegrator.
-    registerVariable(d_U_regrid_idx, d_U_regrid_var, CartSideDoubleDivPreservingRefine::REFINE_OP_STENCIL_WIDTH);
     registerVariable(d_U_src_idx, d_U_src_var, CartSideDoubleDivPreservingRefine::REFINE_OP_STENCIL_WIDTH);
-    registerVariable(d_indicator_idx, d_indicator_var, CartSideDoubleDivPreservingRefine::REFINE_OP_STENCIL_WIDTH);
     if (d_Q_fcn)
     {
         registerVariable(d_F_div_idx, d_F_div_var, no_ghosts);
@@ -1085,6 +1091,22 @@ INSStaggeredHierarchyIntegrator::preprocessIntegrateHierarchy(const double curre
     const int coarsest_ln = 0;
     const int finest_ln = d_hierarchy->getFinestLevelNumber();
     const double dt = new_time - current_time;
+
+    // All plot data is now invalidated so make sure it is not allocated
+    for (int ln = coarsest_ln; ln <= finest_ln; ++ln)
+    {
+        Pointer<PatchLevel<NDIM> > level = d_hierarchy->getPatchLevel(ln);
+        for (const int idx : d_plot_indices)
+        {
+            if (level->checkAllocated(idx)) level->deallocatePatchData(idx);
+        }
+#if 0 // TODO: we need to be careful with div u
+        if (level->checkAllocated(d_Div_U_idx))
+        {
+            level->deallocatePatchData(d_Div_U_idx);
+        }
+#endif
+    }
 
     // Keep track of the number of cycles to be used for the present integration
     // step.
@@ -1773,11 +1795,9 @@ INSStaggeredHierarchyIntegrator::initializeLevelDataSpecialized(const Pointer<Ba
     // Correct the divergence of the interpolated velocity data.
     if (!initial_time && level_number > 0)
     {
-        // Allocate scratch data.
-        ComponentSelector scratch_data;
-        scratch_data.setFlag(d_U_regrid_idx);
+        // Allocate level data. Also uses d_U_src_idx (which is a scratch index)
+        ComponentSelector scratch_data(d_level_data_idxs);
         scratch_data.setFlag(d_U_src_idx);
-        scratch_data.setFlag(d_indicator_idx);
         level->allocatePatchData(scratch_data, init_data_time);
         if (old_level) old_level->allocatePatchData(scratch_data, init_data_time);
 
@@ -1824,6 +1844,10 @@ INSStaggeredHierarchyIntegrator::initializeLevelDataSpecialized(const Pointer<Ba
             // location in the new patch level that is a copy of a location from
             // the old patch level.
             RefineAlgorithm<NDIM> copy_data;
+
+            // TODO: d_U_regrid_idx and d_indicator_idx do not need to be in
+            // 'scratch' since they are only used here
+
             copy_data.registerRefine(d_U_regrid_idx, d_U_regrid_idx, d_U_regrid_idx, nullptr);
             copy_data.registerRefine(d_U_src_idx, d_U_src_idx, d_U_src_idx, nullptr);
             copy_data.registerRefine(d_indicator_idx, d_indicator_idx, d_indicator_idx, nullptr);

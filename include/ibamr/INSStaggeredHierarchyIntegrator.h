@@ -479,8 +479,17 @@ private:
      *
      * Scratch variables have only one context: scratch.
      */
-    int d_U_regrid_idx = IBTK::invalid_index, d_U_src_idx = IBTK::invalid_index, d_indicator_idx = IBTK::invalid_index,
-        d_F_div_idx = IBTK::invalid_index;
+    int d_U_src_idx = IBTK::invalid_index, d_F_div_idx = IBTK::invalid_index;
+
+    /*
+     * Patch data descriptor indices for variables only used during initializing
+     * level data.
+     */
+    int d_U_regrid_idx = IBTK::invalid_index, d_indicator_idx = IBTK::invalid_index;
+
+    SAMRAI::tbox::Pointer<SAMRAI::hier::VariableContext> d_level_data_context;
+
+    SAMRAI::hier::ComponentSelector d_level_data_idxs;
 };
 } // namespace IBAMR
 
