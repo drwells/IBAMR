@@ -18,9 +18,9 @@ elem_order = "FIRST"
 //parallel plate params
 LEFT_END          = -L/2   //left endpoint of parallel plate
 RIGHT_END         = L/2   //right endpoint of parallel plate
-SEPARATION        = DX/10 //2.0    //distance between plates
-UPPER_DRIFT_VELOCITY    = 1.0    //velocity of upper plate
-LOWER_DRIFT_VELOCITY    = -1.0   //velocity of upper plate
+SEPARATION        = DX/2 //2.0    //distance between plates
+UPPER_DRIFT_VELOCITY    = 1    //velocity of upper plate
+LOWER_DRIFT_VELOCITY    = -1   //velocity of upper plate
 PK1_DEV_QUAD_ORDER = "SEVENTH"
 PK1_DIL_QUAD_ORDER = "FIFTH"
 USE_BOUNDARY_MESH = TRUE
@@ -48,8 +48,8 @@ CONVECTIVE_FORM            = "ADVECTIVE"            // how to compute the convec
 NORMALIZE_PRESSURE         = FALSE                 // whether to explicitly force the pressure to have mean zero
 CFL_MAX                    = 0.1                   // maximum CFL number
 DT                         = 0.1*CFL_MAX*DX // maximum timestep size
-
-END_TIME                   = DT                     // final simulation time
+COMPUTE_FLUID_TRACTION     = FALSE
+END_TIME                   = 1*DT              // final simulation time
 ERROR_ON_DT_CHANGE         = TRUE                   // whether to emit an error message if the time step size changes
 VORTICITY_TAGGING          = TRUE                   // whether to tag cells for refinement based on vorticity thresholds
 TAG_BUFFER                 = 1                      // size of tag buffer used by grid generation algorithm
@@ -62,37 +62,42 @@ OUTPUT_DIV_U               = TRUE
 ENABLE_LOGGING             = TRUE
 
 
-KAPPA_S = 0.0002/DT^2  //0.0005/DT^2 //10000 //0.00001*DX/DT^2 //2.5*DX/DT^2
-ETA_S = 0.1
+KAPPA_S = 0.0 //0.00002/DT^2  //0.0005/DT^2 //10000 //0.00001*DX/DT^2 //2.5*DX/DT^2
+ETA_S = 200
 
 USE_SECOND_VELOCITY_CORRECTION = TRUE
-USE_CURR_MESH_CONFIG = FALSE
+USE_CURR_MESH_CONFIG = FALSE //must be false
+
+
+USE_HANDFILLED_JC_FOR_FORCE_SPREADING = TRUE
+USE_HANDFILLED_JC_FOR_INTERPOLATION =  TRUE
+HANDFILLED_JC = (UPPER_DRIFT_VELOCITY-LOWER_DRIFT_VELOCITY)/SEPARATION
+
 
 U_INFLOW = "sqrt((X1)*(X1))  <= SEPARATION/2 ? LOWER_DRIFT_VELOCITY + (X1 + SEPARATION/2)*(UPPER_DRIFT_VELOCITY - LOWER_DRIFT_VELOCITY)/SEPARATION : ( (X1 < -SEPARATION/2) ? LOWER_DRIFT_VELOCITY : UPPER_DRIFT_VELOCITY )"
 VelocityBcCoefs_0 {
-    U_INFLOW = U_INFLOW
+    
     SEPARATION = SEPARATION
     LOWER_DRIFT_VELOCITY = LOWER_DRIFT_VELOCITY
     UPPER_DRIFT_VELOCITY = UPPER_DRIFT_VELOCITY
-
+    U_INFLOW = U_INFLOW
     acoef_function_0 = "1.0"
     acoef_function_1 = "1.0"
-    acoef_function_2 = "0.0"
-    acoef_function_3 = "0.0"
+    acoef_function_2 = "1.0"
+    acoef_function_3 = "1.0"
 
     bcoef_function_0 = "0.0" 
     bcoef_function_1 = "0.0" 
-    bcoef_function_2 = "1.0"
-    bcoef_function_3 = "1.0"
+    bcoef_function_2 = "0.0"
+    bcoef_function_3 = "0.0"
 
     gcoef_function_0 = U_INFLOW 
     gcoef_function_1 = U_INFLOW
-    gcoef_function_2 ="0.0" 
-    gcoef_function_3 ="0.0" 
+    gcoef_function_2 = "-1.0" 
+    gcoef_function_3 = "1.0" 
 }
 
 VelocityBcCoefs_1 {
-
 
    acoef_function_0 = "1.0"
    acoef_function_1 = "1.0"
@@ -112,12 +117,14 @@ VelocityBcCoefs_1 {
 
 
 VelocityInitialConditions{
-       U_INFLOW = U_INFLOW
-    SEPARATION = SEPARATION
-    LOWER_DRIFT_VELOCITY = LOWER_DRIFT_VELOCITY
-    UPPER_DRIFT_VELOCITY = UPPER_DRIFT_VELOCITY
- function_0 = U_INFLOW
- function_1 = "0.0"
+       
+   SEPARATION = SEPARATION
+   LOWER_DRIFT_VELOCITY = LOWER_DRIFT_VELOCITY
+   UPPER_DRIFT_VELOCITY = UPPER_DRIFT_VELOCITY
+   U_INFLOW = U_INFLOW
+
+   function_0 = U_INFLOW
+   function_1 = "0.0"
 }
 
 
@@ -146,6 +153,10 @@ IIMethod {
    normalize_pressure_jump = NORMALIZE_PRESSURE_JUMP
    use_current_mesh_configuration = USE_CURR_MESH_CONFIG
    use_second_velocity_correction = USE_SECOND_VELOCITY_CORRECTION
+   compute_fluid_traction         = COMPUTE_FLUID_TRACTION
+   use_handfilled_jc_for_interpolation = USE_HANDFILLED_JC_FOR_INTERPOLATION
+   use_handfilled_jc_for_force_spreading = USE_HANDFILLED_JC_FOR_FORCE_SPREADING
+   handfilled_jc                  = HANDFILLED_JC
 }
 
 
@@ -182,7 +193,7 @@ Main {
 
 // visualization dump parameters
    viz_writer                  = "VisIt","ExodusII"
-   viz_dump_interval           = 1 //int(0.1/DT)
+   viz_dump_interval           =  int(0.2/DT)
    viz_dump_dirname            = "viz_II_2D_N_128_pbc_normjump"
    visit_number_procs_per_file = 1
 
@@ -191,7 +202,7 @@ Main {
    restart_dump_dirname        = "restart_IB2d"
 
 // hierarchy data dump parameters
-   data_dump_interval          = int(0.5/DT)
+   data_dump_interval          = 1//int(0.5/DT)
    data_dump_dirname           = "hier_data_II2d_N_128_pbc_normjump"
 
 // timer dump parameters
@@ -215,10 +226,10 @@ GriddingAlgorithm {
       level_5 = REF_RATIO,REF_RATIO
    }
    largest_patch_size {
-      level_0 = N,N  // all finer levels will use same values as level_0
+      level_0 = 1,1  // all finer levels will use same values as level_0
    }
    smallest_patch_size {
-      level_0 =   N,  N  // all finer levels will use same values as level_0
+      level_0 =   1,  1  // all finer levels will use same values as level_0
    }
    efficiency_tolerance = 0.85e0  // min % of tag cells in new patch level
    combine_efficiency   = 0.85e0  // chop box if sum of volumes of smaller boxes < efficiency * vol of large box

@@ -304,7 +304,7 @@ IIMethod::getMeshCoordinatesPetsc(bool isCurrentConfiguration,std::string time,u
     //will accidentally return the incorrect data type
 
     if(isCurrentConfiguration){
-        std::cout <<"using current config\n";
+        //std::cout <<"using current config\n";
         PetscVector<double>* X_ghost_vec = d_X_IB_ghost_vecs[part];
         PetscVector<double>* X_vec = nullptr;
 
@@ -331,7 +331,7 @@ IIMethod::getMeshCoordinatesPetsc(bool isCurrentConfiguration,std::string time,u
 
     }
     else{ //reference configuration
-        std::cout <<"using ref config\n";
+        //std::cout <<"using ref config\n";
 
         EquationSystems* equation_systems = d_fe_data_managers[part]->getEquationSystems();
         const MeshBase& mesh = equation_systems->get_mesh();
@@ -1597,9 +1597,6 @@ IIMethod::interpolateVelocity(const int u_data_idx,
                                 ic_upper[d] = ic_center[d] + 1;
                             }
 
-                            //weights depending on the distance from the 
-                            //edge of the box to qp location
-
                             //looks like these are the lambda and zeta values in the paper
                             if (x[d] <= x_cell[d])
                             {
@@ -1613,12 +1610,6 @@ IIMethod::interpolateVelocity(const int u_data_idx,
                             wr[d][0] = +w[d][0];
                             wr[d][1] = -w[d][1];
                         }
-
-                        //get the elem that the current qp is on:
-                        //PointLocatorTree point_finder(mesh);
-                        //point_finder.init();
-                        //const libMesh::Point x_point(x[0],x[1],x[1]);  
-                        //const Elem* elem = point_finder(x_point);
 
                         boost::multi_array<double, NDIM + 1> Ujump(
                             boost::extents[range(ic_lower[0], ic_upper[0] + 1)][range(ic_lower[1], ic_upper[1] + 1)]
@@ -1644,348 +1635,272 @@ IIMethod::interpolateVelocity(const int u_data_idx,
                                           [range(0, NDIM)]);
 
 
-/*
-                        boost::multi_array<double, NDIM + 1> interpSign_secondary(
-                            boost::extents[range(ic_lower[0], ic_upper[0] + 1)][range(ic_lower[1], ic_upper[1] + 1)]
-                            
-#if (NDIM == 3)
-                                          [range(ic_lower[2], ic_upper[2] + 1)]
-#endif
-
-                                          [range(0, NDIM)]);
-*/
-
-
                         VectorValue<double> norm_vec, du_jump, coeff_vec, wrc, du_jump_secondary, wrc_secondary;
-                        // Loop over indices to calculate the interp coefficients (Lower=0, Upper=1)
 
                         for (int d = 0; d < NDIM; ++d) norm_vec(d) = n_qp[s * NDIM + d];//normal at the qp
-                        //std::cout <<norm_vec(0)<< "is the x-dir norm vec, and "<<norm_vec(1)<< "is the y-dir norm vec at part: "<<part<<"\n";
 
                         Box<NDIM> stencil_box(ic_lower, ic_upper);
 #if(NDIM == 2)
                         std::array<std::array<double, 4>, NDIM> DU_jump_second_cut = {}; //keep track of jump conds for each ray from qp to corner
+                        std::array<std::array<double, 4>, NDIM> weights_secondary = {}; //4 is hardcoded for 2d (number of corners in box), should be 8 in 3d
 #endif
 #if(NDIM == 3)
                         std::array<std::array<double, 8>, NDIM> DU_jump_second_cut = {};
-#endif
-
-
-#if (NDIM == 2)
-                        std::array<std::array<double, 4>, NDIM> weights_secondary = {}; //4 is hardcoded for 2d (number of corners in box), should be 8 in 3d
-#endif
-
-#if (NDIM == 3)
                         std::array<std::array<double, 8>, NDIM> weights_secondary = {}; //4 is hardcoded for 2d (number of corners in box), should be 8 in 3d
-#endif  
-                        std::cout<<"initialized array of arrays: "<< weights_secondary[0][0] <<", "<< weights_secondary[1][0] <<", "<<"\n";
-/*
-                        for (unsigned int axis = 0; axis < NDIM; ++axis)
-                        {
-                            DU_jump_second_cut[axis].resize(NDIM);
-                        }
-                        */
+
+#endif
+ 
                         for (unsigned int axis = 0; axis < NDIM; ++axis)
                         {
                         double* DU_jump_s_begin = &DU_jump_qp[axis][NDIM];
                         std::fill(DU_jump_s_begin, DU_jump_s_begin + NDIM, 0.0);
                         }
 
-                        //for (int d = 0; d < NDIM; ++d)
-                        //{
-                            unsigned int corner_number = 0;
-                            //iterate over all indices in the cell
-                            for (BoxIterator<NDIM> b(stencil_box); b; b++)
-                            {
-                                //get index ic for current position in the cell
-                                const Index<NDIM>& ic = b();
+                        unsigned int corner_number = 0;
+                        //iterate over all indices in the cell
+                        for (BoxIterator<NDIM> b(stencil_box); b; b++)
+                        {
+                            //get index ic for current position in the cell
+                            const Index<NDIM>& ic = b();
 
-                                if(d_use_second_velocity_correction){
-                                    // check other part
-                                    bool found_cut_already = false;
+                            if(d_use_second_velocity_correction){
+                                // check other part
+                                bool found_cut_already = false;
 
-                                    for (unsigned int part_second = 0; part_second < d_num_parts; ++part_second){
-                                        if(part_second !=part){
+                                for (unsigned int part_second = 0; part_second < d_num_parts; ++part_second){
+                                    if(part_second !=part){
 
-                                            
-                                            // Extract the mesh.
-                                            EquationSystems* equation_systems_second = d_fe_data_managers[part_second]->getEquationSystems();
-                                            const MeshBase& mesh_second = equation_systems_second->get_mesh();
-                                            const unsigned int dim_second = mesh_second.mesh_dimension();
-                                            //std::unique_ptr<QBase> qrule_second;
-                                            QGauss qrule_second (dim,FIRST);
-                                            System& X_system_second = equation_systems_second->get_system(COORDS_SYSTEM_NAME);
-                                            const DofMap& X_dof_map_second = X_system_second.get_dof_map();
-                                            FEDataManager::SystemDofMapCache& X_dof_map_cache_second =
-                                                *d_fe_data_managers[part_second]->getDofMapCache(COORDS_SYSTEM_NAME);
-                                            FEType X_fe_type_second = X_dof_map_second.variable_type(0);
+                                        // Extract the mesh.
+                                        EquationSystems* equation_systems_second = d_fe_data_managers[part_second]->getEquationSystems();
+                                        const MeshBase& mesh_second = equation_systems_second->get_mesh();
+                                        const unsigned int dim_second = mesh_second.mesh_dimension();
+                                        QGauss qrule_second (dim,FIRST);
+                                        System& X_system_second = equation_systems_second->get_system(COORDS_SYSTEM_NAME);
+                                        const DofMap& X_dof_map_second = X_system_second.get_dof_map();
+                                        FEDataManager::SystemDofMapCache& X_dof_map_cache_second =
+                                            *d_fe_data_managers[part_second]->getDofMapCache(COORDS_SYSTEM_NAME);
+                                        FEType X_fe_type_second = X_dof_map_second.variable_type(0);
 
-                                            std::vector<std::vector<unsigned int> > X_dof_indices_second(NDIM);
-                                            FEType fe_type_second = X_fe_type_second;
-                                            std::unique_ptr<FEBase> fe_X_second = FEBase::build(dim, fe_type_second);
-                                            const std::vector<double>& JxW_second = fe_X_second->get_JxW();
-                                            const std::vector<std::vector<double> >& phi_X_second = fe_X_second->get_phi();
-                                            std::array<const std::vector<std::vector<double> >*, NDIM - 1> dphi_dxi_second;
-                                            dphi_dxi_second[0] = &fe_X_second->get_dphidxi();
-                                            if (NDIM > 2) dphi_dxi_second[1] = &fe_X_second->get_dphideta();
-                                            std::array<VectorValue<double>, 2> dx_dxi_second;
-                                            boost::multi_array<double, 2> x_node_second(boost::extents[NDIM][NDIM]);
-                                            //boost::multi_array<double, 2> z_node(boost::extents[NDIM][NDIM]);
-                                            fe_X_second->attach_quadrature_rule(&qrule_second);
+                                        //std::vector<std::vector<unsigned int> > X_dof_indices_second(NDIM);
+                                        FEType fe_type_second = X_fe_type_second;
+                                        std::unique_ptr<FEBase> fe_X_second = FEBase::build(dim, fe_type_second);
+                                        const std::vector<double>& JxW_second = fe_X_second->get_JxW();
+                                        const std::vector<std::vector<double> >& phi_X_second = fe_X_second->get_phi();
+                                        std::array<const std::vector<std::vector<double> >*, NDIM - 1> dphi_dxi_second;
+                                        dphi_dxi_second[0] = &fe_X_second->get_dphidxi();
+                                        if (NDIM > 2) dphi_dxi_second[1] = &fe_X_second->get_dphideta();
+                                        std::array<VectorValue<double>, 2> dx_dxi_second;
+                                        boost::multi_array<double, 2> x_node_second(boost::extents[NDIM][NDIM]);
+                                        fe_X_second->attach_quadrature_rule(&qrule_second);
 
-                                            
-                                            //if we are on the other "part" of the mesh, get the necessary information for the du_i/dx_j jump conditions
-                                            //double check for "second" before doing this
-                                            const std::array<PetscVector<double>*, NDIM> DU_second_jump_ghost_vec = {
-                                            d_use_velocity_jump_conditions ? d_DU_jump_IB_ghost_vecs[part_second][0] : nullptr,
-                                            d_use_velocity_jump_conditions ? d_DU_jump_IB_ghost_vecs[part_second][1] : nullptr,
-    #if (NDIM == 3)
-                                            d_use_velocity_jump_conditions ? d_DU_jump_IB_ghost_vecs[part_second][2] : nullptr,
-    #endif
-                                            };
+                                        const std::array<PetscVector<double>*, NDIM> DU_second_jump_ghost_vec = {
+                                        d_use_velocity_jump_conditions ? d_DU_jump_IB_ghost_vecs[part_second][0] : nullptr,
+                                        d_use_velocity_jump_conditions ? d_DU_jump_IB_ghost_vecs[part_second][1] : nullptr,
+#if (NDIM == 3)
+                                        d_use_velocity_jump_conditions ? d_DU_jump_IB_ghost_vecs[part_second][2] : nullptr,
+#endif
+                                        };
 
-                                            
-
-                                            std::array<System*, NDIM> DU_second_jump_system;
-                                            std::array<DofMap*, NDIM> DU_second_jump_dof_map;
-                                            std::array<FEDataManager::SystemDofMapCache*, NDIM> DU_second_jump_dof_map_cache;
-                                            FEType DU_second_jump_fe_type = INVALID_FE;
-                                            for (unsigned int i = 0; i < NDIM; ++i)
+                                        std::array<System*, NDIM> DU_second_jump_system;
+                                        std::array<DofMap*, NDIM> DU_second_jump_dof_map;
+                                        std::array<FEDataManager::SystemDofMapCache*, NDIM> DU_second_jump_dof_map_cache;
+                                        FEType DU_second_jump_fe_type = INVALID_FE;
+                                        for (unsigned int i = 0; i < NDIM; ++i)
+                                        {
+                                            DU_second_jump_system[i] = &equation_systems_second->get_system(VELOCITY_JUMP_SYSTEM_NAME[i]);
+                                            DU_second_jump_dof_map_cache[i] = d_fe_data_managers[part_second]->getDofMapCache(VELOCITY_JUMP_SYSTEM_NAME[i]);
+                                            DU_second_jump_dof_map[i] = &DU_second_jump_system[i]->get_dof_map();
+                                            DU_second_jump_fe_type = DU_second_jump_dof_map[i]->variable_type(0);
+                                            for (unsigned int d = 0; d < NDIM; ++d)
                                             {
-                                                DU_second_jump_system[i] = &equation_systems_second->get_system(VELOCITY_JUMP_SYSTEM_NAME[i]);
-                                                DU_second_jump_dof_map_cache[i] = d_fe_data_managers[part]->getDofMapCache(VELOCITY_JUMP_SYSTEM_NAME[i]);
-                                                DU_second_jump_dof_map[i] = &DU_second_jump_system[i]->get_dof_map();
-                                                DU_second_jump_fe_type = DU_second_jump_dof_map[i]->variable_type(0);
-                                                for (unsigned int d = 0; d < NDIM; ++d)
-                                                {
-                                                    TBOX_ASSERT(DU_second_jump_dof_map[i]->variable_type(d) == DU_second_jump_fe_type);
-                                                }
+                                                TBOX_ASSERT(DU_second_jump_dof_map[i]->variable_type(d) == DU_second_jump_fe_type);
                                             }
+                                        }
 
-                                            Pointer<PatchLevel<NDIM> > level_secondary =
-                                                d_hierarchy->getPatchLevel(d_fe_data_managers[part_second]->getFinestPatchLevelNumber());
-                                            int local_patch_num_secondary = 0;
-                                            //get active patch
-                                            for (PatchLevel<NDIM>::Iterator p(level_secondary); p; p++, ++local_patch_num_secondary){
+                                        Pointer<PatchLevel<NDIM> > level_secondary =
+                                            d_hierarchy->getPatchLevel(d_fe_data_managers[part_second]->getFinestPatchLevelNumber());
+                                        int local_patch_num_secondary = 0;
 
-                                                const std::vector<Elem*>& patch_elems_secondary =
-                                                    d_fe_data_managers[part_second]->getActivePatchElementMap()[local_patch_num_secondary];
-                                                const size_t num_active_patch_elems_secondary = patch_elems_secondary.size();
-                                                if (!num_active_patch_elems_secondary) continue;
+                                        //get active patch
+                                        for (PatchLevel<NDIM>::Iterator p(level_secondary); p; p++, ++local_patch_num_secondary){
+                                            const std::vector<Elem*>& patch_elems_secondary =
+                                                d_fe_data_managers[part_second]->getActivePatchElementMap()[local_patch_num_secondary];
+                                            const size_t num_active_patch_elems_secondary = patch_elems_secondary.size();
+                                            if (!num_active_patch_elems_secondary) continue;
+                                            
+                                            //get the other part's elem
+                                            for (unsigned int e_idx = 0; e_idx < num_active_patch_elems_secondary; ++e_idx){
+                                                bool has_second_cut = false; //initialized to second cut check to false
                                                 
-                                                //get the other part's elem
-                                                for (unsigned int e_idx = 0; e_idx < num_active_patch_elems_secondary; ++e_idx){
-                                                    bool has_second_cut = false; //initialized to second cut check to false
-                                                    
-                                                    if(!found_cut_already){
-                                                        Elem* const elem_secondary = patch_elems_secondary[e_idx];
-                                                        const unsigned int n_nodes_secondary = elem_secondary->n_nodes();
+                                                if(!found_cut_already){ //for efficiency
+                                                    Elem* const elem_secondary = patch_elems_secondary[e_idx];
+                                                    const unsigned int n_nodes_secondary = elem_secondary->n_nodes();
 
-                                                        for (unsigned int node_idx = 0; node_idx < n_nodes_secondary; ++node_idx){
+                                                    //if we want to use the current configuration, we need to temporarily 
+                                                    //change the mesh node locations to current configuration,
+                                                    //to be returned to their original position later using the cache
 
-                                                            const Node *node_second = elem_secondary->node_ptr(node_idx);       
+                                                    const auto& X_dof_indices_second = X_dof_map_cache_second.dof_indices(elem_secondary);
+
+                                                    //the purpose of this block is to change the mesh's nodes on the current
+                                                    //elem to be in the current config, for intersection purposes
+
+                                                    std::vector<libMesh::Point> X_node_cache, x_node_cache;
+                                                    if(d_use_current_mesh_configuration){
+                                                        NumericVector<double>* X_ghost_vec_secondary = getMeshCoordinatesNumeric(d_use_current_mesh_configuration, "ib_ghost", part_second);
+                                                        
+                                                        X_node_cache.resize(n_nodes_secondary);
+                                                        x_node_cache.resize(n_nodes_secondary);
+
+                                                        //fill x_node_second with current config node positions
+                                                        get_values_for_interpolation(x_node_second, *X_ghost_vec_secondary, X_dof_indices_second);
+
+                                                        for (unsigned int k = 0; k < n_nodes_secondary; ++k){
+                                                            X_node_cache[k] = elem_secondary->point(k); //save the ref config for this elem's node positions
+                                                            libMesh::Point& x_current_config = x_node_cache[k]; //weird line, but Amin uses it
+                                                            for (unsigned int d = 0; d < NDIM; ++d){
+                                                                x_current_config(d) = x_node_second[k][d];
+                                                            }
+                                                            elem_secondary->point(k) = x_current_config; //Overwrites the mesh nodes locations with current config.
+                                                                                               //Is reverted later.
+                                                        }
+                                                    }
+
+                                                    for (unsigned int node_idx = 0; node_idx < n_nodes_secondary; ++node_idx){
+                                                        const Node *node_second = elem_secondary->node_ptr(node_idx);     
+                                                        
+                                                        if(!d_use_current_mesh_configuration){
+                                                            //only fill this with ref config if have the flag set
+                                                            //for efficiency
+                                                            //if using current config, x_node_second[][] is filled above
                                                             for(unsigned int i=0; i < NDIM; ++i){
-
                                                                 x_node_second[node_idx][i] = (*node_second)(i);
-                                                            }
-                                                                    
+                                                            } 
                                                         }
-                                                        //FEDataManager::updateInterpQuadratureRule(qrule_second, d_default_interp_spec, elem_secondary, x_node_second, patch_dx_min);
-                                                        //might just want to do this manually
-                                                        fe_X_second->reinit(elem_secondary);
-                                                        //dont check the current element for an intersection, this shouldn't ever be a problem
-                                                        //if(! (elem==elem_secondary)){
+                                                        
+                                                    }
 
-                                                        VectorValue<double> cartesian_corner, q, dist_cut_to_corner; //q is radial vector,cartesian_loc is box corner
-                                                        libMesh::Point r;
+                                                    fe_X_second->reinit(elem_secondary);
+                                                    VectorValue<double> cartesian_corner, q, dist_cut_to_corner; //q is radial vector,cartesian_loc is box corner
+                                                    libMesh::Point r;
+                                                    for (unsigned int d = 0; d < NDIM; ++d){
+                                                        r(d) = x_qp[s * NDIM + d]; //current quadrature pt location
+                                                        cartesian_corner(d) = x_lower_axis[d] + ((ic[d] - ilower[d]) + 0.5) * dx[d];
+                                                        q(d) = cartesian_corner(d) - r(d); //vector from qp to current box corner
+                                                    }
+
+                                                    static const double tolerance = sqrt(std::numeric_limits<double>::epsilon());
+                                                    std::vector<std::pair<double, libMesh::Point> > intersections; 
+                                                        
+#if (NDIM == 2)
+                                                    has_second_cut = intersect_line_with_edge_non_coordinate(intersections, static_cast<Edge*>(elem_secondary), r, q, tolerance);
+#endif
+#if (NDIM == 3)
+                                                    //has_second_cut = intersect_line_with_face(intersections, static_cast<Face*>(elem_secondary), r, q, tolerance);
+#endif 
+                                                    if(has_second_cut){
+
+                                                        found_cut_already = true; //tells us to stop looking for more cuts
+                                                        //std::cout<< "cut found on elem "<<e_idx<<"\n";
+                                                        for (unsigned int k = 0; k < NDIM - 1; ++k)
+                                                        {
+                                                            interpolate(dx_dxi_second[k], 0, x_node_second, *dphi_dxi_second[k]);
+                                                        }
+                                                        if (NDIM == 2)
+                                                        {
+                                                            dx_dxi_second[1] = VectorValue<double>(0.0, 0.0, 1.0);
+                                                        }
+                                                        n_secondary = (dx_dxi_second[0].cross(dx_dxi_second[1])).unit();
+                                                        n_secondary = n_secondary.unit();
+                                                        libMesh::Point u_param = intersections[0].second;
+
+                                                        //note this is only for 2d at the moment
+                                                        const libMesh::Point& p0 = *elem_secondary->node_ptr(0);
+                                                        const libMesh::Point& p1 = *elem_secondary->node_ptr(1);
+                                                        libMesh::Point cut_location(0,0,0);
                                                         for (unsigned int d = 0; d < NDIM; ++d){
-
-                                                            r(d) = x_qp[s * NDIM + d]; //current quadrature pt location
-                                                            cartesian_corner(d) = x_lower_axis[d] + ((ic[d] - ilower[d]) + 0.5) * dx[d];
-                                                            q(d) = cartesian_corner(d) - r(d); //vector from qp to current box corner
+                                                            cut_location(d) = 0.5 * (1 - u_param(0)) * p0(d) + 0.5 * (1+u_param(0)) * p1(d);
                                                         }
-                                                            
-                                                        //std::cout <<"cartesian corner: "<<cartesian_corner(0)<<", "<<cartesian_corner(1)<<"\n";
 
-                                                        static const double tolerance = sqrt(std::numeric_limits<double>::epsilon());
-                                                        std::vector<std::pair<double, libMesh::Point> > intersections; //place to store intersection pt
-                                                            
-        #if (NDIM == 2)
-                                                        has_second_cut = intersect_line_with_edge_non_coordinate(intersections, static_cast<Edge*>(elem_secondary), r, q, tolerance);
-        #endif
-        #if (NDIM == 3)
-                                                        //has_second_cut = intersect_line_with_face(intersections, static_cast<Face*>(elem_secondary), r, q, tolerance);
-        #endif 
-                                                        if(has_second_cut){
-                                                            if(part == 0 && s ==0 && axis == 0){
-                                                                std::cout <<"\ns = "<<s<<"\n";
-                                                                std::cout <<"corner number is = "<<corner_number<<"\n";
-                                                                std::cout <<"qp location: "<<r(0)<<", "<<r(1)<<"\n";
-                                                                std::cout <<"cartesian corner: "<<cartesian_corner(0)<<", "<<cartesian_corner(1)<<"\n";
-                                                                std::cout <<"vector from qp to corner: "<<q(0)<<", "<<q(1)<<"\n";
-                                                                std::cout << "u param = "<<intersections[0].second<<"\n";
-                                                                std::cout <<"x_node locations: "<< x_node_second[0][0] <<", "<<x_node_second[0][1]<<" and second node:"<<x_node_second[1][0] <<", "<<x_node_second[1][1]<< "\n";
+                                                        for (unsigned int d = 0; d < NDIM; ++d){
+                                                            dist_cut_to_corner(d) = std::abs(cartesian_corner(d) - cut_location(d)); //vector from qp to current box corner, all positive values
+                                                        }
+
+                                                        const auto& DU_second_jump_dof_indices = DU_second_jump_dof_map_cache[axis]->dof_indices(elem_secondary);
+                                                        get_values_for_interpolation(DU_second_jump_node[axis], *DU_second_jump_ghost_vec[axis], DU_second_jump_dof_indices);
+
+                                                        for (unsigned int d = 0; d < NDIM; ++d)
+                                                        {   
+                                                            DU_jump_second_cut[d][corner_number] = 0.5*(1 - u_param(0))* DU_second_jump_node[axis][0][d] +  0.5*(1 + u_param(0))* DU_second_jump_node[axis][1][d];
+                                                        }
+                                                        //std::cout<< "jump condition on second cut is: "<< DU_jump_second_cut[0][corner_number]<<", "<<DU_jump_second_cut[1][corner_number]<<"\n";
+                                                        //insert jump condition values manually for now:
+                                                        if(d_use_handfilled_jc_for_interpolation){
+                                                            if(axis == 0){
+                                                                DU_jump_second_cut[0][corner_number] = 0;
+                                                                DU_jump_second_cut[1][corner_number] = d_handfilled_jc;
+
                                                             }
-                                                            found_cut_already = true; //tells us to stop looking for more cuts
-                                                                
-                                                            for (unsigned int k = 0; k < NDIM - 1; ++k)
-                                                            {
-                                                                interpolate(dx_dxi_second[k], 0, x_node_second, *dphi_dxi_second[k]);
+                                                            else{
+                                                                DU_jump_second_cut[0][corner_number] = 0;
+                                                                DU_jump_second_cut[1][corner_number] = 0;
                                                             }
-                                                            if (NDIM == 2)
-                                                            {
-                                                                dx_dxi_second[1] = VectorValue<double>(0.0, 0.0, 1.0);
+                                                        }   
+
+                                                        VectorValue<double> correction_sign; 
+                                                        for (unsigned int i = 0; i < NDIM; i++){
+                                                            correction_sign(i) = -n_secondary(i) * (norm_vec(i)  * q(i));
+                                                        }                                                      
+
+                                                        for (unsigned int i = 0; i < NDIM; i++){
+                                                            if(correction_sign(i) > 0){
+                                                                correction_sign(i) = 1;
                                                             }
-                                                            n_secondary = (dx_dxi_second[0].cross(dx_dxi_second[1])).unit();
-                                                            
-                                                            n_secondary = n_secondary.unit();
-
-
-                                                            //need to get the cut location from intersections
-                                                            // interpolate, given u in:   0.5*(1-u)*p0 + 0.5*(1+u)*p1
-
-                                                            //would the intersections[k] be different for different k?
-                                                            libMesh::Point u_param = intersections[0].second;
-                                                            //std::cout<< "u parameter is: "<<u_param<<"\n";
-
-                                                            //note this is only for 2d at the moment
-                                                            const libMesh::Point& p0 = *elem_secondary->node_ptr(0);
-                                                            const libMesh::Point& p1 = *elem_secondary->node_ptr(1);
-                                                            libMesh::Point cut_location(0,0,0);
-                                                            for (unsigned int d = 0; d < NDIM; ++d){
-                                                                cut_location(d) = 0.5 * (1 - u_param(0)) * p0(d) + 0.5 * (1+u_param(0)) * p1(d);
+                                                            else if(correction_sign(i) < 0){
+                                                                correction_sign(i) = -1;
                                                             }
-                                                            if(part == 0 && s == 0 && axis == 0){
-                                                                std::cout << "second cut found at: "<<cut_location(0) << ", "<<cut_location(1)<<"\n";
-                                                            }
-                                                            //need distance from cut to corner
-                                                            for (unsigned int d = 0; d < NDIM; ++d){
-                                                                dist_cut_to_corner(d) = std::abs(cartesian_corner(d) - cut_location(d)); //vector from qp to current box corner, all positive values
-                                                            }
-                                                            //now we just need to know the jump condition at the intersection point
-                                                            VectorValue<double> jn_second; //maybe dont need this?
-
-                                                            //std::cout<<"about to get values for interpolation\n";
-                                                            
-                                                            //for (unsigned int axis = 0; axis < NDIM; ++axis)
-                                                            //{
-                                                            const auto& DU_second_jump_dof_indices = DU_second_jump_dof_map_cache[axis]->dof_indices(elem_secondary);
-                                                            get_values_for_interpolation(DU_second_jump_node[axis], *DU_second_jump_ghost_vec[axis], DU_second_jump_dof_indices);
-                                                            //}
-                                                            // interpolate, given u in:   0.5*(1-u)*p0 + 0.5*(1+u)*p1
-                                                            //for (unsigned int axis = 0; axis < NDIM; ++axis)
-                                                            //{
-                                                                for (unsigned int d = 0; d < NDIM; ++d)
-                                                                {   
-                                                                    
-                                                                    //double value = 0.5*(1 - u_param(0))* DU_second_jump_node[axis][0][d] +  0.5*(1 + u_param(0))* DU_second_jump_node[axis][1][d];
-                                                                    //std::cout <<"Jump Condition of du index: "<<axis<<", and dx index: "<<d<<", is :"<<value<<"\n";
-
-                                                                    DU_jump_second_cut[d][corner_number] = 0.5*(1 - u_param(0))* DU_second_jump_node[axis][0][d] +  0.5*(1 + u_param(0))* DU_second_jump_node[axis][1][d];
-                                                                    
-                                                                }
-                                                                //insert jump condition values manually for now:
-                                                                if(axis == 0){
-                                                                    DU_jump_second_cut[0][corner_number] = 0;
-                                                                    DU_jump_second_cut[1][corner_number] = 2/0.0625;
-
-                                                                }
-                                                                else{
-                                                                    DU_jump_second_cut[0][corner_number] = 0;
-                                                                    DU_jump_second_cut[1][corner_number] = 0;
-                                                                }
-                                                                        
-                                                                    
-                                                                
-                                                            //}
-                                                            
-                                                            //now DU_jump_second_cut[axis][d] has the jump condition for axis (du dv or dw)
-                                                            // with respect to the d (dx, dy, dz)
-                                                            //actually dont think this is correct, opposite makes more sense 
-
-
-                                                            //compute sign for second jump condition correction
-                                                            VectorValue<double> correction_sign; 
-                                                            for (unsigned int i = 0; i < NDIM; i++){
-                                                                correction_sign(i) = -n_secondary(i) * (norm_vec(i)  * q(i));
-                                                            }
-                                                            //std::cout <<"Correction sign dot product is: "<< correction_sign << "\n";
-                                                            //std::cout <<"Normal Vector at qp: "<<norm_vec(0)<<", "<<norm_vec(1)<<" at part number: "<<part_second<<"\n";
-                                                            //std::cout <<"Normal Vector at 2nd cut: "<<n_secondary(0)<<", "<<n_secondary(1)<<"\n";
-                                                            //std::cout <<"Radial Vector: "<<q(0)<<", "<<q(1)<<"\n";
-                                                            
-
-                                                            for (unsigned int i = 0; i < NDIM; i++){
-                                                                if(correction_sign(i) > 0){
-                                                                    correction_sign(i) = 1;
-                                                                }
-                                                                else if(correction_sign(i) < 0){
-                                                                    correction_sign(i) = -1;
-                                                                }
-                                                                else{
-                                                                    correction_sign(i) = 0; //we should never reach this case, unless something goes wrong
-                                                                    //std::cout << "Correction sign is 0, uh oh!\n";
-                                                                    //this only happens if the mesh is totally axis aligned... hmmm
-                                                                }
-
-                                                                //std::cout <<"Correction sign is: "<< correction_sign(i) << " for dimension: "<<i<<"\n";
-                                                            }
-                                                            if(part == 0 && s == 0  && axis == 0){
-                                                                std::cout << "correction sign is: "<<correction_sign(0) << ", "<<correction_sign(1)<<"\n";
-                                                                std::cout << "magnitude distance from cut to corner: "<<dist_cut_to_corner(0) << ", "<<dist_cut_to_corner(1)<<"\n";
-                                                            }
-
-                                                            
-                                                            for (int d = 0; d < NDIM; ++d){
-                                                                //for (int j = 0; j < NDIM; ++j){
-                                                                    weights_secondary[d][corner_number] = dist_cut_to_corner(d) * correction_sign(d);
-                                                                    //std::cout <<"weights_secondary: "<<q(d) * correction_sign(d)<<", for d = "<<d<<"\n";
-                                                                //}
+                                                            else{
+                                                                correction_sign(i) = 0; //if axis aligned
                                                             }
                                                         }
-                                                        else{
-                                                            if(part == 1 && s == 0 && axis == 0){
-                                                                std::cout <<"NO CUT FOUND! for cartesian corner: "<<cartesian_corner(0)<<", "<<cartesian_corner(1)<<"\n";
-                                                                std::cout <<"corner number is = "<<corner_number<<"\n";
-                                                                std::cout <<"on elem index = "<<e_idx<<"\n";
-                                                            }
+
+                                                       
+                                                        if(k==0 && axis ==0){//0th indexed quad point
+                                                            //std::cout << "At corner number "<<corner_number<<", the\n";
+                                                            //std::cout << "quadrature pt is: "<< r << ", cartesian corner is: " <<cartesian_corner<<", radial vector is: "<<q<<".\n";
+                                                   
+                                                            //std::cout << "cut location pt is: "<< cut_location << ", distance from cut to corner: " <<dist_cut_to_corner<<", correction sign is: "<<correction_sign<<".\n\n";
                                                         }
-                                                        //}
-                                                    }   
-                                                    
-                                                }
+                                                        for (int d = 0; d < NDIM; ++d){
+                                                            weights_secondary[d][corner_number] = dist_cut_to_corner(d) * correction_sign(d);
+                                                        }
+                                                        //std::cout<< "weights secondary: "<<  weights_secondary[0][corner_number]<<", "<< weights_secondary[1][corner_number]<<"\n";
+
+                                                        
+                                                    }
+                                                    else{
+                                                        //no second cut found
+                                                    }
+                                                    // Restore the element coordinates.
+                                                    if(d_use_current_mesh_configuration){
+                                                        for (unsigned int k = 0; k < n_nodes_secondary; ++k)
+                                                        {
+                                                            elem_secondary->point(k) = X_node_cache[k];
+                                                        }
+                                                    }
+                                                }   
                                             }
                                         }
                                     }
                                 }
-
-                                for (int j = 0; j < NDIM; ++j) wrc(j) = wr[j][ic_upper[j] - ic[j]];
-#if (NDIM == 2)
-                                //interpCoeff[ic[0]][ic[1]][d] = (norm_vec * wrc) * norm_vec(d); //not used?
-/*
-                                for (unsigned int d; d < NDIM; d++){
-                                    interpSign_secondary[ic[0]][ic[1]][d] = q(d) * correction_sign(d); 
-                                    //these are the signed weights for each jump condition in for dx,dy,dz
-                                    //these are applied for all dimensions, u, v, and w
-                                }
-                                
-                                */
-
-#endif
-#if (NDIM == 3)
-                                //interpCoeff[ic[0]][ic[1]][ic[2]][d] = (norm_vec * wrc) * norm_vec(d); //not used?
-#endif                      
-
-                            //box index loop
-                            corner_number +=1;
                             }
-
-                        //dimension loop -- i dont think this is needed anymore
-                        //}
-
+                            for (int j = 0; j < NDIM; ++j) wrc(j) = wr[j][ic_upper[j] - ic[j]];
+                            corner_number +=1;
+                        }
                         //finished iterating over the box indices, found cuts for all qps
 
-                        for (int d = 0; d < NDIM; ++d)
+                //  | this is the spacing for the qp loop
+                        for (int d = 0; d < NDIM; ++d) //what is this dimension loop for?
                         {
                             unsigned int corner_number = 0;
                             for (BoxIterator<NDIM> b(stencil_box); b; b++)
@@ -1994,40 +1909,23 @@ IIMethod::interpolateVelocity(const int u_data_idx,
 
                                 for (int j = 0; j < NDIM; ++j)//new from Qi
                                 {
-                                    
-                                    if(axis == 0){
-                                        du_jump(0) = 0;
-                                        du_jump(1) = 2/0.0625;
+                                    if(d_use_handfilled_jc_for_interpolation){
+                                        if(axis == 0){ //setting the one cut correction terms analytically
+                                            du_jump(0) = 0;
+                                            du_jump(1) = d_handfilled_jc;
+                                        }
+                                        else{
+                                            du_jump(0) == 0;
+                                            du_jump(1) == 0;
+                                        }
                                     }
-                                    else{
-                                        du_jump(0) == 0;
-                                        du_jump(1) == 0;
-                                    }
-                                    
-
-                                    //du_jump(j) = DU_jump_qp[d][s * NDIM + j];
-                                    //std::cout<<"The jump condition at cut one is: " <<du_jump(j)<<" at part index: "<<part<<" when index j is: "<<j<<"\n";
                                     wrc(j) = wr[j][ic_upper[j] - ic[j]];
 
                                     if(d_use_second_velocity_correction){
-                                        du_jump_secondary(j) = DU_jump_second_cut[j][corner_number]; //jump conditions at the second cut
+                                        du_jump_secondary(j) = DU_jump_second_cut[j][corner_number]; 
                                         wrc_secondary(j) = weights_secondary[j][corner_number];
-
                                     }
-/*
-#if (NDIM == 2) 
-                                    wrc_secondary(j) = interpSign_secondary[ic[0]][ic[1]][j];  //dependent on j, not d-- same for each of u,v,w
-#endif
-
-#if (NDIM == 3) 
-                                    wrc_secondary(j) = interpSign_secondary[ic[0]][ic[1]][ic[2]][j];  //dependent on j, not d-- same for each of u,v,w
-#endif
-*/
-
-
                                 }
-                                //std::cout <<"wrc_secondary: "<<wrc_secondary(0)<<", "<<wrc_secondary(1)<<"\n";
-                                //std::cout <<"du_jump_secondary: "<<du_jump_secondary(0)<<", "<<du_jump_secondary(1)<<"\n";
 #if (NDIM == 2)
                                 // Use velocity correction term from
                                 // https://epubs.siam.org/doi/abs/10.1137/080712970
@@ -2036,6 +1934,10 @@ IIMethod::interpolateVelocity(const int u_data_idx,
                                 if(d_use_second_velocity_correction){
                                     Ujump_secondary[ic[0]][ic[1]][d]  = 
                                          w[0][ic[0] - ic_lower[0]] * w[1][ic[1] - ic_lower[1]] * (wrc_secondary * du_jump_secondary);
+                                    if(k==0 && axis == 0){
+                                        //std::cout << "The sum of the correction terms (weights and JCs) is: "<<Ujump_secondary[ic[0]][ic[1]][d]<<
+                                          //  "at corner number: "<<corner_number<<"\n";
+                                    }
                                 }
 #endif
 
@@ -2047,25 +1949,30 @@ IIMethod::interpolateVelocity(const int u_data_idx,
                                                                 w[1][ic[1] - ic_lower[1]] * w[2][ic[2] - ic_lower[2]] *
                                                                 (wrc * du_jump);
 #endif
-                            corner_number +=1;
+                                corner_number +=1;
                             }
                         }
+
                         // Accumulate the value of U at the current location.
                         U_axis[s] = 0.0;
 
+                        //used for seeing the nodal values
+                        std::array<double, 4> box_u = {};
+                        unsigned int box_index = 0;
                         for (BoxIterator<NDIM> b(stencil_box); b; b++)
                         {
+                            unsigned int corner_index = 0;
                             const Index<NDIM>& ic = b();
-#if (NDIM == 2)
-                            //std::cout<<"u_sc_data_array[ic[0]][ic[1]] is: " <<u_sc_data_array[ic[0]][ic[1]]<<"\n";
-                            //std::cout<<"w[0][ic[0] - ic_lower[0]] is " <<w[0][ic[0] - ic_lower[0]] <<"\n";
-                            //std::cout<<"w[1][ic[1] - ic_lower[1]] is " <<w[1][ic[1] - ic_lower[1]] <<"\n";
-                            //std::cout<<"mu is " <<mu <<"\n";
-                            
+#if (NDIM == 2)                           
                             U_axis[s] +=
                                 w[0][ic[0] - ic_lower[0]] * w[1][ic[1] - ic_lower[1]] * u_sc_data_array[ic[0]][ic[1]];
+
+
+                            if(k == 0 && axis == 0){//finding out the box's u values
+                            
+                                //std::cout <<"u_sc_data_array is: " <<u_sc_data_array[ic[0]][ic[1]] * 1.0 <<" for corner number: "<<corner_index <<std::endl;
+                            }
                             //this is interpolating the raw nodal values, uncorrected
-                            //std::cout<<"Uncorrected Velocity is: " <<U_axis[s]<< " at qp number: "<<s<<"\n";
 
                             const double nproj = n_qp[s * NDIM + 0] * wr[0][ic_upper[0] - ic[0]] +
                                                  n_qp[s * NDIM + 1] * wr[1][ic_upper[1] - ic[1]];
@@ -2073,22 +1980,16 @@ IIMethod::interpolateVelocity(const int u_data_idx,
                             {
                                 const double CC = (nproj > 0.0) ? Ujump[ic[0]][ic[1]][axis] : 0.0;
                                 U_axis[s] -= CC / mu;
-                                
+                                //std::cout<<"mu is: "<< mu<<"\n";
                             }
-                            if(s == 0)
-                            std::cout<<"1 cut corrected Velocity is: " <<U_axis[s]<< " at qp number: "<<s<<"\n";
-                            //will need to add correction here for any other cuts that are not the current element we are on
+
                             if(d_use_second_velocity_correction){
-                                    U_axis[s] +=  Ujump_secondary[ic[0]][ic[1]][axis] / mu; //not sure if the sign of this is correct
-                                    //we add this regardless, if no second cut, we should be ok
-                            }
-                            if(part == 1 && s == 0 && axis == 0){
-                                //std::cout<<"2nd correction / mu is: " <<Ujump_secondary[ic[0]][ic[1]][axis] / mu<< " for axis: "<<axis<<"\n";
-                                //std::cout<<"2 cut corrected Velocity is: " <<U_axis[s]<< " at qp number: "<<s<<"\n";
+                                    U_axis[s] +=  Ujump_secondary[ic[0]][ic[1]][axis] / mu;
+                                    //we add this regardless. if no second cut, then contribution is 0
                             }
 
 #endif
-
+                            //std::cout<<U_axis[s]<<" is the u-velo at qp " << s << "\n";
 
 #if (NDIM == 3)
 
@@ -2102,18 +2003,21 @@ IIMethod::interpolateVelocity(const int u_data_idx,
                                 const double CC = (nproj > 0.0) ? Ujump[ic[0]][ic[1]][ic[2]][axis] : 0.0;
                                 U_axis[s] -= CC / mu;
                             }
-#endif
+                        
+#endif                  
+                       
+                        }
+                        if(k == 0 && axis == 0){
+                            //std::cout<<U_axis[s]<<" is the u-velo on the interface.\n";
                         }
                     }
+                    //end of local indices loop (this box's qps)
                     if (d_use_velocity_jump_conditions)
                     {
                         for (unsigned int k = 0; k < local_indices.size(); ++k)
                         {
                             U_qp[NDIM * local_indices[k] + axis] = U_axis[local_indices[k]];
-                            if(axis == 0){
-                                std::cout<<"u_qp is: " <<U_qp[NDIM * local_indices[k] + axis] / mu<< " for axis: "<<axis<<" and mu = "<<mu<<"\n";
 
-                            }
                             if (dh != 0.0)
                             {
                                 WSS_in_qp[NDIM * local_indices[k] + axis] =
@@ -4258,6 +4162,7 @@ IIMethod::imposeJumpConditions(const int f_data_idx,
     if(d_use_phong_normals){
         setupPhongNormalVectors(true,part,x_current_vec);
     }
+    int intersection_num = 0;
     int local_patch_num = 0;
     for (PatchLevel<NDIM>::Iterator p(level); p; p++, ++local_patch_num)
     {
@@ -4321,6 +4226,7 @@ IIMethod::imposeJumpConditions(const int f_data_idx,
                     const auto& DU_jump_dof_indices = DU_jump_dof_map_cache[axis]->dof_indices(elem);
                     get_values_for_interpolation(DU_jump_node[axis], *DU_jump_ghost_vec[axis], DU_jump_dof_indices);
                 }
+
             }
 
             // Cache the nodal and physical coordinates of the side element,
@@ -4375,6 +4281,7 @@ IIMethod::imposeJumpConditions(const int f_data_idx,
 
             // Loop over coordinate directions and look for intersections with
             // the background fluid grid.
+            
             for (unsigned int axis = 0; axis < NDIM; ++axis)
             {
                 Box<NDIM> extended_box = patch_box;
@@ -4423,7 +4330,8 @@ IIMethod::imposeJumpConditions(const int f_data_idx,
                                              x_lower[d] + dx[d] * (static_cast<double>(i_c(d) - patch_lower[d]) + 0.5));
                         }
                     }
-
+                    
+                    //std::cout << "on elem number "<< e_idx <<", r is: "<<r<<", and q is: "<<q<<"\n";
                     std::vector<std::pair<double, libMesh::Point> > intersections;
                     std::array<std::vector<std::pair<double, libMesh::Point> >, NDIM - 1> intersectionsSide;
 
@@ -4450,6 +4358,7 @@ IIMethod::imposeJumpConditions(const int f_data_idx,
                         for (unsigned int k = 0; k < intersections.size(); ++k)
                         {
                             const libMesh::Point x = r + intersections[k].first * q;
+                            //std::cout<< "intersection found at: "<<x<<"\n";
                             const libMesh::Point& xi = intersections[k].second;
                             SideIndex<NDIM> i_s(i_c, axis, 0);
                             i_s(axis) = boost::math::iround((x(axis) - x_lower[axis]) / dx[axis]) + patch_lower[axis];
@@ -4503,6 +4412,7 @@ IIMethod::imposeJumpConditions(const int f_data_idx,
                                                                         candidate_ref_coords,
                                                                         candidate_normals);
                                     if (found_same_intersection_point) break;
+                                    
                                 }
 
                                 if (!found_same_intersection_point)
@@ -4511,9 +4421,14 @@ IIMethod::imposeJumpConditions(const int f_data_idx,
                                     // to the Eulerian grid.
                                     if (side_ghost_boxes[axis].contains(i_s))
                                     {
-                                        const double C_p = interpolate(0, P_jump_node, phi_P_jump);
+                                        
+                                        double C_p = interpolate(0, P_jump_node, phi_P_jump);
                                         const double sgn = n(axis) > 0.0 ? 1.0 : n(axis) < 0.0 ? -1.0 : 0.0;
+                                        if(d_use_handfilled_jc_for_force_spreading){
+                                            C_p = 0.0;
+                                        }
                                         (*f_data)(i_s) += sgn * (C_p / dx[axis]);
+                                        intersection_num++;
                                     }
 
                                     // Keep track of the positions where we have
@@ -4531,6 +4446,7 @@ IIMethod::imposeJumpConditions(const int f_data_idx,
                         for (unsigned int k = 0; k < intersections.size(); ++k)
                         {
                             libMesh::Point xu = r + intersections[k].first * q;
+                            //std::cout<< "intersection found at: "<<xu<<"\n";
                             const libMesh::Point& xui = intersections[k].second;
                             SideIndex<NDIM> i_s_um(i_c, axis, 0);
                             Index<NDIM> i_c_neighbor = i_c;
@@ -4603,6 +4519,8 @@ IIMethod::imposeJumpConditions(const int f_data_idx,
                                     const double sdh_um = ((xu(axis) - x_cell_bdry_um)); // Signed Distance h
 
                                     const double sdh_up = ((xu(axis) - x_cell_bdry_up)); // Signed Distance h
+                                    //std::cout << "sdh_up is: "<<sdh_up <<"\n";
+                                    //std::cout << "sdh_um is: "<<sdh_um <<"\n";
                                     TBOX_ASSERT((sdh_um) < dx[axis] && sdh_um > 0);
                                     TBOX_ASSERT(fabs(sdh_up) < dx[axis] && sdh_up < 0);
                                     if (side_ghost_boxes[axis].contains(i_s_up) &&
@@ -4612,13 +4530,31 @@ IIMethod::imposeJumpConditions(const int f_data_idx,
                                         double C_u_up = 0;
 
                                         interpolate(&jn(0), 0, DU_jump_node[axis], phi_P_jump);
+                                        if(d_use_handfilled_jc_for_force_spreading){
+                                            if(axis == 0){
+                                                jn(0) = 0.0;
+                                                jn(1) = d_handfilled_jc;
+                                            }
+                                            else{
+                                                jn(0) = 0.0;
+                                                jn(1) = 0.0;
+                                            }
+                                            
+                                        }
+
                                         C_u_up = sdh_up * jn(axis);
                                         C_u_um = sdh_um * jn(axis);
-
+                                        //std::cout << "jn on axis "<<axis<< " is "<<jn(axis) <<"\n";
+                                        //std::cout << "C_u_up is: "<<C_u_up <<"\n";
+                                        //std::cout << "C_u_um is: "<<C_u_um <<"\n";
                                         const double sgn = n(axis) > 0.0 ? 1.0 : n(axis) < 0.0 ? -1.0 : 0.0;
                                         // Note that the corrections are applied to opposite sides
                                         (*f_data)(i_s_up) -= sgn * (C_u_um / (dx[axis] * dx[axis]));
                                         (*f_data)(i_s_um) += sgn * (C_u_up / (dx[axis] * dx[axis]));
+                                        intersection_num++;
+                                        //std::cout << "(*f_data)(i_s_up): "<<(*f_data)(i_s_up)<<"\n";
+                                        //std::cout << "(*f_data)(i_s_um): "<<(*f_data)(i_s_um) <<"\n";
+
                                     }
 
                                     // Keep track of the positions where we have
@@ -4789,13 +4725,28 @@ IIMethod::imposeJumpConditions(const int f_data_idx,
                                             double C_u_up = 0;
 
                                             interpolate(&jn(0), 0, DU_jump_node[SideDim[axis][j]], phi_P_jump);
+                                            if(d_use_handfilled_jc_for_force_spreading){
+                                                if(axis == 0){
+                                                    jn(0) = 0.0;
+                                                    jn(1) = d_handfilled_jc;
+                                                }
+                                                else{
+                                                    jn(0) = 0.0;
+                                                    jn(1) = 0.0;
+                                                }
+                                            
+                                            }
                                             C_u_um = sdh_um * jn(axis);
                                             C_u_up = sdh_up * jn(axis);
-
+                                            //std::cout << "jn on axis "<<axis<< " is "<<jn(axis) <<"\n";
+                                            //std::cout << "C_u_up is: "<<C_u_up <<"\n";
+                                            //std::cout << "C_u_um is: "<<C_u_um <<"\n";
                                             const double sgn = n(axis) > 0.0 ? 1.0 : n(axis) < 0.0 ? -1.0 : 0.0;
 
                                             (*f_data)(i_s_um) += sgn * (C_u_up / (dx[axis] * dx[axis]));
                                             (*f_data)(i_s_up) -= sgn * (C_u_um / (dx[axis] * dx[axis]));
+                                            //std::cout << "(*f_data)(i_s_up): "<<(*f_data)(i_s_up)<<"\n";
+                                            //std::cout << "(*f_data)(i_s_um): "<<(*f_data)(i_s_um) <<"\n";
                                         }
                                         intersectionSide_u_points[j][axis][i_s_um].push_back(xu);
                                         intersectionSide_u_ref_coords[j][axis][i_s_um].push_back(xui);
@@ -4807,13 +4758,14 @@ IIMethod::imposeJumpConditions(const int f_data_idx,
                     }
                 }
             }
-
+            
             // Restore the element coordinates.
             for (unsigned int k = 0; k < n_nodes; ++k)
             {
                 elem->point(k) = X_node_cache[k];
             }
         }
+        //std::cout<<"num intersections found: "<<intersection_num<<"\n";
     }
 
     return;
@@ -5155,6 +5107,12 @@ IIMethod::getFromInput(Pointer<Database> db, bool /*is_from_restart*/)
         d_use_phong_normals = db-> getBool("use_phong_normals");
     if (db->isBool("use_current_mesh_configuration"))
         d_use_current_mesh_configuration = db -> getBool("use_current_mesh_configuration");
+    if (db->isBool("use_handfilled_jc_for_interpolation"))
+        d_use_handfilled_jc_for_interpolation = db -> getBool("use_handfilled_jc_for_interpolation");
+    if (db->isBool("use_handfilled_jc_for_force_spreading"))
+        d_use_handfilled_jc_for_force_spreading = db -> getBool("use_handfilled_jc_for_force_spreading");
+    if (db->isDouble("handfilled_jc"))
+        d_handfilled_jc = db->getDouble("handfilled_jc");
 
     // Spreading settings.
     if (db->isString("spread_delta_fcn"))

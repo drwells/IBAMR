@@ -79,27 +79,27 @@ plates2d_EXTERNAL_OBJECTS =
 
 plates2d: CMakeFiles/plates2d.dir/plates_example.cpp.o
 plates2d: CMakeFiles/plates2d.dir/build.make
-plates2d: /home/mfacci/sfw/ibamr/ibamr-debug/lib/libIBAMR2d.so
-plates2d: /home/mfacci/sfw/ibamr/ibamr-debug/lib/libIBTK2d.so
+plates2d: /home/mfacci/sfw/ibamr/ibamr-opt/lib/libIBAMR2d.so
+plates2d: /home/mfacci/sfw/ibamr/ibamr-opt/lib/libIBTK2d.so
 plates2d: /home/mfacci/sfw/linux/openmpi/4.0.2/lib/libmpi.so
-plates2d: /home/mfacci/sfw/samrai/2.4.4/linux-g++-debug/lib/libSAMRAI.a
-plates2d: /home/mfacci/sfw/samrai/2.4.4/linux-g++-debug/lib/libSAMRAI2d_algs.a
-plates2d: /home/mfacci/sfw/samrai/2.4.4/linux-g++-debug/lib/libSAMRAI2d_appu.a
-plates2d: /home/mfacci/sfw/samrai/2.4.4/linux-g++-debug/lib/libSAMRAI2d_geom.a
-plates2d: /home/mfacci/sfw/samrai/2.4.4/linux-g++-debug/lib/libSAMRAI2d_hier.a
-plates2d: /home/mfacci/sfw/samrai/2.4.4/linux-g++-debug/lib/libSAMRAI2d_math_std.a
-plates2d: /home/mfacci/sfw/samrai/2.4.4/linux-g++-debug/lib/libSAMRAI2d_mesh.a
-plates2d: /home/mfacci/sfw/samrai/2.4.4/linux-g++-debug/lib/libSAMRAI2d_pdat_std.a
-plates2d: /home/mfacci/sfw/samrai/2.4.4/linux-g++-debug/lib/libSAMRAI2d_solv.a
-plates2d: /home/mfacci/sfw/samrai/2.4.4/linux-g++-debug/lib/libSAMRAI2d_xfer.a
+plates2d: /home/mfacci/sfw/samrai/2.4.4/linux-g++-opt/lib/libSAMRAI.a
+plates2d: /home/mfacci/sfw/samrai/2.4.4/linux-g++-opt/lib/libSAMRAI2d_algs.a
+plates2d: /home/mfacci/sfw/samrai/2.4.4/linux-g++-opt/lib/libSAMRAI2d_appu.a
+plates2d: /home/mfacci/sfw/samrai/2.4.4/linux-g++-opt/lib/libSAMRAI2d_geom.a
+plates2d: /home/mfacci/sfw/samrai/2.4.4/linux-g++-opt/lib/libSAMRAI2d_hier.a
+plates2d: /home/mfacci/sfw/samrai/2.4.4/linux-g++-opt/lib/libSAMRAI2d_math_std.a
+plates2d: /home/mfacci/sfw/samrai/2.4.4/linux-g++-opt/lib/libSAMRAI2d_mesh.a
+plates2d: /home/mfacci/sfw/samrai/2.4.4/linux-g++-opt/lib/libSAMRAI2d_pdat_std.a
+plates2d: /home/mfacci/sfw/samrai/2.4.4/linux-g++-opt/lib/libSAMRAI2d_solv.a
+plates2d: /home/mfacci/sfw/samrai/2.4.4/linux-g++-opt/lib/libSAMRAI2d_xfer.a
 plates2d: /home/mfacci/sfw/linux/hdf5/1.10.6/lib/libhdf5.so
 plates2d: /usr/lib/x86_64-linux-gnu/libz.so
 plates2d: /usr/lib/x86_64-linux-gnu/libdl.so
 plates2d: /usr/lib/x86_64-linux-gnu/libm.so
-plates2d: /home/mfacci/sfw/ibamr/ibamr-debug/lib/libBUNDLED_MUPARSER.so
-plates2d: /home/mfacci/sfw/petsc/3.17.5/linux-debug/lib/libpetsc.so
-plates2d: /home/mfacci/sfw/linux/libmesh/1.6.2/1.6.2-debug/lib/libmesh_dbg.so
-plates2d: /home/mfacci/sfw/linux/libmesh/1.6.2/1.6.2-debug/lib/libmesh_dbg.so
+plates2d: /home/mfacci/sfw/ibamr/ibamr-opt/lib/libBUNDLED_MUPARSER.so
+plates2d: /home/mfacci/sfw/petsc/3.17.5/linux-opt/lib/libpetsc.so
+plates2d: /home/mfacci/sfw/linux/libmesh/1.6.2/1.6.2-opt/lib/libmesh_opt.so
+plates2d: /home/mfacci/sfw/linux/libmesh/1.6.2/1.6.2-opt/lib/libmesh_opt.so
 plates2d: CMakeFiles/plates2d.dir/link.txt
 	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green --bold --progress-dir=/home/mfacci/sfw/ibamr/IBAMR/examples/IIM/parallel_plates/CMakeFiles --progress-num=$(CMAKE_PROGRESS_2) "Linking CXX executable plates2d"
 	$(CMAKE_COMMAND) -E cmake_link_script CMakeFiles/plates2d.dir/link.txt --verbose=$(VERBOSE)

@@ -84,7 +84,7 @@ static double kappa_s = 1.0e6;
 static double fac = 0.0;
 static double eta_s = 0.0;
 static double Re = 0.0;
-static double MU = 1;
+static double MU = 0.02;
 static double L = 0.0;
 static double y_loc = 0.0;
 static double e = 0.0;
@@ -96,9 +96,9 @@ static double OMEGA2 = 0.0;
 static double AA = 0.0;
 static double BB = 0.0;
 static double shift = 0.0;
-static double upper_drift_velocity = 1.0;
-static double lower_drift_velocity = -1.0;
-
+static double upper_drift_velocity = 1;
+static double lower_drift_velocity = -1;
+static bool velo_jcs = true;
 void
 tether_force_function_upper(VectorValue<double>& F,
                       const VectorValue<double>& n,
@@ -292,7 +292,7 @@ main(int argc, char* argv[])
         MU = input_db->getDouble("MU");
         Re = input_db->getDouble("Re"); 
         L = input_db->getDouble("L"); 
-
+        velo_jcs = input_db->getBool("USE_VELOCITY_JUMP_CONDITIONS");
         const double length_plate = right_end - left_end;
         const unsigned int n_elem_gen = static_cast<int>(length_plate/ds);
         
@@ -300,7 +300,7 @@ main(int argc, char* argv[])
         int node_id = 0;
         mesh_upper.get_boundary_info().clear_boundary_node_ids();
         for (unsigned int i = 0; i <= n_elem_gen; i++){
-            mesh_upper.add_point(libMesh::Point(left_end + ds * i,separation/2.0),node_id++);
+            mesh_upper.add_point(libMesh::Point(left_end + ds * i, separation/2),node_id++);
         }
         
 
@@ -315,7 +315,7 @@ main(int argc, char* argv[])
         node_id = 0;
         mesh_lower.get_boundary_info().clear_boundary_node_ids();
         for (unsigned int i = 0; i <= n_elem_gen; i++){
-            mesh_lower.add_point(libMesh::Point(right_end - ds * i,-separation/2.0),node_id++); //generate opposite direction so that n is opposite of upper plate
+            mesh_lower.add_point(libMesh::Point(right_end - ds * i, -separation/2),node_id++); //generate opposite direction so that n is opposite of upper plate
         }
 
         //add Elems using adjacent nodes
@@ -1080,7 +1080,11 @@ postprocess_data(Pointer<PatchHierarchy<NDIM> > /*patch_hierarchy*/,
         double P_L2_norm = 0.0, P_max_norm = 0.0;
         double disp_L2_norm = 0.0, disp_max_norm = 0.0;
         System& U_system = equation_systems->get_system<System>(IIMethod::VELOCITY_SYSTEM_NAME);
-		System& WSS_system = equation_systems->get_system<System>(IIMethod::WSS_OUT_SYSTEM_NAME);
+        System* WSS_system;
+        if(velo_jcs){
+           WSS_system  = &equation_systems->get_system<System>(IIMethod::WSS_OUT_SYSTEM_NAME);
+        } 
+		
 		System& P_o_system = equation_systems->get_system<System>(IIMethod::PRESSURE_OUT_SYSTEM_NAME);
 		System& P_j_system = equation_systems->get_system<System>(IIMethod::PRESSURE_JUMP_SYSTEM_NAME);
 		
@@ -1090,14 +1094,18 @@ postprocess_data(Pointer<PatchHierarchy<NDIM> > /*patch_hierarchy*/,
         DofMap& U_dof_map = U_system.get_dof_map();
         std::vector<std::vector<unsigned int> > U_dof_indices(NDIM);
         
-
-        NumericVector<double>* WSS_vec = WSS_system.solution.get();
-        NumericVector<double>* WSS_ghost_vec = WSS_system.current_local_solution.get();
-        WSS_vec->localize(*WSS_ghost_vec);
-        DofMap& WSS_dof_map = WSS_system.get_dof_map();
+        NumericVector<double>* WSS_vec;
+        NumericVector<double>* WSS_ghost_vec;
+        DofMap* WSS_dof_map;
         std::vector<std::vector<unsigned int> > WSS_dof_indices(NDIM);
-        UniquePtr<FEBase> fe(FEBase::build(dim, WSS_dof_map.variable_type(0)));
-        
+        UniquePtr<FEBase> fe;
+        if(velo_jcs){
+            WSS_vec = WSS_system->solution.get();
+            WSS_ghost_vec = WSS_system->current_local_solution.get();
+            WSS_vec->localize(*WSS_ghost_vec);
+            WSS_dof_map = &WSS_system->get_dof_map();
+            UniquePtr<FEBase> fe(FEBase::build(dim, WSS_dof_map->variable_type(0)));
+        }
         
         
         NumericVector<double>* P_o_vec = P_o_system.solution.get();
@@ -1130,14 +1138,17 @@ postprocess_data(Pointer<PatchHierarchy<NDIM> > /*patch_hierarchy*/,
             {
 				dof_map.dof_indices(elem, dof_indices[d], d);
                 U_dof_map.dof_indices(elem, U_dof_indices[d], d);
-                WSS_dof_map.dof_indices(elem, WSS_dof_indices[d], d);
-                
+                if(velo_jcs){
+                    WSS_dof_map->dof_indices(elem, WSS_dof_indices[d], d);
+                }
             }
             P_j_dof_map.dof_indices(elem, P_j_dof_indices);
             P_o_dof_map.dof_indices(elem, P_o_dof_indices);
             const int n_qp = qrule->n_points();
             get_values_for_interpolation(U_node, *U_ghost_vec, U_dof_indices);
-            get_values_for_interpolation(WSS_node, *WSS_ghost_vec, WSS_dof_indices);
+            if(velo_jcs){
+                get_values_for_interpolation(WSS_node, *WSS_ghost_vec, WSS_dof_indices);
+            }
             get_values_for_interpolation(P_j_node, *P_j_ghost_vec, P_j_dof_indices);
             get_values_for_interpolation(P_o_node, *P_o_ghost_vec, P_o_dof_indices);
 			get_values_for_interpolation(x_node, *x_ghost_vec, dof_indices);
@@ -1150,7 +1161,9 @@ postprocess_data(Pointer<PatchHierarchy<NDIM> > /*patch_hierarchy*/,
 				interpolate(x_qp, qp, x_node, phi);
 				interpolate(X_qp, qp, X_node, phi);
                 interpolate(U_qp, qp, U_node, phi);
-                interpolate(WSS_qp, qp, WSS_node, phi);
+                if(velo_jcs){
+                    interpolate(WSS_qp, qp, WSS_node, phi);
+                }
                 interpolate(P_o_qp, qp, P_o_node, phi);
                   interpolate(P_j_qp, qp, P_j_node, phi);
                double P_i_qp = -(P_j_qp - P_o_qp);
@@ -1164,13 +1177,16 @@ postprocess_data(Pointer<PatchHierarchy<NDIM> > /*patch_hierarchy*/,
 					double ex_wss[NDIM];
                     double ex_U[NDIM];
                     double WSS_length;
-					WSS_length = sqrt(WSS_qp(0)*WSS_qp(0) + WSS_qp(1)*WSS_qp(1));
+                    if(velo_jcs){
+					    WSS_length = sqrt(WSS_qp(0)*WSS_qp(0) + WSS_qp(1)*WSS_qp(1));
+                    }
 					//pout << WSS_length << "\n\n";
 					ex_U[0] =(-x_qp(1)/sqrt(x_qp(0)*x_qp(0) + x_qp(1)*x_qp(1))) * R*OMEGA1;
 					ex_U[1] = (x_qp(0)/sqrt(x_qp(0)*x_qp(0) + x_qp(1)*x_qp(1))) * R*OMEGA1;
-
-                    ex_wss[0] = (-x_qp(1)/sqrt(x_qp(0)*x_qp(0) + x_qp(1)*x_qp(1)))* MU * (AA-BB/(R*R)); // -n(1) * MU * (AA-BB/(R2*R2)); -n(1) * MU * (AA-BB/(R2*R2)); 
-                    ex_wss[1] = (x_qp(0)/sqrt(x_qp(0)*x_qp(0) + x_qp(1)*x_qp(1)))* MU * (AA-BB/(R*R)); //n(0) * MU * (AA-BB/(R2*R2)); 
+                    if(velo_jcs){
+                        ex_wss[0] = (-x_qp(1)/sqrt(x_qp(0)*x_qp(0) + x_qp(1)*x_qp(1)))* MU * (AA-BB/(R*R)); // -n(1) * MU * (AA-BB/(R2*R2)); -n(1) * MU * (AA-BB/(R2*R2)); 
+                        ex_wss[1] = (x_qp(0)/sqrt(x_qp(0)*x_qp(0) + x_qp(1)*x_qp(1)))* MU * (AA-BB/(R*R)); //n(0) * MU * (AA-BB/(R2*R2)); 
+                    }
                     libMesh::Point X = q_point[qp];
                   //  pout << " ex_wss[[0] = "<<ex_wss[0] << " wss_qp(0) = "<< WSS_qp(0)<<"\n\n";
                    // double p_ex_qp =  0.5*OMEGA1*OMEGA1*(x_qp(0)*x_qp(0) + x_qp(1)*x_qp(1));
@@ -1184,9 +1200,10 @@ postprocess_data(Pointer<PatchHierarchy<NDIM> > /*patch_hierarchy*/,
 					
                     U_L2_norm += (U_qp(d) - ex_U[d])*(U_qp(d) - ex_U[d])* JxW[qp];
                     U_max_norm = std::max(U_max_norm, std::abs(U_qp(d) - ex_U[d]));
-                    
-                    WSS_L2_norm += (WSS_qp(d) - ex_wss[d])* (WSS_qp(d) - ex_wss[d]) * JxW[qp];
-                    WSS_max_norm = std::max(WSS_max_norm, std::abs(WSS_qp(d) - ex_wss[d]));  
+                    if(velo_jcs){
+                        WSS_L2_norm += (WSS_qp(d) - ex_wss[d])* (WSS_qp(d) - ex_wss[d]) * JxW[qp];
+                        WSS_max_norm = std::max(WSS_max_norm, std::abs(WSS_qp(d) - ex_wss[d]));  
+                    }
                 }
                 std::cout<<U_L2_norm<< " is the U L2 norm.\n";
 				P_L2_norm += std::abs(P_i_qp - p_ex_qp) * std::abs(P_i_qp - p_ex_qp) * JxW[qp];
@@ -1201,8 +1218,10 @@ postprocess_data(Pointer<PatchHierarchy<NDIM> > /*patch_hierarchy*/,
 		}
 		
 		SAMRAI_MPI::sumReduction(&qp_tot, 1);
-        SAMRAI_MPI::sumReduction(&WSS_L2_norm, 1);
-        SAMRAI_MPI::maxReduction(&WSS_max_norm, 1);
+        if(velo_jcs){
+            SAMRAI_MPI::sumReduction(&WSS_L2_norm, 1);
+            SAMRAI_MPI::maxReduction(&WSS_max_norm, 1);
+        }
         SAMRAI_MPI::sumReduction(&U_L2_norm, 1);
         SAMRAI_MPI::maxReduction(&U_max_norm, 1);
         SAMRAI_MPI::sumReduction(&disp_L2_norm, 1);
@@ -1216,13 +1235,15 @@ postprocess_data(Pointer<PatchHierarchy<NDIM> > /*patch_hierarchy*/,
         //P_L2_norm = sqrt(P_L2_norm/static_cast<Real>(qp_tot));
         
         U_L2_norm = sqrt(U_L2_norm);
-        WSS_L2_norm = sqrt(WSS_L2_norm);
+        if(velo_jcs){
+            WSS_L2_norm = sqrt(WSS_L2_norm);
+        }
         disp_L2_norm = sqrt(disp_L2_norm);
         P_L2_norm = sqrt(P_L2_norm);
-        
+            if(velo_jcs){
          pout << " Lagrangian WSS_L2_norm = " << WSS_L2_norm <<"\n\n";
          pout << " Lagrangian WSS_max_norm = " << WSS_max_norm <<"\n\n";
-         
+            }
          
          pout << " Lagrangian U_L2_norm = " << U_L2_norm <<"\n\n";
          pout << " Lagrangian U_max_norm = " << U_max_norm <<"\n\n";

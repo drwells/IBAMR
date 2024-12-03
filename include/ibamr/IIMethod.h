@@ -641,6 +641,9 @@ protected:
     std::vector<bool> d_normalize_pressure_jump = { false };
     bool d_use_phong_normals = false;
     bool d_use_current_mesh_configuration = true;
+    double d_handfilled_jc = 0;
+    bool d_use_handfilled_jc_for_interpolation = false;
+    bool d_use_handfilled_jc_for_force_spreading = false;
     const unsigned int d_num_parts = 1;
     std::vector<IBTK::FEDataManager*> d_fe_data_managers;
     SAMRAI::hier::IntVector<NDIM> d_ghosts = 0;

@@ -234,10 +234,10 @@ HDF5_DIFF_EXECUTABLE:FILEPATH=/home/mfacci/sfw/linux/hdf5/1.10.6/bin/h5diff
 HDF5_DIR:PATH=HDF5_DIR-NOTFOUND
 
 //The directory containing a CMake configuration file for IBAMR.
-IBAMR_DIR:PATH=/home/mfacci/sfw/ibamr/ibamr-debug/cmake
+IBAMR_DIR:PATH=/home/mfacci/sfw/ibamr/ibamr-opt/cmake
 
 //No help, variable specified on the command line.
-IBAMR_ROOT:UNINITIALIZED=~/sfw/ibamr/ibamr-debug
+IBAMR_ROOT:UNINITIALIZED=~/sfw/ibamr/ibamr-opt
 
 //Executable for running MPI programs.
 MPIEXEC_EXECUTABLE:FILEPATH=/home/mfacci/sfw/linux/openmpi/4.0.2/bin/mpiexec

@@ -79,27 +79,27 @@ exe_EXTERNAL_OBJECTS =
 
 exe: CMakeFiles/exe.dir/read_file.C.o
 exe: CMakeFiles/exe.dir/build.make
-exe: /home/mfacci/sfw/ibamr/ibamr-debug/lib/libIBAMR2d.so
-exe: /home/mfacci/sfw/ibamr/ibamr-debug/lib/libIBTK2d.so
+exe: /home/mfacci/sfw/ibamr/ibamr-opt/lib/libIBAMR2d.so
+exe: /home/mfacci/sfw/ibamr/ibamr-opt/lib/libIBTK2d.so
 exe: /home/mfacci/sfw/linux/openmpi/4.0.2/lib/libmpi.so
-exe: /home/mfacci/sfw/samrai/2.4.4/linux-g++-debug/lib/libSAMRAI.a
-exe: /home/mfacci/sfw/samrai/2.4.4/linux-g++-debug/lib/libSAMRAI2d_algs.a
-exe: /home/mfacci/sfw/samrai/2.4.4/linux-g++-debug/lib/libSAMRAI2d_appu.a
-exe: /home/mfacci/sfw/samrai/2.4.4/linux-g++-debug/lib/libSAMRAI2d_geom.a
-exe: /home/mfacci/sfw/samrai/2.4.4/linux-g++-debug/lib/libSAMRAI2d_hier.a
-exe: /home/mfacci/sfw/samrai/2.4.4/linux-g++-debug/lib/libSAMRAI2d_math_std.a
-exe: /home/mfacci/sfw/samrai/2.4.4/linux-g++-debug/lib/libSAMRAI2d_mesh.a
-exe: /home/mfacci/sfw/samrai/2.4.4/linux-g++-debug/lib/libSAMRAI2d_pdat_std.a
-exe: /home/mfacci/sfw/samrai/2.4.4/linux-g++-debug/lib/libSAMRAI2d_solv.a
-exe: /home/mfacci/sfw/samrai/2.4.4/linux-g++-debug/lib/libSAMRAI2d_xfer.a
+exe: /home/mfacci/sfw/samrai/2.4.4/linux-g++-opt/lib/libSAMRAI.a
+exe: /home/mfacci/sfw/samrai/2.4.4/linux-g++-opt/lib/libSAMRAI2d_algs.a
+exe: /home/mfacci/sfw/samrai/2.4.4/linux-g++-opt/lib/libSAMRAI2d_appu.a
+exe: /home/mfacci/sfw/samrai/2.4.4/linux-g++-opt/lib/libSAMRAI2d_geom.a
+exe: /home/mfacci/sfw/samrai/2.4.4/linux-g++-opt/lib/libSAMRAI2d_hier.a
+exe: /home/mfacci/sfw/samrai/2.4.4/linux-g++-opt/lib/libSAMRAI2d_math_std.a
+exe: /home/mfacci/sfw/samrai/2.4.4/linux-g++-opt/lib/libSAMRAI2d_mesh.a
+exe: /home/mfacci/sfw/samrai/2.4.4/linux-g++-opt/lib/libSAMRAI2d_pdat_std.a
+exe: /home/mfacci/sfw/samrai/2.4.4/linux-g++-opt/lib/libSAMRAI2d_solv.a
+exe: /home/mfacci/sfw/samrai/2.4.4/linux-g++-opt/lib/libSAMRAI2d_xfer.a
 exe: /home/mfacci/sfw/linux/hdf5/1.10.6/lib/libhdf5.so
 exe: /usr/lib/x86_64-linux-gnu/libz.so
 exe: /usr/lib/x86_64-linux-gnu/libdl.so
 exe: /usr/lib/x86_64-linux-gnu/libm.so
-exe: /home/mfacci/sfw/ibamr/ibamr-debug/lib/libBUNDLED_MUPARSER.so
-exe: /home/mfacci/sfw/petsc/3.17.5/linux-debug/lib/libpetsc.so
-exe: /home/mfacci/sfw/linux/libmesh/1.6.2/1.6.2-debug/lib/libmesh_dbg.so
-exe: /home/mfacci/sfw/linux/libmesh/1.6.2/1.6.2-debug/lib/libmesh_dbg.so
+exe: /home/mfacci/sfw/ibamr/ibamr-opt/lib/libBUNDLED_MUPARSER.so
+exe: /home/mfacci/sfw/petsc/3.17.5/linux-opt/lib/libpetsc.so
+exe: /home/mfacci/sfw/linux/libmesh/1.6.2/1.6.2-opt/lib/libmesh_opt.so
+exe: /home/mfacci/sfw/linux/libmesh/1.6.2/1.6.2-opt/lib/libmesh_opt.so
 exe: CMakeFiles/exe.dir/link.txt
 	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green --bold --progress-dir=/home/mfacci/sfw/ibamr/IBAMR/examples/IIM/parallel_plates/CMakeFiles --progress-num=$(CMAKE_PROGRESS_2) "Linking CXX executable exe"
 	$(CMAKE_COMMAND) -E cmake_link_script CMakeFiles/exe.dir/link.txt --verbose=$(VERBOSE)
