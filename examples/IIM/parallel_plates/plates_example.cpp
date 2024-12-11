@@ -99,6 +99,11 @@ static double shift = 0.0;
 static double upper_drift_velocity = 1;
 static double lower_drift_velocity = -1;
 static bool velo_jcs = true;
+static double theta_rot = 0;
+
+static double separation = 0;
+
+
 void
 tether_force_function_upper(VectorValue<double>& F,
                       const VectorValue<double>& n,
@@ -117,11 +122,18 @@ tether_force_function_upper(VectorValue<double>& F,
     
     for (unsigned int d = 0; d < NDIM; ++d)
     {
-        if(d == 0){
-            F(d) = eta_s * (upper_drift_velocity - u[d]);
+        /*
+        double X_new = X(1) + time * upper_drift_velocity; //x location at time t
+        F(0) = kappa_s * (X(0) - x(0)) - eta_s * u[0];
+        F(1) = kappa_s * (X_new - x(1)) + eta_s * (upper_drift_velocity - u[1]);
+        */
+        
+        if(d == 1){
+            F(d) =  eta_s * (upper_drift_velocity - u[d]); //2/separation;
         }
         else{
-            F(d) = eta_s * (0.0 - u[d]); //y-velocity should be tethered to 0, not upper_drift_velocity
+            F(d) = eta_s * (0.0 - u[d]); //0;
+            //0; //y-velocity should be tethered to 0, not upper_drift_velocity
         }
         
         //std::cout <<"F(d) in upper plate: "<<F(d)<<"\n";
@@ -151,11 +163,17 @@ tether_force_function_lower(VectorValue<double>& F,
     const std::vector<double>& u = *var_data[0];    
     for (unsigned int d = 0; d < NDIM; ++d)
 	{
-        if(d == 0){
-            F(d) = eta_s * (lower_drift_velocity - u[d]);
+        /*
+        double X_new = X(1) + time * lower_drift_velocity; //x location at time t
+        F(0) = kappa_s * (X(0) - x(0)) - eta_s * u[0];
+        F(1) = kappa_s * (X_new - x(1)) + eta_s * (lower_drift_velocity - u[1]);
+        */
+        
+        if(d == 1){
+            F(d) = -2/separation;//eta_s * (lower_drift_velocity - u[d]);
         }
         else{
-            F(d) = eta_s * (0.0 - u[d]); //y-velocity should be tethered to 0, not lower_drift_velocity
+            F(d) = 0;//eta_s * (0.0 - u[d]); //0;// //y-velocity should be tethered to 0, not lower_drift_velocity
         }
 		//F(d) = kappa_s * (X(d) - x(d));
         //std::cout <<"F(d) in lower plate: "<<F(d)<<"\n";
@@ -219,7 +237,22 @@ void postprocess_data(Pointer<PatchHierarchy<NDIM> > patch_hierarchy,
                  const int iteration_num,
                  const double loop_time,
                  const string& data_dump_dirname);
+void rotateMesh(libMesh::Mesh& mesh, double theta)
+{
+        double centerX = 0.0;
+        double centerY = 0.0;
 
+        for (libMesh::MeshBase::node_iterator it = mesh.nodes_begin();it != mesh.nodes_end();++it)
+        {
+                libMesh::Point& vertex = *(*it);
+                vertex(0) -= centerX;
+                vertex(1) -= centerY;
+                double newX = vertex(0) * cos(theta) - vertex(1) * sin(theta);
+                double newY = vertex(0) * sin(theta) + vertex(1) *cos(theta);
+                vertex(0) = newX + centerX;
+                vertex(1) = newY + centerY;
+        }
+}
 /*******************************************************************************
  * For each run, the input filename and restart information (if needed) must   *
  * be given on the command line.  For non-restarted case, command line is:     *
@@ -284,7 +317,7 @@ main(int argc, char* argv[])
         const double ds = input_db->getDouble("MFAC") * dx;
         const double left_end = input_db->getDouble("LEFT_END");
         const double right_end = input_db->getDouble("RIGHT_END");
-        const double separation = input_db->getDouble("SEPARATION");
+        separation = input_db->getDouble("SEPARATION");
         upper_drift_velocity = input_db->getDouble("UPPER_DRIFT_VELOCITY");
         lower_drift_velocity = input_db->getDouble("LOWER_DRIFT_VELOCITY");
         string elem_type = input_db->getString("ELEM_TYPE");
@@ -292,6 +325,8 @@ main(int argc, char* argv[])
         MU = input_db->getDouble("MU");
         Re = input_db->getDouble("Re"); 
         L = input_db->getDouble("L"); 
+        theta_rot = input_db->getDouble("THETA_ROT");
+        std::cout<<"Theta_rot is "<<theta_rot<<"\n\n";
         velo_jcs = input_db->getBool("USE_VELOCITY_JUMP_CONDITIONS");
         const double length_plate = right_end - left_end;
         const unsigned int n_elem_gen = static_cast<int>(length_plate/ds);
@@ -310,6 +345,7 @@ main(int argc, char* argv[])
             elem->set_node(0) = mesh_upper.node_ptr(i);
             elem->set_node(1) = mesh_upper.node_ptr(i+1);
         }
+        rotateMesh(mesh_upper,theta_rot);
         mesh_upper.prepare_for_use();
         //----------------now lower----------------------
         node_id = 0;
@@ -324,6 +360,7 @@ main(int argc, char* argv[])
             elem->set_node(0) = mesh_lower.node_ptr(i);
             elem->set_node(1) = mesh_lower.node_ptr(i+1);
         }
+        rotateMesh(mesh_lower,theta_rot);
         mesh_lower.prepare_for_use();
 
         //put the meshes into a vector

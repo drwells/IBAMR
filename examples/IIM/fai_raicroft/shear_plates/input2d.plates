@@ -7,7 +7,7 @@ U_MAX = 0.004
 // grid spacing parameters
 MAX_LEVELS = 1                                      // maximum number of levels in locally refined grid
 REF_RATIO  = 2                                      // refinement ratio between levels
-N = 32                                      // actual    number of grid cells on coarsest grid level
+N = 64                                      // actual    number of grid cells on coarsest grid level
 NFINEST = (REF_RATIO^(MAX_LEVELS - 1))*N            // effective number of grid cells on finest   grid level
 DX0 = L/N                                           // mesh width on coarsest grid level
 DX  = L/NFINEST                                     // mesh width on finest   grid level
@@ -65,7 +65,7 @@ C_K = 12.0
 KAPPA_S = C_K * (2.0 * N / 16.0)^2 //0.00002/DT^2  //0.0005/DT^2 //10000 //0.00001*DX/DT^2 //2.5*DX/DT^2
 ETA_S = 0.0
 
-USE_SECOND_VELOCITY_CORRECTION = FALSE
+USE_SECOND_VELOCITY_CORRECTION = TRUE
 USE_CURR_MESH_CONFIG = TRUE //actually moving the thing, needs to be current config
 
 
@@ -195,7 +195,7 @@ Main {
 // visualization dump parameters
    viz_writer                  = "VisIt","ExodusII"
    viz_dump_interval           =  int(0.2/DT)
-   viz_dump_dirname            = "viz_II_2D_N_128_pbc_normjump"
+   viz_dump_dirname            = "viz_1cut"
    visit_number_procs_per_file = 1
 
 // restart dump parameters
@@ -204,10 +204,10 @@ Main {
 
 // hierarchy data dump parameters
    data_dump_interval          = int(0.2/DT) //int(0.5/DT)
-   data_dump_dirname           = "hier_data_II2d_N_128_pbc_normjump"
+   data_dump_dirname           = "hier_data_IIM_2_cut_N=64"
 
 // timer dump parameters
-   timer_dump_interval         = 0
+   timer_dump_interval         = int(0.2/DT)
 }
 
 CartesianGeometry {
@@ -227,10 +227,10 @@ GriddingAlgorithm {
       level_5 = REF_RATIO,REF_RATIO
    }
    largest_patch_size {
-      level_0 = 1,1  // all finer levels will use same values as level_0
+      level_0 = N,N  // all finer levels will use same values as level_0
    }
    smallest_patch_size {
-      level_0 =   1,  1  // all finer levels will use same values as level_0
+      level_0 =   N,  N  // all finer levels will use same values as level_0
    }
    efficiency_tolerance = 0.85e0  // min % of tag cells in new patch level
    combine_efficiency   = 0.85e0  // chop box if sum of volumes of smaller boxes < efficiency * vol of large box

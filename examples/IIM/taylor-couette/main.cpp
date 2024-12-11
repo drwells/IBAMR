@@ -1016,7 +1016,7 @@ compute_velocity_profile(Pointer<PatchHierarchy<NDIM> > patch_hierarchy,
             const double* const patch_dx = patch_geom->getDx();
 
             const bool inside_patch = x_loc >= patch_x_lower[0] && x_loc <= patch_x_upper[0] &&
-                                      !(patch_x_upper[1] < y_loc_min || patch_x_lower[1] > y_loc_max);
+                                      !(patch_x_upper[1] < 0.5 * L || patch_x_lower[1] > -0.5 * L);
             if (!inside_patch) continue;
 
             // Entire box containing the required data.

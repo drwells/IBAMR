@@ -1281,7 +1281,7 @@ void compute_velocity_profile(Pointer<PatchHierarchy<NDIM> > patch_hierarchy,
     const int coarsest_ln = 0;
     const int finest_ln = patch_hierarchy->getFinestLevelNumber();
     
-    const double X_min[2] = { x_loc, -0.5 * L  };
+    const double X_min[2] = { x_loc, -0.5 * L };
     const double X_max[2] = { x_loc, 0.5 * L };
     vector<double> pos_values;
     for (int ln = finest_ln; ln >= coarsest_ln; --ln)
@@ -1302,15 +1302,17 @@ void compute_velocity_profile(Pointer<PatchHierarchy<NDIM> > patch_hierarchy,
             
             const bool inside_patch = x_loc >= patch_x_lower[0] && x_loc <= patch_x_upper[0] &&
                                       !(patch_x_upper[1] < 0.5 * L || patch_x_lower[1] > -0.5 * L);
-            
+            std::cout<< "inside patch is: "<< inside_patch <<"\n";
             //y_loc >= patch_x_lower[1] && y_loc <= patch_x_upper[1] &&
             //!(patch_x_upper[0] < -0.5*L || patch_x_lower[0] > 0.5*L);
             if (!inside_patch) continue;
             
             // Entire box containing the required data.
-            Box<NDIM> box(IndexUtilities::getCellIndex(&X_min[0], patch_x_lower, patch_x_upper,
+            Box<NDIM> box(IndexUtilities::getCellIndex(
+                &X_min[0], patch_x_lower, patch_x_upper,
                                                        patch_dx, patch_lower, patch_upper),
-                          IndexUtilities::getCellIndex(&X_max[0], patch_x_lower, patch_x_upper,
+                          IndexUtilities::getCellIndex(
+                            &X_max[0], patch_x_lower, patch_x_upper,
                                                        patch_dx, patch_lower, patch_upper));
             // Part of the box on this patch
             Box<NDIM> trim_box = patch_box * box;
@@ -1351,6 +1353,7 @@ void compute_velocity_profile(Pointer<PatchHierarchy<NDIM> > patch_hierarchy,
                     const double u1 = (*u_data)(SideIndex<NDIM>(upper_idx, 0, SideIndex<NDIM>::Lower));
                     pos_values.push_back(y);
                     pos_values.push_back(u0 + (u1 - u0) * (x_loc - x0) / (x1 - x0));
+                    std::cout<< "pushed back u value of: "<<u0 + (u1 - u0) * (x_loc - x0) / (x1 - x0)<<"\n";
                     /*
                     const double x =
                     patch_x_lower[0] + patch_dx[0] * (lower_idx(0) - patch_lower(0) + 0.5);

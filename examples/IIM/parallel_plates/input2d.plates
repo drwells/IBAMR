@@ -2,12 +2,12 @@
 Re = 1.0
 MU  = 1/Re //0.5/Re
 RHO = 1.0
-L   = 5.0
+L   = 2.0
 U_MAX = 1.0
 // grid spacing parameters
 MAX_LEVELS = 1                                      // maximum number of levels in locally refined grid
 REF_RATIO  = 2                                      // refinement ratio between levels
-N = 8                                        // actual    number of grid cells on coarsest grid level
+N = 32                                       // actual    number of grid cells on coarsest grid level
 NFINEST = (REF_RATIO^(MAX_LEVELS - 1))*N            // effective number of grid cells on finest   grid level
 DX0 = L/N                                           // mesh width on coarsest grid level
 DX  = L/NFINEST                                     // mesh width on finest   grid level
@@ -18,7 +18,7 @@ elem_order = "FIRST"
 //parallel plate params
 LEFT_END          = -L/2   //left endpoint of parallel plate
 RIGHT_END         = L/2   //right endpoint of parallel plate
-SEPARATION        = DX/2 //2.0    //distance between plates
+SEPARATION        = DX/10 //2.0    //distance between plates
 UPPER_DRIFT_VELOCITY    = 1    //velocity of upper plate
 LOWER_DRIFT_VELOCITY    = -1   //velocity of upper plate
 PK1_DEV_QUAD_ORDER = "SEVENTH"
@@ -49,7 +49,7 @@ NORMALIZE_PRESSURE         = FALSE                 // whether to explicitly forc
 CFL_MAX                    = 0.1                   // maximum CFL number
 DT                         = 0.1*CFL_MAX*DX // maximum timestep size
 COMPUTE_FLUID_TRACTION     = FALSE
-END_TIME                   = 1*DT              // final simulation time
+END_TIME                   = 4             // final simulation time
 ERROR_ON_DT_CHANGE         = TRUE                   // whether to emit an error message if the time step size changes
 VORTICITY_TAGGING          = TRUE                   // whether to tag cells for refinement based on vorticity thresholds
 TAG_BUFFER                 = 1                      // size of tag buffer used by grid generation algorithm
@@ -61,16 +61,18 @@ OUTPUT_OMEGA               = TRUE
 OUTPUT_DIV_U               = TRUE
 ENABLE_LOGGING             = TRUE
 
+C_K = 12.0
+KAPPA_S = C_K * (2.0 * N / 16.0)^2 //0.00002/DT^2  //0.0005/DT^2 //10000 //0.00001*DX/DT^2 //2.5*DX/DT^2
+ETA_S = 0.0
 
-KAPPA_S = 0.0 //0.00002/DT^2  //0.0005/DT^2 //10000 //0.00001*DX/DT^2 //2.5*DX/DT^2
-ETA_S = 200
+THETA_ROT = -3.141592653589 / 2
 
 USE_SECOND_VELOCITY_CORRECTION = TRUE
 USE_CURR_MESH_CONFIG = FALSE //must be false
 
 
-USE_HANDFILLED_JC_FOR_FORCE_SPREADING = TRUE
-USE_HANDFILLED_JC_FOR_INTERPOLATION =  TRUE
+USE_HANDFILLED_JC_FOR_FORCE_SPREADING = FALSE
+USE_HANDFILLED_JC_FOR_INTERPOLATION = FALSE
 HANDFILLED_JC = (UPPER_DRIFT_VELOCITY-LOWER_DRIFT_VELOCITY)/SEPARATION
 
 
@@ -194,7 +196,7 @@ Main {
 // visualization dump parameters
    viz_writer                  = "VisIt","ExodusII"
    viz_dump_interval           =  int(0.2/DT)
-   viz_dump_dirname            = "viz_II_2D_N_128_pbc_normjump"
+   viz_dump_dirname            = "viz_2cut"
    visit_number_procs_per_file = 1
 
 // restart dump parameters
@@ -202,7 +204,7 @@ Main {
    restart_dump_dirname        = "restart_IB2d"
 
 // hierarchy data dump parameters
-   data_dump_interval          = 1//int(0.5/DT)
+   data_dump_interval          = int(0.2/DT)
    data_dump_dirname           = "hier_data_II2d_N_128_pbc_normjump"
 
 // timer dump parameters
@@ -213,7 +215,7 @@ CartesianGeometry {
    domain_boxes = [ (0,0),(N - 1,N - 1) ]
    x_lo = -L/2,-L/2
    x_up = L/2,L/2
-   periodic_dimension = 0, 0
+   periodic_dimension = 1, 0
 }
 
 GriddingAlgorithm {
