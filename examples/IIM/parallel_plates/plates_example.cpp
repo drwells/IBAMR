@@ -122,12 +122,16 @@ tether_force_function_upper(VectorValue<double>& F,
     
     for (unsigned int d = 0; d < NDIM; ++d)
     {
-        /*
+        
         double X_new = X(1) + time * upper_drift_velocity; //x location at time t
         F(0) = kappa_s * (X(0) - x(0)) - eta_s * u[0];
         F(1) = kappa_s * (X_new - x(1)) + eta_s * (upper_drift_velocity - u[1]);
-        */
         
+        /*
+        F(0) = 0;
+        F(1) = x(1); //thus the jump condition should be just x(0)
+        */
+        /*
         if(d == 1){
             F(d) =  eta_s * (upper_drift_velocity - u[d]); //2/separation;
         }
@@ -135,6 +139,7 @@ tether_force_function_upper(VectorValue<double>& F,
             F(d) = eta_s * (0.0 - u[d]); //0;
             //0; //y-velocity should be tethered to 0, not upper_drift_velocity
         }
+        */
         
         //std::cout <<"F(d) in upper plate: "<<F(d)<<"\n";
     }
@@ -163,18 +168,23 @@ tether_force_function_lower(VectorValue<double>& F,
     const std::vector<double>& u = *var_data[0];    
     for (unsigned int d = 0; d < NDIM; ++d)
 	{
-        /*
+        
         double X_new = X(1) + time * lower_drift_velocity; //x location at time t
         F(0) = kappa_s * (X(0) - x(0)) - eta_s * u[0];
         F(1) = kappa_s * (X_new - x(1)) + eta_s * (lower_drift_velocity - u[1]);
-        */
         
-        if(d == 1){
+        /*
+        F(0) = 0;
+        F(1) = -x(1);  //thus the jump condition should be just x(0)
+        */
+        /*
+        if(d == 0){
             F(d) = -2/separation;//eta_s * (lower_drift_velocity - u[d]);
         }
         else{
             F(d) = 0;//eta_s * (0.0 - u[d]); //0;// //y-velocity should be tethered to 0, not lower_drift_velocity
         }
+        */
 		//F(d) = kappa_s * (X(d) - x(d));
         //std::cout <<"F(d) in lower plate: "<<F(d)<<"\n";
 		// + eta_s * (0.0 - U[d]);
@@ -325,7 +335,7 @@ main(int argc, char* argv[])
         MU = input_db->getDouble("MU");
         Re = input_db->getDouble("Re"); 
         L = input_db->getDouble("L"); 
-        theta_rot = input_db->getDouble("THETA_ROT");
+        theta_rot = -3.141592653589 / 2; //input_db->getDouble("THETA_ROT");
         std::cout<<"Theta_rot is "<<theta_rot<<"\n\n";
         velo_jcs = input_db->getBool("USE_VELOCITY_JUMP_CONDITIONS");
         const double length_plate = right_end - left_end;

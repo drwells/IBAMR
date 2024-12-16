@@ -326,7 +326,8 @@ main(int argc, char* argv[])
         node_id = 0;
         mesh_lower.get_boundary_info().clear_boundary_node_ids();
         for (unsigned int i = 0; i <= n_elem_gen; i++){
-            mesh_lower.add_point(libMesh::Point(right_end - ds * i, -separation/2),node_id++); //generate opposite direction so that n is opposite of upper plate
+           //mesh_lower.add_point(libMesh::Point(left_end + ds * i, -separation/2),node_id++);
+           mesh_lower.add_point(libMesh::Point(right_end - ds * i, -separation/2),node_id++); //generate opposite direction so that n is opposite of upper plate
         }
 
         //add Elems using adjacent nodes

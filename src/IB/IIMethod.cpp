@@ -1654,13 +1654,7 @@ IIMethod::interpolateVelocity(const int u_data_idx,
                         std::array<std::array<double, 8>, NDIM> weights_secondary = {}; //4 is hardcoded for 2d (number of corners in box), should be 8 in 3d
 
 #endif
-                        /*
-                        for (unsigned int axis = 0; axis < NDIM; ++axis)
-                        {
-                        double* DU_jump_s_begin = &DU_jump_qp[axis][NDIM];
-                        std::fill(DU_jump_s_begin, DU_jump_s_begin + NDIM, 0.0);
-                        }
-                        */
+                      
                         unsigned int corner_number = 0;
                         //iterate over all indices in the cell
                         for (BoxIterator<NDIM> b(stencil_box); b; b++)
@@ -1809,7 +1803,7 @@ IIMethod::interpolateVelocity(const int u_data_idx,
                                                     has_second_cut = intersect_line_with_edge_non_coordinate(intersections, static_cast<Edge*>(elem_secondary), r, q, tolerance);
 #endif
 #if (NDIM == 3)
-                                                    //has_second_cut = intersect_line_with_face(intersections, static_cast<Face*>(elem_secondary), r, q, tolerance);
+                                                    has_second_cut = intersect_line_with_face(intersections, static_cast<Face*>(elem_secondary), r, q, tolerance);
 #endif 
                                                     if(has_second_cut){
 
@@ -1831,10 +1825,21 @@ IIMethod::interpolateVelocity(const int u_data_idx,
                                                         //note this is only for 2d at the moment
                                                         const libMesh::Point& p0 = *elem_secondary->node_ptr(0);
                                                         const libMesh::Point& p1 = *elem_secondary->node_ptr(1);
+#if (NDIM == 3)
+                                                        const libMesh::Point& p2 = *elem_secondary->node_ptr(2);
+#endif
                                                         libMesh::Point cut_location(0,0,0);
+#if (NDIM == 2)
                                                         for (unsigned int d = 0; d < NDIM; ++d){
                                                             cut_location(d) = 0.5 * (1 - u_param(0)) * p0(d) + 0.5 * (1+u_param(0)) * p1(d);
                                                         }
+#endif   
+
+#if (NDIM == 3)
+                                                        for (unsigned int d = 0; d < NDIM; ++d){
+                                                            cut_location(d) = (1 - u_param(0) - u_param(1)) * p0(d) + (u_param(0)) * p1(d) + u_param(1) * p2(d);
+                                                        }
+#endif
 
                                                         for (unsigned int d = 0; d < NDIM; ++d){
                                                             dist_cut_to_corner(d) = std::abs(cartesian_corner(d) - cut_location(d)); //vector from qp to current box corner, all positive values
@@ -1844,10 +1849,25 @@ IIMethod::interpolateVelocity(const int u_data_idx,
                                                             const auto& DU_second_jump_dof_indices = DU_second_jump_dof_map_cache[axis]->dof_indices(elem_secondary);
                                                             get_values_for_interpolation(DU_second_jump_node[axis], *DU_second_jump_ghost_vec[axis], DU_second_jump_dof_indices);
                                                         //}
+#if (NDIM == 2)
                                                         for (unsigned int d = 0; d < NDIM; ++d)
                                                         {   
                                                             DU_jump_second_cut[d][corner_number] = 0.5*(1 - u_param(0))* DU_second_jump_node[axis][0][d] +  0.5*(1 + u_param(0))* DU_second_jump_node[axis][1][d];
                                                         }
+#endif
+
+#if (NDIM == 3)
+                                                        for (unsigned int d = 0; d < NDIM; ++d)
+                                                        {   
+                                                            DU_jump_second_cut[d][corner_number] = (1 - u_param(0) - u_param(1)) * DU_second_jump_node[axis][0][d] + (u_param(0)) * DU_second_jump_node[axis][1][d] + u_param(1) * DU_second_jump_node[axis][2][d];
+                                                            
+                                                        }
+#endif
+
+
+
+                                                        //std::cout << "cut location is: " << cut_location << ", and jump condition is: " <<DU_jump_second_cut[0][corner_number]<<", "<<DU_jump_second_cut[1][corner_number]<<"\n";
+
                                                         /*
                                                         if(k == 0 && e_idx == 0){
                                                         std::cout<< "axis is (PRE JC EVAL): "<<axis<<"\n";

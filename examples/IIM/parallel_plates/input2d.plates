@@ -49,7 +49,7 @@ NORMALIZE_PRESSURE         = FALSE                 // whether to explicitly forc
 CFL_MAX                    = 0.1                   // maximum CFL number
 DT                         = 0.1*CFL_MAX*DX // maximum timestep size
 COMPUTE_FLUID_TRACTION     = FALSE
-END_TIME                   = 4             // final simulation time
+END_TIME                   = 1*DT             // final simulation time
 ERROR_ON_DT_CHANGE         = TRUE                   // whether to emit an error message if the time step size changes
 VORTICITY_TAGGING          = TRUE                   // whether to tag cells for refinement based on vorticity thresholds
 TAG_BUFFER                 = 1                      // size of tag buffer used by grid generation algorithm
@@ -76,7 +76,7 @@ USE_HANDFILLED_JC_FOR_INTERPOLATION = FALSE
 HANDFILLED_JC = (UPPER_DRIFT_VELOCITY-LOWER_DRIFT_VELOCITY)/SEPARATION
 
 
-U_INFLOW = "sqrt((X1)*(X1))  <= SEPARATION/2 ? LOWER_DRIFT_VELOCITY + (X1 + SEPARATION/2)*(UPPER_DRIFT_VELOCITY - LOWER_DRIFT_VELOCITY)/SEPARATION : ( (X1 < -SEPARATION/2) ? LOWER_DRIFT_VELOCITY : UPPER_DRIFT_VELOCITY )"
+U_INFLOW = "sqrt((X0)*(X0))  <= SEPARATION/2 ? -(LOWER_DRIFT_VELOCITY + (X0 + SEPARATION/2)*(UPPER_DRIFT_VELOCITY - LOWER_DRIFT_VELOCITY)/SEPARATION ): ( (X0 < -SEPARATION/2) ? -(0 + (X0 - (-L/2))* (LOWER_DRIFT_VELOCITY - 0)/(-SEPARATION/2 - (-L/2))) : -(UPPER_DRIFT_VELOCITY + (X0 - SEPARATION/2)*(0 - UPPER_DRIFT_VELOCITY)/(L/2 - SEPARATION/2) ))"
 VelocityBcCoefs_0 {
     
     SEPARATION = SEPARATION
@@ -125,8 +125,8 @@ VelocityInitialConditions{
    UPPER_DRIFT_VELOCITY = UPPER_DRIFT_VELOCITY
    U_INFLOW = U_INFLOW
 
-   function_0 = U_INFLOW
-   function_1 = "0.0"
+   function_0 = "0.0"
+   function_1 = U_INFLOW
 }
 
 

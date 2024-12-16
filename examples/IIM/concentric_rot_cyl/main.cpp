@@ -329,13 +329,13 @@ main(int argc, char* argv[])
             std::cout <<"node id is: "<<i<<"\n";
             if(i != num_circum_nodes2 - 1){
                 Elem* elem = mesh_exterior.add_elem(new Edge2);
-                elem->set_node(0) = mesh_exterior.node_ptr(i);
-                elem->set_node(1) = mesh_exterior.node_ptr(i+1);
+                elem->set_node(1) = mesh_exterior.node_ptr(i);
+                elem->set_node(0) = mesh_exterior.node_ptr(i+1);
             }
             else{
                 Elem* elem = mesh_exterior.add_elem(new Edge2);
-                elem->set_node(0) = mesh_exterior.node_ptr(i);
-                elem->set_node(1) = mesh_exterior.node_ptr(0);
+                elem->set_node(1) = mesh_exterior.node_ptr(i);
+                elem->set_node(0) = mesh_exterior.node_ptr(0);
             }
         }
         
